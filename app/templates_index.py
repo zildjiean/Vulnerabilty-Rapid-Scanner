@@ -213,3 +213,29 @@ def fetch_template_from_url(url: str, fetch: Callable[[str], tuple[int, str]] | 
     if len(text.encode("utf-8", "replace")) > MAX_TEMPLATE_BYTES:
         raise ValueError("Download exceeds 10 MB.")
     return text
+
+
+MAX_GROUP_DEPTH = 3
+
+
+def list_template_groups(db: Session, settings: Settings) -> list[dict]:
+    """Directories (up to 3 levels, e.g. http/cves/2026) with template counts, plus the custom directory.
+    Built from the index so it reflects what nuclei would actually run."""
+    root = str(settings.nuclei_templates_dir.resolve())
+    counts: dict[str, int] = {}
+    custom_count = 0
+    for (path, source) in db.execute(select(TemplateIndex.path, TemplateIndex.source)).all():
+        if source == "custom":
+            custom_count += 1
+            continue
+        try:
+            rel = Path(path).resolve().relative_to(root)
+        except ValueError:
+            continue
+        parts = rel.parts[:-1]
+        for depth in range(1, min(len(parts), MAX_GROUP_DEPTH) + 1):
+            key = "/".join(parts[:depth])
+            counts[key] = counts.get(key, 0) + 1
+    groups = [{"key": k, "label": k, "count": n, "depth": k.count("/") + 1} for k, n in sorted(counts.items())]
+    groups.append({"key": "custom", "label": "Custom (0-day) templates", "count": custom_count, "depth": 1})
+    return groups

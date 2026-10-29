@@ -149,6 +149,28 @@
     es.addEventListener("error", () => {});
   }
 
+  // ---------- Nuclei mode panels + group filter ----------
+  const modeRadios = $$('input[name="mode"]');
+  if (modeRadios.length) {
+    const apply = () => {
+      const mode = modeRadios.find((r) => r.checked)?.value || "selected";
+      $$("[data-mode-panel]").forEach((pnl) => { pnl.hidden = pnl.dataset.modePanel !== mode; });
+      const chip = $("#tpl-selected-chip"); if (chip) chip.hidden = mode !== "selected";
+    };
+    modeRadios.forEach((r) => r.addEventListener("change", apply));
+    apply();
+    const gf = $("#group-filter"), gl = $("#group-list"), gc = $("#group-count");
+    const countGroups = () => { if (gc) gc.textContent = $$('input[name="groups"]:checked').length; };
+    if (gf && gl) {
+      gf.addEventListener("input", () => {
+        const term = gf.value.trim().toLowerCase();
+        $$(".group-item", gl).forEach((it) => { it.hidden = term !== "" && !it.dataset.key.toLowerCase().includes(term); });
+      });
+      gl.addEventListener("change", countGroups);
+      countGroups();
+    }
+  }
+
   // ---------- Nuclei template picker ----------
   const q = $("#tpl-q");
   if (q) {

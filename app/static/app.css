@@ -57,6 +57,7 @@
 
 /* ---------- Base ---------- */
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
 html{font-size:16px;-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font-sans);min-height:100dvh}
 a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}
@@ -270,3 +271,11 @@ dialog.confirm .actions{display:flex;justify-content:flex-end;gap:8px;margin-top
 :root[data-theme=dark] .theme-toggle .sun{display:block}
 :root:not([data-theme=dark]) .theme-toggle .moon{display:block}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]):not([data-theme=dark]) .theme-toggle .moon{display:none}:root:not([data-theme=light]):not([data-theme=dark]) .theme-toggle .sun{display:block}}
+
+/* ---------- Template groups ---------- */
+.group-list{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);padding:4px}
+.group-item{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;cursor:pointer;min-height:36px;color:var(--text)}
+.group-item:hover{background:var(--surface-3)}
+.group-item .mono{flex:1;font-size:12.5px}
+.group-item.depth-2{padding-left:28px}.group-item.depth-3{padding-left:46px;color:var(--text-2)}
+.group-item[hidden]{display:none}

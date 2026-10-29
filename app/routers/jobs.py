@@ -32,8 +32,18 @@ def job_summary(job: Job) -> str:
     parts = []
     if targets:
         parts.append(f"{len(targets)} target(s): " + ", ".join(targets[:3]) + ("…" if len(targets) > 3 else ""))
-    if tpl:
+    mode = p.get("mode")
+    if mode == "all":
+        parts.append("all templates")
+    elif mode == "groups":
+        groups = p.get("groups") or []
+        parts.append(f"{len(groups)} group(s): " + ", ".join(groups[:3]) + ("…" if len(groups) > 3 else ""))
+    elif tpl:
         parts.append(f"{len(tpl)} template(s): " + ", ".join(tpl[:3]) + ("…" if len(tpl) > 3 else ""))
+    if p.get("tags"):
+        parts.append("tags " + ",".join(p["tags"]))
+    if p.get("severities"):
+        parts.append("severity " + ",".join(p["severities"]))
     if p.get("action"):
         parts.append(p["action"])
     result = p.get("result")

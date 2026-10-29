@@ -69,7 +69,7 @@ def to_nuclei(request: Request, service_ids: list[int] = Form(default=[]), db: S
                       .order_by(Host.address, Service.port)).all()
     targets = "\n".join(service_to_target(host.address, svc) for svc, host in rows)
     from .nuclei import nuclei_page_context  # local import: nuclei router imports inventory helpers
-    return render(request, "nuclei.html", **nuclei_page_context(db, targets=targets))
+    return render(request, "nuclei.html", **nuclei_page_context(db, targets=targets, settings=request.app.state.settings))
 
 
 def _inventory_error(request: Request, db: Session, message: str):

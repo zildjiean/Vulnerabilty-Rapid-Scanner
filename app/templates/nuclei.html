@@ -20,23 +20,62 @@
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-file"/></svg>Templates</h2><span class="chip">Selected <b id="tpl-count" class="num">0</b></span></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-file"/></svg>Templates</h2><span class="chip" id="tpl-selected-chip">Selected <b id="tpl-count" class="num">0</b></span></div>
       <div class="card-body stack">
-        <div class="field"><label for="tpl-q">Search templates</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="tpl-q" placeholder="e.g. CVE-2026-109619, php, apache, rce" autocomplete="off" aria-describedby="tpl-hint"></div><span class="hint" id="tpl-hint">Click a result to add it. Pick a single template or build a multi-template set.</span></div>
-        <div class="row">
-          <div class="field" style="flex:1"><label for="tpl-sev">Severity</label><select id="tpl-sev"><option value="">Any severity</option>{% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select></div>
-          <div class="field" style="flex:1"><label for="tpl-src">Source</label><select id="tpl-src"><option value="">Official + custom</option><option value="official">Official</option><option value="custom">Custom (0-day)</option></select></div>
+        <fieldset>
+          <legend>Template selection</legend>
+          <div class="choice-grid">
+            <label class="choice"><input type="radio" name="mode" value="selected" {{ 'checked' if form.mode == 'selected' }}><div><b>Pick templates</b><span>Search and select one or many.</span></div></label>
+            <label class="choice"><input type="radio" name="mode" value="groups" {{ 'checked' if form.mode == 'groups' }}><div><b>Template groups</b><span>Whole directories, e.g. http/cves/2026.</span></div></label>
+            <label class="choice"><input type="radio" name="mode" value="all" {{ 'checked' if form.mode == 'all' }}><div><b>All templates</b><span>Every official + custom template.</span></div></label>
+          </div>
+        </fieldset>
+
+        <div data-mode-panel="selected" class="stack">
+          <div class="field"><label for="tpl-q">Search templates</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="tpl-q" placeholder="e.g. CVE-2026-109619, php, apache, rce" autocomplete="off" aria-describedby="tpl-hint"></div><span class="hint" id="tpl-hint">Click a result to add it. Pick a single template or build a multi-template set.</span></div>
+          <div class="row">
+            <div class="field" style="flex:1"><label for="tpl-sev">Severity</label><select id="tpl-sev"><option value="">Any severity</option>{% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select></div>
+            <div class="field" style="flex:1"><label for="tpl-src">Source</label><select id="tpl-src"><option value="">Official + custom</option><option value="official">Official</option><option value="custom">Custom (0-day)</option></select></div>
+          </div>
+          <div id="tpl-results" class="tpl-results" aria-live="polite"></div>
+          <div>
+            <h3 style="margin:4px 0 8px">Selected templates</h3>
+            <ul id="tpl-selected" class="tpl-selected">
+              {% for t in form.selected %}
+              <li data-path="{{ t.path }}"><input type="hidden" name="template_paths" value="{{ t.path }}"><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span><b>{{ t.template_id }}</b><span class="n">{{ t.name }}</span><button type="button" class="ghost sm icon-btn rm" aria-label="Remove {{ t.template_id }}"><svg class="icon sm"><use href="#i-x"/></svg></button></li>
+              {% endfor %}
+            </ul>
+            <div class="tpl-empty">No templates selected. Search above and click a result.</div>
+          </div>
         </div>
-        <div id="tpl-results" class="tpl-results" aria-live="polite"></div>
-        <div>
-          <h3 style="margin:4px 0 8px">Selected templates</h3>
-          <ul id="tpl-selected" class="tpl-selected">
-            {% for t in form.selected %}
-            <li data-path="{{ t.path }}"><input type="hidden" name="template_paths" value="{{ t.path }}"><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span><b>{{ t.template_id }}</b><span class="n">{{ t.name }}</span><button type="button" class="ghost sm icon-btn rm" aria-label="Remove {{ t.template_id }}"><svg class="icon sm"><use href="#i-x"/></svg></button></li>
+
+        <div data-mode-panel="groups" class="stack" hidden>
+          <div class="field"><label for="group-filter">Filter groups</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="group-filter" placeholder="cves, 2026, technologies, network …" autocomplete="off"></div></div>
+          <div class="group-list" id="group-list" role="group" aria-label="Template groups">
+            {% for g in groups %}
+            <label class="group-item depth-{{ g.depth }}" data-key="{{ g.key }}">
+              <input type="checkbox" name="groups" value="{{ g.key }}" {{ 'checked' if g.key in form.groups }}>
+              <span class="mono">{{ g.label }}</span>
+              <span class="chip num">{{ g.count }}</span>
+            </label>
+            {% else %}
+            <div class="empty"><b>No groups yet</b>Run "Update nuclei templates" on the Updates page, then re-index.</div>
             {% endfor %}
-          </ul>
-          <div class="tpl-empty">No templates selected. Search above and click a result.</div>
+          </div>
+          <span class="hint"><span id="group-count" class="num">0</span> group(s) selected. Parent directories include everything below them.</span>
         </div>
+
+        <div data-mode-panel="all" hidden>
+          <div class="alert info" style="margin:0"><svg class="icon"><use href="#i-info"/></svg><div>Runs the complete official template set plus your custom templates. Narrow it down with the tag and severity filters below; a full run against many targets can take a long time.</div></div>
+        </div>
+
+        <fieldset>
+          <legend>Filters (optional, apply to every mode)</legend>
+          <div class="field"><label for="tags">Tags</label><input id="tags" name="tags" value="{{ form.tags }}" placeholder="cve, rce, php" class="mono" aria-describedby="tags-hint"><span class="hint" id="tags-hint">Comma-separated nuclei tags (<code>-tags</code>). Only templates carrying at least one tag run.</span></div>
+          <div class="row" style="gap:6px 14px">
+            {% for s in severities if s != 'unknown' %}<label class="check" style="min-height:32px"><input type="checkbox" name="severities" value="{{ s }}" {{ 'checked' if s in form.severities }}> <span class="badge sev-{{ s }}">{{ s }}</span></label>{% endfor %}
+          </div>
+        </fieldset>
       </div>
     </div>
   </div>
