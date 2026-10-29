@@ -53,26 +53,44 @@
   }
   window.zdrsToast = toast;
 
-  // ---------- Confirm dialogs: <form data-confirm="message"> ----------
+  // ---------- Confirm dialogs: <form data-confirm="..."> or <button type=submit data-confirm="..."> ----------
   const dlg = $("#confirm-dialog");
-  let pendingForm = null;
+  let pending = null; // { form, submitter }
+  const askConfirm = (message, form, submitter) => {
+    pending = { form, submitter };
+    $("#confirm-text").textContent = message;
+    if (dlg && typeof dlg.showModal === "function") dlg.showModal();
+    else if (window.confirm(message)) { form.dataset.confirmed = "1"; form.requestSubmit(submitter || undefined); }
+  };
   $$("form[data-confirm]").forEach((form) => {
     form.addEventListener("submit", (e) => {
       if (form.dataset.confirmed === "1") return;
       e.preventDefault();
-      pendingForm = form;
-      $("#confirm-text").textContent = form.dataset.confirm;
-      if (dlg && typeof dlg.showModal === "function") dlg.showModal(); else if (window.confirm(form.dataset.confirm)) { form.dataset.confirmed = "1"; form.requestSubmit(); }
+      askConfirm(form.dataset.confirm, form, e.submitter || null);
     });
   });
-  $("#confirm-cancel")?.addEventListener("click", () => { pendingForm = null; dlg.close(); });
-  $("#confirm-ok")?.addEventListener("click", () => { if (pendingForm) { pendingForm.dataset.confirmed = "1"; dlg.close(); pendingForm.requestSubmit(); } });
+  $$("button[type=submit][data-confirm]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const form = btn.form;
+      if (!form || form.dataset.confirmed === "1") return;
+      e.preventDefault();
+      askConfirm(btn.dataset.confirm, form, btn);
+    });
+  });
+  $("#confirm-cancel")?.addEventListener("click", () => { pending = null; dlg.close(); });
+  $("#confirm-ok")?.addEventListener("click", () => {
+    if (!pending) return;
+    const { form, submitter } = pending; pending = null;
+    form.dataset.confirmed = "1"; dlg.close(); form.requestSubmit(submitter || undefined);
+    setTimeout(() => { delete form.dataset.confirmed; }, 0);
+  });
 
   // ---------- Loading state on submit ----------
   $$("form").forEach((form) => {
-    form.addEventListener("submit", () => {
-      if (form.dataset.confirm && form.dataset.confirmed !== "1") return;
-      const btn = form.querySelector('button[type="submit"], button:not([type])');
+    form.addEventListener("submit", (e) => {
+      const sub = e.submitter || null;
+      if ((form.dataset.confirm || (sub && sub.dataset.confirm)) && form.dataset.confirmed !== "1") return;
+      const btn = sub || form.querySelector('button[type="submit"], button:not([type])');
       if (!btn) return;
       btn.classList.add("is-loading");
       btn.setAttribute("aria-busy", "true");

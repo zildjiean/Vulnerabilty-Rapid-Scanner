@@ -61,3 +61,43 @@ def test_to_nuclei_without_selection_errors(auth):
     csrf = get_csrf(auth, "/inventory")
     r = auth.post("/inventory/to-nuclei", data={"csrf": csrf})
     assert r.status_code == 400 and "Select at least one" in r.text
+
+
+def test_delete_selected_services_and_empty_hosts(auth):
+    seed_inventory(auth)
+    from app.db import Host, Rule, RuleMatch
+    from app.rules import evaluate_rules
+    with auth.app.state.SessionLocal() as db:
+        db.add(Rule(name="PHP", product_pattern="php", version_constraint="< 9", severity="high"))
+        db.commit()
+        evaluate_rules(db)
+        db.commit()
+        assert db.query(RuleMatch).count() == 1
+        services = list(db.scalars(select(Service)))
+        php_id = next(s.id for s in services if s.port == 8080)
+        mysql_id = next(s.id for s in services if s.port == 3306)  # only service on 192.168.1.12
+    csrf = get_csrf(auth, "/inventory")
+    r = auth.post("/inventory/delete", data={"csrf": csrf, "service_ids": [str(php_id), str(mysql_id)]}, follow_redirects=False)
+    assert r.status_code == 303 and "Deleted+2+service" in r.headers["location"]
+    with auth.app.state.SessionLocal() as db:
+        assert db.get(Service, php_id) is None and db.get(Service, mysql_id) is None
+        assert db.query(Service).count() == 3
+        assert [h.address for h in db.scalars(select(Host))] == ["192.168.1.10"]
+        assert db.query(RuleMatch).count() == 0
+
+
+def test_delete_without_selection_errors(auth):
+    csrf = get_csrf(auth, "/inventory")
+    r = auth.post("/inventory/delete", data={"csrf": csrf})
+    assert r.status_code == 400 and "Select at least one" in r.text
+
+
+def test_clear_inventory(auth):
+    seed_inventory(auth)
+    from app.db import Host
+    csrf = get_csrf(auth, "/inventory")
+    r = auth.post("/inventory/clear", data={"csrf": csrf}, follow_redirects=False)
+    assert r.status_code == 303
+    with auth.app.state.SessionLocal() as db:
+        assert db.query(Host).count() == 0 and db.query(Service).count() == 0
+    assert "No services yet" in auth.get("/inventory").text

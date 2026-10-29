@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -63,12 +64,50 @@ def inventory(request: Request, q: str = "", product: str = "", port: str = "", 
 @router.post("/inventory/to-nuclei", dependencies=[Depends(verify_csrf)])
 def to_nuclei(request: Request, service_ids: list[int] = Form(default=[]), db: Session = Depends(get_db)):
     if not service_ids:
-        rows, products, matches = load_inventory(db)
-        return render(request, "inventory.html", status_code=400, active="inventory", rows=rows, products=products,
-                      matches=matches, host_count=len({h.id for _, h in rows}), q="", product="", port="",
-                      only_matches=False, error="Select at least one service to scan.")
+        return _inventory_error(request, db, "Select at least one service to scan.")
     rows = db.execute(select(Service, Host).join(Host, Host.id == Service.host_id).where(Service.id.in_(service_ids))
                       .order_by(Host.address, Service.port)).all()
     targets = "\n".join(service_to_target(host.address, svc) for svc, host in rows)
     from .nuclei import nuclei_page_context  # local import: nuclei router imports inventory helpers
     return render(request, "nuclei.html", **nuclei_page_context(db, targets=targets))
+
+
+def _inventory_error(request: Request, db: Session, message: str):
+    rows, products, matches = load_inventory(db)
+    return render(request, "inventory.html", status_code=400, active="inventory", rows=rows, products=products,
+                  matches=matches, host_count=len({h.id for _, h in rows}), q="", product="", port="",
+                  only_matches=False, error=message)
+
+
+def delete_services(db: Session, service_ids: list[int]) -> tuple[int, int]:
+    """Delete the given services; hosts left without any service are removed too. Returns (services, hosts)."""
+    services = list(db.scalars(select(Service).where(Service.id.in_(service_ids))))
+    host_ids = {s.host_id for s in services}
+    for s in services:
+        db.delete(s)
+    db.flush()
+    removed_hosts = 0
+    for host in db.scalars(select(Host).where(Host.id.in_(host_ids))):
+        if not host.services:
+            db.delete(host)
+            removed_hosts += 1
+    db.commit()
+    return len(services), removed_hosts
+
+
+@router.post("/inventory/delete", dependencies=[Depends(verify_csrf)])
+def inventory_delete(request: Request, service_ids: list[int] = Form(default=[]), db: Session = Depends(get_db)):
+    if not service_ids:
+        return _inventory_error(request, db, "Select at least one service to delete.")
+    n_services, n_hosts = delete_services(db, service_ids)
+    msg = f"Deleted {n_services} service(s)" + (f" and {n_hosts} host(s) with no remaining services" if n_hosts else "")
+    return RedirectResponse(f"/inventory?msg={msg.replace(' ', '+')}", status_code=303)
+
+
+@router.post("/inventory/clear", dependencies=[Depends(verify_csrf)])
+def inventory_clear(db: Session = Depends(get_db)):
+    hosts = list(db.scalars(select(Host)))
+    for h in hosts:
+        db.delete(h)
+    db.commit()
+    return RedirectResponse(f"/inventory?msg=Removed+{len(hosts)}+host(s)+from+the+inventory", status_code=303)
