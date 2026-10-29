@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nmaprun scanner="nmap" args="nmap -sV -oX - 192.168.1.0/24" start="1730000000" version="7.97">
+<host starttime="1730000001" endtime="1730000020">
+  <status state="up" reason="syn-ack"/>
+  <address addr="192.168.1.10" addrtype="ipv4"/>
+  <address addr="00:11:22:33:44:55" addrtype="mac"/>
+  <hostnames><hostname name="web01.lab" type="PTR"/></hostnames>
+  <ports>
+    <port protocol="tcp" portid="22"><state state="open" reason="syn-ack"/>
+      <service name="ssh" product="OpenSSH" version="9.6p1 Ubuntu 3ubuntu13" extrainfo="Ubuntu Linux; protocol 2.0" method="probed" conf="10"><cpe>cpe:/a:openbsd:openssh:9.6p1</cpe></service></port>
+    <port protocol="tcp" portid="80"><state state="open" reason="syn-ack"/>
+      <service name="http" product="Apache httpd" version="2.4.58" extrainfo="(Ubuntu)" method="probed" conf="10"><cpe>cpe:/a:apache:http_server:2.4.58</cpe></service></port>
+    <port protocol="tcp" portid="443"><state state="closed" reason="reset"/><service name="https" method="table" conf="3"/></port>
+    <port protocol="tcp" portid="8080"><state state="open" reason="syn-ack"/>
+      <service name="http" product="PHP cli server" version="8.3.10" method="probed" conf="10"/></port>
+    <port protocol="tcp" portid="8443"><state state="open" reason="syn-ack"/>
+      <service name="http" product="nginx" version="1.24.0" tunnel="ssl" method="probed" conf="10"/></port>
+  </ports>
+</host>
+<host><status state="down" reason="no-response"/><address addr="192.168.1.11" addrtype="ipv4"/></host>
+<host starttime="1730000001" endtime="1730000020">
+  <status state="up" reason="syn-ack"/>
+  <address addr="192.168.1.12" addrtype="ipv4"/>
+  <ports>
+    <port protocol="tcp" portid="3306"><state state="open" reason="syn-ack"/><service name="mysql" method="table" conf="3"/></port>
+  </ports>
+</host>
+<runstats><finished time="1730000030" elapsed="30.0" summary="Nmap done"/><hosts up="2" down="1" total="3"/></runstats>
+</nmaprun>
