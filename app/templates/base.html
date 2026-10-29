@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}0-Day Rapid Scanner{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+{% if user %}
+<header class="topbar">
+  <a class="brand" href="/">⚡ 0-Day Rapid Scanner</a>
+  <nav>
+    <a href="/" class="{{ 'active' if active == 'dashboard' }}">Dashboard</a>
+    <a href="/nmap" class="{{ 'active' if active == 'nmap' }}">Nmap</a>
+    <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">Inventory</a>
+    <a href="/nuclei" class="{{ 'active' if active == 'nuclei' }}">Nuclei</a>
+    <a href="/findings" class="{{ 'active' if active == 'findings' }}">Findings</a>
+    <a href="/templates" class="{{ 'active' if active == 'templates' }}">Templates</a>
+    <a href="/rules" class="{{ 'active' if active == 'rules' }}">0-Day Rules</a>
+    <a href="/updates" class="{{ 'active' if active == 'updates' }}">Updates</a>
+    <a href="/jobs" class="{{ 'active' if active == 'jobs' }}">Jobs</a>
+  </nav>
+  <div class="account">
+    <span class="muted">{{ user.username }}</span>
+    <a href="/change-password">Password</a>
+    <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Logout</button></form>
+  </div>
+</header>
+{% endif %}
+<main class="container">
+  {% if msg %}<div class="flash ok">{{ msg }}</div>{% endif %}
+  {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
