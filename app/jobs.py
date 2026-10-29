@@ -20,6 +20,19 @@ def quote_argv(argv: list[str]) -> str:
     return " ".join(shlex.quote(a) for a in argv)
 
 
+def fail_interrupted_jobs(db: Session) -> int:
+    """On startup, any job still queued/running belongs to a previous process and cannot resume."""
+    from sqlalchemy import select
+    stale = list(db.scalars(select(Job).where(Job.status.in_(("queued", "running")))))
+    for job in stale:
+        job.status = "failed"
+        job.finished_at = utcnow()
+        job.log = (job.log + "\n" if job.log else "") + "[runner] interrupted by application restart; re-run the job"
+    if stale:
+        db.commit()
+    return len(stale)
+
+
 class JobRunner:
     def __init__(self, session_factory):
         self.session_factory = session_factory

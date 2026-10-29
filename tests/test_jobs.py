@@ -134,3 +134,23 @@ def test_stream_endpoint_replays_log_for_finished_job(auth):
         body = "".join(r.iter_text())
     assert "event: log\ndata: streamed" in body
     assert "event: done\ndata: done" in body
+
+
+def test_interrupted_jobs_marked_failed_on_startup(settings):
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+    engine = make_engine(settings.db_url)
+    init_db(engine)
+    with make_session_factory(engine)() as db:
+        db.add(Job(kind="nmap", status="running", log="[runner] started"))
+        db.add(Job(kind="nuclei", status="queued"))
+        db.add(Job(kind="update", status="done"))
+        db.commit()
+    app = create_app(settings)
+    with TestClient(app) as c:
+        with app.state.SessionLocal() as db:
+            jobs = {j.kind: j for j in db.query(Job)}
+        assert jobs["nmap"].status == "failed" and "interrupted by application restart" in jobs["nmap"].log
+        assert jobs["nuclei"].status == "failed" and jobs["nuclei"].finished_at is not None
+        assert jobs["update"].status == "done"
+        assert c.get("/healthz").status_code == 200

@@ -1,24 +1,39 @@
 {% extends "base.html" %}
+{% set section = "Overview" %}
+{% set page_title = "Dashboard" %}
+{% set page_subtitle = "Exposure overview across discovered hosts, nuclei findings and version-rule matches." %}
+{% block page_actions %}
+<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New nmap scan</a>
+<a class="btn primary" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>New nuclei scan</a>
+{% endblock %}
 {% block content %}
-<h1>Dashboard</h1>
-<div class="grid-4 stats">
-  <div class="stat"><b>{{ stats.hosts }}</b><span>hosts</span></div>
-  <div class="stat"><b>{{ stats.services }}</b><span>open services</span></div>
-  <div class="stat"><b>{{ stats.findings }}</b><span>nuclei findings
-    {% for s in ['critical','high','medium','low'] if sev_counts[s] %}<span class="badge sev-{{ s }}">{{ sev_counts[s] }}</span>{% endfor %}</span></div>
-  <div class="stat"><b>{{ stats.rule_matches }}</b><span>potential 0-day (rules: {{ stats.rules }} on, templates indexed: {{ stats.templates }})</span></div>
+{% set sev_total = sev_counts.critical + sev_counts.high + sev_counts.medium + sev_counts.low + sev_counts.info %}
+<div class="grid grid-4 mb">
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">Hosts</div><div class="kpi-value" data-stat="hosts">{{ stats.hosts }}</div><div class="kpi-sub">discovered by nmap</div></div></div>
+  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-layers"/></svg></div><div><div class="kpi-label">Open services</div><div class="kpi-value" data-stat="services">{{ stats.services }}</div><div class="kpi-sub">with product / version</div></div></div>
+  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-alert"/></svg></div><div style="flex:1"><div class="kpi-label">Nuclei findings</div><div class="kpi-value" data-stat="findings">{{ stats.findings }}</div>
+    {% if sev_total %}<div class="sev-bar" role="img" aria-label="Findings by severity: {{ sev_counts.critical }} critical, {{ sev_counts.high }} high, {{ sev_counts.medium }} medium, {{ sev_counts.low }} low, {{ sev_counts.info }} info">
+      {% for s in ['critical','high','medium','low','info'] if sev_counts[s] %}<i class="{{ s }}" style="width:{{ (100 * sev_counts[s] / sev_total)|round(1) }}%"></i>{% endfor %}</div>
+    <div class="legend">{% for s in ['critical','high','medium','low','info'] if sev_counts[s] %}<span><i class="{{ s }}" style="background:var(--sev-{{ s }})"></i>{{ s }} {{ sev_counts[s] }}</span>{% endfor %}</div>
+    {% else %}<div class="kpi-sub">no findings yet</div>{% endif %}</div></div>
+  <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Potential 0-day</div><div class="kpi-value" data-stat="rule_matches">{{ stats.rule_matches }}</div><div class="kpi-sub">{{ stats.rules }} rule(s) enabled · {{ stats.templates }} templates indexed</div></div></div>
 </div>
-<div class="grid-2">
+<div class="grid grid-2">
   <div class="card">
-    <h2>Quick start</h2>
-    <ol>
-      <li><a href="/updates">Updates</a> → "Update nuclei templates" (first run only, then whenever a CVE drops).</li>
-      <li><a href="/nmap">Nmap</a> → scan a network (top ports or all ports). Results land in <a href="/inventory">Inventory</a>.</li>
-      <li><a href="/inventory">Inventory</a> → filter by product/version, select hosts, "Scan selected with nuclei".</li>
-      <li><a href="/nuclei">Nuclei</a> → search templates (e.g. <code>CVE-2026-109619</code>), pick one or many, start.</li>
-      <li>New 0-day without a template? Add a <a href="/rules">version rule</a> or <a href="/templates">upload / pull a custom template</a>.</li>
-    </ol>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Quick start</h2></div>
+    <div class="card-body">
+      <ol class="steps">
+        <li><div><b><a href="/updates">Update nuclei templates</a></b><span>Runs automatically on first start. Repeat whenever a CVE drops.</span></div></li>
+        <li><div><b><a href="/nmap">Run an nmap scan</a></b><span>Top 1000 ports, all ports or a custom range. Results land in the inventory.</span></div></li>
+        <li><div><b><a href="/inventory">Review the inventory</a></b><span>Filter by product and version, select hosts, then hand them to nuclei.</span></div></li>
+        <li><div><b><a href="/nuclei">Run nuclei</a></b><span>Search templates by id, tag or CVE (for example <code>CVE-2026-109619</code>), pick one or many.</span></div></li>
+        <li><div><b>React to a new 0-day</b><span>Add a <a href="/rules">version rule</a> or <a href="/templates">upload / pull a custom template</a>.</span></div></li>
+      </ol>
+    </div>
   </div>
-  <div class="card"><h2>Recent jobs</h2>{% include "_jobs_table.html" %}</div>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent jobs</h2><a class="btn sm ghost" href="/jobs">View all<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+    <div class="card-body tight">{% include "_jobs_table.html" %}</div>
+  </div>
 </div>
 {% endblock %}

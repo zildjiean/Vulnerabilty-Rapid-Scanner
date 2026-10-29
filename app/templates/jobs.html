@@ -1,6 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Jobs · 0-Day Rapid Scanner{% endblock %}
+{% set section = "System" %}
+{% set page_title = "Jobs" %}
+{% set page_subtitle = "Every scan and update, with status, duration and a persisted log." %}
 {% block content %}
-<h1>Jobs</h1>
-<div class="card">{% include "_jobs_table.html" %}</div>
+<div class="card"><div class="card-body tight">{% include "_jobs_table.html" %}</div></div>
 {% endblock %}

@@ -1,38 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Nuclei · 0-Day Rapid Scanner{% endblock %}
+{% set section = "Detection" %}
+{% set page_title = "Nuclei scan" %}
+{% set page_subtitle = "Run one or many nuclei templates against URLs or host:port targets. Search the index by id, name, tag or CVE." %}
+{% block page_actions %}<a class="btn" href="/templates"><svg class="icon"><use href="#i-file"/></svg>Manage templates</a>{% endblock %}
 {% block content %}
-<h1>Nuclei scan</h1>
-<form method="post" action="/nuclei/scan" class="card stack" id="nuclei-form">
+<form method="post" action="/nuclei/scan" id="nuclei-form" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="grid-2">
-    <div class="stack">
-      <label>Targets (one per line: URL or host:port) — prefill from <a href="/inventory">Inventory</a>
-        <textarea name="targets" rows="10" required placeholder="http://192.168.1.10:8080&#10;https://web01.lab&#10;192.168.1.12:3306">{{ form.targets }}</textarea></label>
-      <div class="row">
-        <label>Rate limit (req/s) <input type="number" name="rate_limit" value="{{ form.rate_limit }}" min="1" max="1000"></label>
-        <label>Timeout (s) <input type="number" name="timeout" value="{{ form.timeout }}" min="1" max="120"></label>
+  <div class="grid grid-2 mb">
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Targets</h2><a class="btn sm ghost" href="/inventory">Pick from inventory</a></div>
+      <div class="card-body stack">
+        <div class="field"><label for="targets">Target list</label>
+          <textarea id="targets" name="targets" rows="12" required placeholder="http://192.168.1.10:8080&#10;https://web01.lab&#10;192.168.1.12:3306" aria-describedby="targets-hint">{{ form.targets }}</textarea>
+          <span class="hint" id="targets-hint">One per line: full URL or host:port. Non-HTTP services are passed as host:port.</span></div>
+        <div class="row">
+          <div class="field w-md"><label for="rate_limit">Rate limit (req/s)</label><input id="rate_limit" type="number" name="rate_limit" value="{{ form.rate_limit }}" min="1" max="1000" inputmode="numeric"></div>
+          <div class="field w-md"><label for="timeout">Timeout (s)</label><input id="timeout" type="number" name="timeout" value="{{ form.timeout }}" min="1" max="120" inputmode="numeric"></div>
+        </div>
       </div>
     </div>
-    <div class="stack">
-      <label>Search templates (id, name, tag, CVE) — click a result to select; pick one or many
-        <input id="tpl-q" placeholder="e.g. CVE-2026-109619, php, apache, rce" autocomplete="off"></label>
-      <div class="row">
-        <select id="tpl-sev"><option value="">any severity</option>{% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
-        <select id="tpl-src"><option value="">official + custom</option><option value="official">official</option><option value="custom">custom (0-day)</option></select>
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-file"/></svg>Templates</h2><span class="chip">Selected <b id="tpl-count" class="num">0</b></span></div>
+      <div class="card-body stack">
+        <div class="field"><label for="tpl-q">Search templates</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="tpl-q" placeholder="e.g. CVE-2026-109619, php, apache, rce" autocomplete="off" aria-describedby="tpl-hint"></div><span class="hint" id="tpl-hint">Click a result to add it. Pick a single template or build a multi-template set.</span></div>
+        <div class="row">
+          <div class="field" style="flex:1"><label for="tpl-sev">Severity</label><select id="tpl-sev"><option value="">Any severity</option>{% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select></div>
+          <div class="field" style="flex:1"><label for="tpl-src">Source</label><select id="tpl-src"><option value="">Official + custom</option><option value="official">Official</option><option value="custom">Custom (0-day)</option></select></div>
+        </div>
+        <div id="tpl-results" class="tpl-results" aria-live="polite"></div>
+        <div>
+          <h3 style="margin:4px 0 8px">Selected templates</h3>
+          <ul id="tpl-selected" class="tpl-selected">
+            {% for t in form.selected %}
+            <li data-path="{{ t.path }}"><input type="hidden" name="template_paths" value="{{ t.path }}"><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span><b>{{ t.template_id }}</b><span class="n">{{ t.name }}</span><button type="button" class="ghost sm icon-btn rm" aria-label="Remove {{ t.template_id }}"><svg class="icon sm"><use href="#i-x"/></svg></button></li>
+            {% endfor %}
+          </ul>
+          <div class="tpl-empty">No templates selected. Search above and click a result.</div>
+        </div>
       </div>
-      <div id="tpl-results" class="tpl-results"></div>
-      <h3>Selected templates <span id="tpl-count" class="badge">0</span></h3>
-      <ul id="tpl-selected" class="tpl-selected">
-        {% for t in form.selected %}
-        <li data-path="{{ t.path }}"><input type="hidden" name="template_paths" value="{{ t.path }}"><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span> <b>{{ t.template_id }}</b> <span class="n muted">{{ t.name }}</span> <button type="button" class="link rm" title="remove">✕</button></li>
-        {% endfor %}
-      </ul>
     </div>
   </div>
-  <button class="primary">Start nuclei scan</button>
+  <div class="row between center mb">
+    <span class="muted small">The job runs in the background. Findings are stored per job and in the global findings list.</span>
+    <button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>Start nuclei scan</button>
+  </div>
 </form>
 <div class="card">
-  <h2>Recent nuclei jobs</h2>
-  {% include "_jobs_table.html" %}
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent nuclei jobs</h2><a class="btn sm ghost" href="/jobs">All jobs</a></div>
+  <div class="card-body tight">{% include "_jobs_table.html" %}</div>
 </div>
 {% endblock %}

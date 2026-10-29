@@ -10,7 +10,7 @@ from sqlalchemy import select
 from .auth import AuthMiddleware, LoginRateLimiter, SessionStore, seed_admin
 from .config import Settings, settings_from_env
 from .db import TemplateIndex, init_db, make_engine, make_session_factory
-from .jobs import JobRunner
+from .jobs import JobRunner, fail_interrupted_jobs
 from .render import STATIC_DIR
 from .routers import (auth as auth_router, dashboard as dashboard_router, inventory as inventory_router, jobs as jobs_router,
                       nmap as nmap_router, nuclei as nuclei_router, rules as rules_router, templates as templates_router,
@@ -31,6 +31,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         with SessionLocal() as db:
             seed_admin(db)
             seed_example_rule(db)
+            fail_interrupted_jobs(db)
             needs_index = db.scalar(select(TemplateIndex).limit(1)) is None
         app.state.job_runner = JobRunner(SessionLocal)
         app.state.indexing = False

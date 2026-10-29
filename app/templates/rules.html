@@ -1,43 +1,51 @@
 {% extends "base.html" %}
-{% block title %}0-Day rules · 0-Day Rapid Scanner{% endblock %}
+{% set section = "0-Day intelligence" %}
+{% set page_title = "Version rules" %}
+{% set page_subtitle = "Flag exposed software by product and version the moment a CVE is announced, before any nuclei template exists. Rules never touch the target and are re-evaluated after every nmap scan." %}
+{% block page_actions %}
+<form method="post" action="/rules/evaluate"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Evaluate now</button></form>
+{% endblock %}
 {% block content %}
-<h1>0-Day version-match rules</h1>
-<p class="muted">Rules flag inventory services by product + version without touching the target. Use them the moment a new CVE is announced, before a nuclei template exists. Rules are re-evaluated after every nmap scan.</p>
-<div class="grid-2">
-  <form method="post" action="/rules" class="card stack">
-    <h2>New rule</h2>
-    {% include "_rule_fields.html" %}
-    <button class="primary">Create rule</button>
+<div class="grid grid-2 mb">
+  <form method="post" action="/rules" class="card" data-loading>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>New rule</h2></div>
+    <div class="card-body stack">
+      {% include "_rule_fields.html" %}
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Create rule</button></div>
+    </div>
   </form>
   <div class="card">
-    <div class="row between"><h2>Rules ({{ rules|length }})</h2>
-      <form method="post" action="/rules/evaluate"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Evaluate now</button></form></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>Rules <span class="chip num">{{ rules|length }}</span></h2></div>
+    <div class="table-wrap">
     <table class="data">
-      <thead><tr><th>On</th><th>Name</th><th>Pattern</th><th>Version</th><th>CVE</th><th>Sev</th><th></th></tr></thead>
+      <thead><tr><th>On</th><th>Name</th><th>Pattern</th><th>Version</th><th>CVE</th><th>Severity</th><th></th></tr></thead>
       <tbody>
       {% for r in rules %}
-      <tr class="{{ '' if r.enabled else 'muted' }}">
-        <td><form method="post" action="/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" title="{{ 'disable' if r.enabled else 'enable' }}">{{ '●' if r.enabled else '○' }}</button></form></td>
-        <td>{{ r.name }}</td><td class="mono small">{{ r.product_pattern }}</td><td class="mono small">{{ r.version_constraint }}</td>
-        <td class="mono small">{{ r.cve_id }}</td><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td>
-        <td class="small"><a href="/rules/{{ r.id }}/edit">edit</a> ·
-          <form method="post" action="/rules/{{ r.id }}/delete" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link danger">delete</button></form></td>
+      <tr style="{{ '' if r.enabled else 'opacity:.6' }}">
+        <td><form method="post" action="/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" role="switch" aria-checked="{{ 'true' if r.enabled else 'false' }}" aria-label="{{ 'Disable' if r.enabled else 'Enable' }} rule {{ r.name }}" title="{{ 'Disable' if r.enabled else 'Enable' }}"><svg class="icon" style="color:{{ 'var(--success)' if r.enabled else 'var(--text-3)' }}"><use href="#i-{{ 'check-circle' if r.enabled else 'power' }}"/></svg></button></form></td>
+        <td>{{ r.name }}</td><td class="cell-mono small">{{ r.product_pattern }}</td><td class="cell-mono small">{{ r.version_constraint }}</td>
+        <td class="cell-mono small">{{ r.cve_id }}</td><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td>
+        <td class="actions"><a class="btn ghost sm" href="/rules/{{ r.id }}/edit"><svg class="icon sm"><use href="#i-edit"/></svg>Edit</a>
+          <form method="post" action="/rules/{{ r.id }}/delete" data-confirm="Delete rule '{{ r.name }}'?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm danger" type="submit" style="border-color:transparent"><svg class="icon sm"><use href="#i-trash"/></svg>Delete</button></form></td>
       </tr>
-      {% else %}<tr><td colspan="7" class="muted">No rules yet.</td></tr>{% endfor %}
+      {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-rule"/></svg><b>No rules yet</b>Create one on the left.</div></td></tr>{% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 <div class="card">
-  <h2>Potential 0-day exposure ({{ matches|length }})</h2>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Potential 0-day exposure <span class="chip num">{{ matches|length }}</span></h2></div>
+  <div class="table-wrap">
   <table class="data">
-    <thead><tr><th>Severity</th><th>Rule</th><th>CVE</th><th>Host</th><th>Port</th><th>Product</th><th>Version</th></tr></thead>
+    <thead><tr><th data-sort="text">Severity</th><th data-sort="text">Rule</th><th>CVE</th><th data-sort="text">Host</th><th data-sort="num">Port</th><th data-sort="text">Product</th><th>Version</th></tr></thead>
     <tbody>
     {% for m, r, s, h in matches %}
-    <tr><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td><td>{{ r.name }}</td><td class="mono">{{ r.cve_id }}</td>
-      <td class="mono">{{ h.address }}</td><td class="mono">{{ s.port }}/{{ s.protocol }}</td><td>{{ s.product }}</td><td class="mono">{{ s.version or s.cpe }}</td></tr>
-    {% else %}<tr><td colspan="7" class="muted">No matches. Enable a rule and run an nmap scan.</td></tr>{% endfor %}
+    <tr><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td><td>{{ r.name }}</td><td class="cell-mono">{{ r.cve_id }}</td>
+      <td class="cell-mono">{{ h.address }}</td><td class="cell-mono" data-value="{{ s.port }}">{{ s.port }}/{{ s.protocol }}</td><td>{{ s.product }}</td><td class="cell-mono">{{ s.version or s.cpe }}</td></tr>
+    {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No matches</b>Enable a rule and run an nmap scan.</div></td></tr>{% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endblock %}

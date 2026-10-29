@@ -1,24 +1,33 @@
 {% extends "base.html" %}
-{% block title %}Job {{ job.id }} · 0-Day Rapid Scanner{% endblock %}
+{% set section = "System" %}
+{% set page_title = "Job #" ~ job.id ~ " · " ~ job.kind %}
+{% block page_actions %}
+{% if job.status in ('queued', 'running') %}
+<form method="post" action="/jobs/{{ job.id }}/cancel" data-confirm="Cancel job #{{ job.id }}?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit"><svg class="icon"><use href="#i-stop"/></svg>Cancel job</button></form>
+{% endif %}
+{% if job.kind == 'nmap' and job.status == 'done' %}<a class="btn primary" href="/inventory"><svg class="icon"><use href="#i-server"/></svg>View inventory</a>{% endif %}
+{% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn primary" href="/findings?job={{ job.id }}"><svg class="icon"><use href="#i-alert"/></svg>View findings</a>{% endif %}
+{% endblock %}
 {% block content %}
-<div class="row between">
-  <h1>Job #{{ job.id }} · {{ job.kind }} · <span id="job-status" class="st-{{ job.status }}">{{ job.status }}</span></h1>
-  <div class="row">
-    {% if job.status in ('queued', 'running') %}
-    <form method="post" action="/jobs/{{ job.id }}/cancel"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Cancel</button></form>
-    {% endif %}
-    {% if job.kind == 'nmap' and job.status == 'done' %}<a class="btn" href="/inventory">View inventory →</a>{% endif %}
-    {% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn" href="/findings?job={{ job.id }}">View findings →</a>{% endif %}
+<div class="card mb">
+  <div class="card-body">
+    <dl class="meta" style="margin:0">
+      <div><dt>Status</dt><dd><span id="job-status" class="status st-{{ job.status }}">{{ job.status }}</span></dd></div>
+      <div><dt>Kind</dt><dd><span class="chip">{{ job.kind }}</span></dd></div>
+      <div><dt>Created</dt><dd class="num">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd></div>
+      <div><dt>Started</dt><dd class="num">{{ job.started_at.strftime('%H:%M:%S') if job.started_at else '—' }}</dd></div>
+      <div><dt>Finished</dt><dd class="num">{{ job.finished_at.strftime('%H:%M:%S') if job.finished_at else '—' }}</dd></div>
+      <div><dt>Duration</dt><dd class="num">{{ job.duration ~ 's' if job.duration is not none else '—' }}</dd></div>
+      <div><dt>Exit code</dt><dd class="num">{{ job.exit_code if job.exit_code is not none else '—' }}</dd></div>
+    </dl>
+    {% if summary %}<p class="text-2 small" style="margin:14px 0 0">{{ summary }}</p>{% endif %}
+    <div class="mono small text-2" style="margin-top:10px;word-break:break-all"><span class="muted">$</span> {{ job.command }}</div>
   </div>
 </div>
 <div class="card">
-  <div class="muted small">{{ summary }}</div>
-  <div class="mono small" style="margin:8px 0">$ {{ job.command }}</div>
-  <div class="small muted">
-    created {{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
-    {% if job.started_at %} · started {{ job.started_at.strftime('%H:%M:%S') }}{% endif %}
-    {% if job.finished_at %} · finished {{ job.finished_at.strftime('%H:%M:%S') }} ({{ job.duration }}s, exit {{ job.exit_code }}){% endif %}
+  <div class="card-head"><h2><svg class="icon"><use href="#i-terminal"/></svg>Log</h2>{% if live or job.status in ('queued','running') %}<span class="status st-running">live</span>{% endif %}</div>
+  <div class="card-body">
+    <pre class="log" id="joblog" data-job-id="{{ job.id }}" data-live="{{ 'yes' if live or job.status in ('queued','running') else 'no' }}" aria-live="polite">{{ log }}</pre>
   </div>
 </div>
-<pre class="log" id="joblog" data-job-id="{{ job.id }}" data-live="{{ 'yes' if live or job.status in ('queued','running') else 'no' }}">{{ log }}</pre>
 {% endblock %}

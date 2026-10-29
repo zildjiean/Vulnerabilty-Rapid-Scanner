@@ -1,38 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Nmap · 0-Day Rapid Scanner{% endblock %}
+{% set section = "Discovery" %}
+{% set page_title = "Nmap scan" %}
+{% set page_subtitle = "Discover hosts and fingerprint services with version detection. Results are parsed into the inventory when the job completes." %}
 {% block content %}
-<h1>Nmap scan</h1>
-<div class="grid-2">
-  <form method="post" action="/nmap/scan" class="card stack">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label>Targets (one per line: IP, CIDR, range, hostname)
-      <textarea name="targets" rows="6" required placeholder="192.168.1.0/24&#10;scanme.nmap.org&#10;10.0.0.1-50">{{ form.targets }}</textarea></label>
-    <fieldset><legend>Ports</legend>
-      <label class="inline"><input type="radio" name="port_mode" value="top" {{ 'checked' if form.port_mode == 'top' }}> Well-known (top 1000)</label>
-      <label class="inline"><input type="radio" name="port_mode" value="all" {{ 'checked' if form.port_mode == 'all' }}> All ports (1-65535)</label>
-      <label class="inline"><input type="radio" name="port_mode" value="custom" {{ 'checked' if form.port_mode == 'custom' }}> Custom
-        <input name="custom_ports" placeholder="22,80,443,8000-9000" value="{{ form.custom_ports }}"></label>
-    </fieldset>
-    <div class="row">
-      <label>Scan type
-        <select name="scan_type">
-          <option value="syn" {{ 'selected' if form.scan_type == 'syn' }}>SYN (-sS, fast, needs NET_RAW)</option>
-          <option value="connect" {{ 'selected' if form.scan_type == 'connect' }}>Connect (-sT, no privileges)</option>
-        </select></label>
-      <label>Timing
-        <select name="timing">
-          <option value="T2" {{ 'selected' if form.timing == 'T2' }}>T2 polite</option>
-          <option value="T3" {{ 'selected' if form.timing == 'T3' }}>T3 normal</option>
-          <option value="T4" {{ 'selected' if form.timing == 'T4' }}>T4 aggressive</option>
-        </select></label>
-      <label class="inline"><input type="checkbox" name="skip_ping" value="true" {{ 'checked' if form.skip_ping }}> Skip host discovery (-Pn)</label>
+<div class="grid grid-2">
+  <form method="post" action="/nmap/scan" class="card" data-loading>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-radar"/></svg>Scan configuration</h2></div>
+    <div class="card-body stack">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="field">
+        <label for="targets">Targets</label>
+        <textarea id="targets" name="targets" rows="6" required placeholder="192.168.1.0/24&#10;scanme.nmap.org&#10;10.0.0.1-50" aria-describedby="targets-hint">{{ form.targets }}</textarea>
+        <span class="hint" id="targets-hint">One per line: IP address, CIDR, nmap range or hostname.</span>
+      </div>
+      <fieldset>
+        <legend>Port range</legend>
+        <div class="choice-grid">
+          <label class="choice"><input type="radio" name="port_mode" value="top" {{ 'checked' if form.port_mode == 'top' }}><div><b>Well-known</b><span>Top 1000 ports. Fast, good default.</span></div></label>
+          <label class="choice"><input type="radio" name="port_mode" value="all" {{ 'checked' if form.port_mode == 'all' }}><div><b>All ports</b><span>1-65535. Thorough, slower.</span></div></label>
+          <label class="choice"><input type="radio" name="port_mode" value="custom" {{ 'checked' if form.port_mode == 'custom' }}><div><b>Custom</b><span>Your own list or ranges.</span></div></label>
+        </div>
+        <div class="field" style="margin-top:10px"><label for="custom_ports">Custom ports</label><input id="custom_ports" name="custom_ports" placeholder="22,80,443,8000-9000" value="{{ form.custom_ports }}" class="mono"></div>
+      </fieldset>
+      <div class="row">
+        <div class="field" style="flex:1"><label for="scan_type">Scan type</label>
+          <select id="scan_type" name="scan_type">
+            <option value="syn" {{ 'selected' if form.scan_type == 'syn' }}>SYN (-sS) · fast, needs NET_RAW</option>
+            <option value="connect" {{ 'selected' if form.scan_type == 'connect' }}>Connect (-sT) · no privileges</option>
+          </select></div>
+        <div class="field" style="flex:1"><label for="timing">Timing</label>
+          <select id="timing" name="timing">
+            <option value="T2" {{ 'selected' if form.timing == 'T2' }}>T2 · polite</option>
+            <option value="T3" {{ 'selected' if form.timing == 'T3' }}>T3 · normal</option>
+            <option value="T4" {{ 'selected' if form.timing == 'T4' }}>T4 · aggressive</option>
+          </select></div>
+      </div>
+      <label class="check"><input type="checkbox" name="skip_ping" value="true" {{ 'checked' if form.skip_ping }}> Skip host discovery (-Pn) — treat every target as up</label>
+      <p class="muted small">Service and version detection (<code>-sV</code>) is always enabled.</p>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>Start nmap scan</button></div>
     </div>
-    <p class="muted small">Service/version detection (-sV) is always on. Output is parsed into the inventory when the job finishes.</p>
-    <button class="primary">Start nmap scan</button>
   </form>
   <div class="card">
-    <h2>Recent nmap jobs</h2>
-    {% include "_jobs_table.html" %}
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent nmap jobs</h2><a class="btn sm ghost" href="/jobs">All jobs</a></div>
+    <div class="card-body tight">{% include "_jobs_table.html" %}</div>
   </div>
 </div>
 {% endblock %}

@@ -1,48 +1,52 @@
 {% extends "base.html" %}
-{% block title %}Inventory · 0-Day Rapid Scanner{% endblock %}
+{% set section = "Discovery" %}
+{% set page_title = "Inventory" %}
+{% set page_subtitle = "Every open service discovered by nmap with product, version and CPE. Select rows to hand them to nuclei." %}
+{% block page_actions %}<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New scan</a>{% endblock %}
 {% block content %}
-<h1>Inventory</h1>
-<form method="get" action="/inventory" class="card row">
-  <label>Search <input name="q" placeholder="address, hostname, product, version, cpe" value="{{ q }}" size="36"></label>
-  <label>Product
-    <select name="product"><option value="">All products</option>
-      {% for p in products %}<option value="{{ p }}" {{ 'selected' if p == product }}>{{ p }}</option>{% endfor %}
-    </select></label>
-  <label>Port <input name="port" value="{{ port }}" size="6"></label>
-  <label class="inline"><input type="checkbox" name="only_matches" value="true" {{ 'checked' if only_matches }}> Only 0-day rule matches</label>
-  <button>Filter</button>
-  <a class="btn" href="/inventory">Reset</a>
+<form method="get" action="/inventory" class="card mb">
+  <div class="card-body row" style="align-items:flex-end">
+    <div class="field" style="flex:2;min-width:220px"><label for="q">Search</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="q" name="q" placeholder="address, hostname, product, version, cpe" value="{{ q }}"></div></div>
+    <div class="field" style="flex:1;min-width:160px"><label for="product">Product</label>
+      <select id="product" name="product"><option value="">All products</option>{% for p in products %}<option value="{{ p }}" {{ 'selected' if p == product }}>{{ p }}</option>{% endfor %}</select></div>
+    <div class="field w-sm"><label for="port">Port</label><input id="port" name="port" value="{{ port }}" inputmode="numeric"></div>
+    <label class="check"><input type="checkbox" name="only_matches" value="true" {{ 'checked' if only_matches }}> Only 0-day rule matches</label>
+    <button type="submit"><svg class="icon"><use href="#i-filter"/></svg>Filter</button>
+    <a class="btn ghost" href="/inventory">Reset</a>
+  </div>
 </form>
 <form method="post" action="/inventory/to-nuclei" class="card">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="row between" style="margin-bottom:10px">
-    <span class="muted">{{ rows|length }} service(s) on {{ host_count }} host(s)</span>
-    <button class="primary" type="submit">Scan selected with nuclei →</button>
+  <div class="table-toolbar">
+    <div class="text-2"><b class="num">{{ rows|length }}</b> service(s) on <b class="num">{{ host_count }}</b> host(s) · <span class="num" data-selected-count>0</span> selected</div>
+    <button class="primary" type="submit" data-needs-selection><svg class="icon"><use href="#i-bug"/></svg>Scan selected with nuclei</button>
   </div>
+  <div class="table-wrap">
   <table class="data">
     <thead><tr>
-      <th><input type="checkbox" data-select-all="service_ids" title="select all"></th>
-      <th>Host</th><th>Hostname</th><th>Port</th><th>Service</th><th>Product</th><th>Version</th><th>Extra</th><th>CPE</th><th>0-day rule</th><th>Last seen</th>
+      <th><input type="checkbox" data-select-all="service_ids" aria-label="Select all services"></th>
+      <th data-sort="text">Host</th><th data-sort="text">Hostname</th><th data-sort="num">Port</th><th data-sort="text">Service</th><th data-sort="text">Product</th><th data-sort="text">Version</th><th>Extra</th><th>CPE</th><th>0-day rule</th><th data-sort="text">Last seen</th>
     </tr></thead>
     <tbody>
     {% for svc, host in rows %}
     <tr>
-      <td><input type="checkbox" name="service_ids" value="{{ svc.id }}"></td>
-      <td class="mono">{{ host.address }}</td>
-      <td class="small">{{ host.hostname or '' }}</td>
-      <td class="mono">{{ svc.port }}/{{ svc.protocol }}{% if svc.tunnel %} <span class="badge">{{ svc.tunnel }}</span>{% endif %}</td>
-      <td>{{ svc.service_name }}</td>
-      <td>{{ svc.product }}</td>
-      <td class="mono">{{ svc.version }}</td>
+      <td><input type="checkbox" name="service_ids" value="{{ svc.id }}" aria-label="Select {{ host.address }} port {{ svc.port }}"></td>
+      <td class="cell-mono">{{ host.address }}</td>
+      <td class="small text-2">{{ host.hostname or '—' }}</td>
+      <td class="cell-mono" data-value="{{ svc.port }}">{{ svc.port }}/{{ svc.protocol }}{% if svc.tunnel %} <span class="badge neutral">{{ svc.tunnel }}</span>{% endif %}</td>
+      <td>{{ svc.service_name or '—' }}</td>
+      <td>{{ svc.product or '—' }}</td>
+      <td class="cell-mono">{{ svc.version or '—' }}</td>
       <td class="small muted">{{ svc.extra_info }}</td>
-      <td class="mono small">{{ svc.cpe }}</td>
-      <td>{% for m, r in matches.get(svc.id, []) %}<span class="badge sev-{{ r.severity }}" title="{{ r.name }}: {{ r.product_pattern }} {{ r.version_constraint }}">{{ r.cve_id or r.name }}</span>{% endfor %}</td>
-      <td class="small">{{ host.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td class="cell-mono small muted">{{ svc.cpe }}</td>
+      <td>{% for m, r in matches.get(svc.id, []) %}<span class="badge sev-{{ r.severity }}" title="{{ r.name }}: {{ r.product_pattern }} {{ r.version_constraint }}">{{ r.cve_id or r.name }}</span>{% else %}<span class="muted">—</span>{% endfor %}</td>
+      <td class="small text-2 num">{{ host.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="11" class="muted">No services found. Run an <a href="/nmap">nmap scan</a> first.</td></tr>
+    <tr data-empty="1"><td colspan="11"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>No services yet</b>Run an <a href="/nmap">nmap scan</a> to populate the inventory.</div></td></tr>
     {% endfor %}
     </tbody>
   </table>
+  </div>
 </form>
 {% endblock %}

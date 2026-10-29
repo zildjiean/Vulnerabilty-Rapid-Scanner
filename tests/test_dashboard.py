@@ -15,6 +15,6 @@ def test_dashboard_counts(auth):
         db.commit()
     r = auth.get("/")
     assert r.status_code == 200
-    assert "2</b><span>hosts" in r.text
-    assert "5</b><span>open services" in r.text
+    assert 'data-stat="hosts">2<' in r.text
+    assert 'data-stat="services">5<' in r.text
     assert "Quick start" in r.text

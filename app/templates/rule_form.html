@@ -1,9 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Edit rule · 0-Day Rapid Scanner{% endblock %}
+{% set section = "0-Day intelligence" %}
+{% set page_title = "Edit rule #" ~ rule.id %}
+{% set page_subtitle = "Changes are evaluated against the inventory immediately after saving." %}
 {% block content %}
-<h1>Edit rule #{{ rule.id }}</h1>
-<form method="post" action="/rules/{{ rule.id }}/edit" class="card stack" style="max-width:720px">
-  {% include "_rule_fields.html" %}
-  <div class="row"><button class="primary">Save rule</button> <a class="btn" href="/rules">Cancel</a></div>
+<form method="post" action="/rules/{{ rule.id }}/edit" class="card" style="max-width:760px" data-loading>
+  <div class="card-body stack">
+    {% include "_rule_fields.html" %}
+    <div class="row"><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save rule</button><a class="btn ghost" href="/rules">Cancel</a></div>
+  </div>
 </form>
 {% endblock %}

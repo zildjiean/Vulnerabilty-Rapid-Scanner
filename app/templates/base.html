@@ -3,36 +3,89 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}0-Day Rapid Scanner{% endblock %}</title>
+<title>{% block title %}{{ page_title or 'Scanner' }} · 0-Day Rapid Scanner{% endblock %}</title>
 <link rel="stylesheet" href="/static/app.css">
+<script>try{var t=localStorage.getItem("zdrs-theme");if(t)document.documentElement.setAttribute("data-theme",t);if(localStorage.getItem("zdrs-sidebar")==="collapsed")document.documentElement.classList.add("pre-collapsed")}catch(e){}</script>
 </head>
 <body>
-{% if user %}
-<header class="topbar">
-  <a class="brand" href="/">⚡ 0-Day Rapid Scanner</a>
-  <nav>
-    <a href="/" class="{{ 'active' if active == 'dashboard' }}">Dashboard</a>
-    <a href="/nmap" class="{{ 'active' if active == 'nmap' }}">Nmap</a>
-    <a href="/inventory" class="{{ 'active' if active == 'inventory' }}">Inventory</a>
-    <a href="/nuclei" class="{{ 'active' if active == 'nuclei' }}">Nuclei</a>
-    <a href="/findings" class="{{ 'active' if active == 'findings' }}">Findings</a>
-    <a href="/templates" class="{{ 'active' if active == 'templates' }}">Templates</a>
-    <a href="/rules" class="{{ 'active' if active == 'rules' }}">0-Day Rules</a>
-    <a href="/updates" class="{{ 'active' if active == 'updates' }}">Updates</a>
-    <a href="/jobs" class="{{ 'active' if active == 'jobs' }}">Jobs</a>
-  </nav>
-  <div class="account">
-    <span class="muted">{{ user.username }}</span>
-    <a href="/change-password">Password</a>
-    <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link">Logout</button></form>
+{% include "_icons.html" %}
+<a class="skip-link" href="#main">Skip to content</a>
+{% if user and not auth_page %}
+<div class="shell" id="shell">
+  <aside class="sidebar" aria-label="Primary navigation">
+    <a class="brand" href="/" aria-label="0-Day Rapid Scanner home">
+      <span class="logo"><svg class="icon"><use href="#i-shield"/></svg></span>
+      <span class="name">0-Day Rapid Scanner<small>Enterprise exposure platform</small></span>
+    </a>
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-group-label">Overview</div>
+        <a href="/" class="{{ 'active' if active == 'dashboard' }}" {% if active == 'dashboard' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Discovery</div>
+        <a href="/nmap" class="{{ 'active' if active == 'nmap' }}" {% if active == 'nmap' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-radar"/></svg><span>Nmap scan</span></a>
+        <a href="/inventory" class="{{ 'active' if active == 'inventory' }}" {% if active == 'inventory' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-server"/></svg><span>Inventory</span></a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Detection</div>
+        <a href="/nuclei" class="{{ 'active' if active == 'nuclei' }}" {% if active == 'nuclei' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-bug"/></svg><span>Nuclei scan</span></a>
+        <a href="/findings" class="{{ 'active' if active == 'findings' }}" {% if active == 'findings' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-alert"/></svg><span>Findings</span></a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">0-Day intelligence</div>
+        <a href="/templates" class="{{ 'active' if active == 'templates' }}" {% if active == 'templates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-file"/></svg><span>Templates</span></a>
+        <a href="/rules" class="{{ 'active' if active == 'rules' }}" {% if active == 'rules' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-rule"/></svg><span>Version rules</span></a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">System</div>
+        <a href="/updates" class="{{ 'active' if active == 'updates' }}" {% if active == 'updates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-refresh"/></svg><span>Updates</span></a>
+        <a href="/jobs" class="{{ 'active' if active == 'jobs' }}" {% if active == 'jobs' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-activity"/></svg><span>Jobs</span></a>
+      </div>
+    </nav>
+    <div class="sidebar-foot">
+      <button type="button" class="collapse-btn" id="collapse-btn" aria-label="Collapse sidebar"><svg class="icon"><use href="#i-chevrons-left"/></svg><span>Collapse</span></button>
+    </div>
+  </aside>
+  <div class="overlay" id="nav-overlay"></div>
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="hamburger icon-btn ghost" id="nav-toggle" aria-label="Open navigation" aria-controls="shell" aria-expanded="false"><svg class="icon"><use href="#i-menu"/></svg></button>
+      <div class="crumbs" aria-label="Breadcrumb"><span>{{ section or 'Scanner' }}</span><svg class="icon sm"><use href="#i-chevron-right"/></svg><b>{{ page_title or '' }}</b></div>
+      <div class="spacer"></div>
+      <button type="button" class="icon-btn ghost theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle theme"><svg class="icon sun"><use href="#i-sun"/></svg><svg class="icon moon"><use href="#i-moon"/></svg></button>
+      <a class="icon-btn btn ghost" href="/change-password" aria-label="Change password" title="Change password"><svg class="icon"><use href="#i-key"/></svg></a>
+      <div class="user-chip"><span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span><span class="small">{{ user.username }}</span></div>
+      <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-logout"/></svg>Logout</button></form>
+    </header>
+    <main class="content" id="main" tabindex="-1">
+      {% block header %}
+      {% if page_title %}
+      <div class="page-head">
+        <div><h1>{{ page_title }}</h1>{% if page_subtitle %}<p>{{ page_subtitle }}</p>{% endif %}</div>
+        <div class="page-actions">{% block page_actions %}{% endblock %}</div>
+      </div>
+      {% endif %}
+      {% endblock %}
+      {% if error %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div>{{ error }}</div></div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
   </div>
-</header>
-{% endif %}
-<main class="container">
-  {% if msg %}<div class="flash ok">{{ msg }}</div>{% endif %}
-  {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
-  {% block content %}{% endblock %}
+</div>
+{% else %}
+<main id="main" class="auth-wrap">
+  {% if error %}{% endif %}
+  {% block auth %}{% endblock %}
 </main>
+{% endif %}
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false" data-msg="{{ msg or '' }}"></div>
+<dialog class="confirm" id="confirm-dialog" aria-labelledby="confirm-title">
+  <div class="card-body">
+    <h2 id="confirm-title" style="margin-bottom:6px">Please confirm</h2>
+    <p class="text-2" id="confirm-text"></p>
+    <div class="actions"><button type="button" id="confirm-cancel">Cancel</button><button type="button" class="danger" id="confirm-ok">Confirm</button></div>
+  </div>
+</dialog>
 <script src="/static/app.js"></script>
 </body>
 </html>

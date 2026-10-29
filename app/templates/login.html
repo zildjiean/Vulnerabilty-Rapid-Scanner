@@ -1,13 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Login · 0-Day Rapid Scanner{% endblock %}
-{% block content %}
+{% set auth_page = True %}
+{% set page_title = "Sign in" %}
+{% block auth %}
 <div class="auth-card">
-  <h1>⚡ 0-Day Rapid Scanner</h1>
-  <p class="muted">Sign in to continue.</p>
-  <form method="post" action="/login" class="stack">
-    <label>Username <input name="username" autocomplete="username" required autofocus></label>
-    <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
-    <button class="primary">Sign in</button>
+  <div class="brand"><span class="logo"><svg class="icon"><use href="#i-shield"/></svg></span><span class="name">0-Day Rapid Scanner<small>Enterprise exposure platform</small></span></div>
+  <h1 style="margin-bottom:4px">Sign in</h1>
+  <p class="text-2" style="margin-bottom:18px">Use your operator account to continue.</p>
+  {% if error %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div>{{ error }}</div></div>{% endif %}
+  <form method="post" action="/login" class="stack" data-loading>
+    <div class="field"><label for="username">Username</label><input id="username" name="username" autocomplete="username" required autofocus></div>
+    <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required></div>
+    <button class="primary" type="submit"><svg class="icon"><use href="#i-logout"/></svg>Sign in</button>
   </form>
+  <p class="muted small" style="margin:16px 0 0">Default account is <code>admin</code>. The password must be changed on first login.</p>
 </div>
 {% endblock %}

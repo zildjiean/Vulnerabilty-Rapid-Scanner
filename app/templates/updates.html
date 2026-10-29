@@ -1,28 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Updates · 0-Day Rapid Scanner{% endblock %}
+{% set section = "System" %}
+{% set page_title = "Updates" %}
+{% set page_subtitle = "Keep the detection engines and template feeds current. Every action runs as a job with a live log." %}
 {% block content %}
-<h1>Updates</h1>
-<div class="grid-4 stats">
-  <div class="stat"><b>{{ versions.nmap }}</b><span>nmap version</span></div>
-  <div class="stat"><b>{{ versions.nuclei }}</b><span>nuclei engine{% if templates.nuclei_latest_version != 'unknown' %} · latest {{ templates.nuclei_latest_version }}{% endif %}</span></div>
-  <div class="stat"><b>{{ templates.templates_version }}</b><span>nuclei-templates{% if templates.latest_templates_version != 'unknown' %} · latest {{ templates.latest_templates_version }}{% endif %}</span></div>
-  <div class="stat"><b>{{ counts.official }} / {{ counts.custom }}</b><span>indexed official / custom{% if indexing %} · indexing…{% endif %}</span></div>
+<div class="grid grid-4 mb">
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-radar"/></svg></div><div><div class="kpi-label">nmap</div><div class="kpi-value" style="font-size:22px">{{ versions.nmap }}</div><div class="kpi-sub">binary version</div></div></div>
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-bug"/></svg></div><div><div class="kpi-label">nuclei engine</div><div class="kpi-value" style="font-size:22px">{{ versions.nuclei }}</div><div class="kpi-sub">{% if templates.nuclei_latest_version != 'unknown' %}latest {{ templates.nuclei_latest_version }}{% else %}installed{% endif %}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-file"/></svg></div><div><div class="kpi-label">nuclei-templates</div><div class="kpi-value" style="font-size:22px">{{ templates.templates_version }}</div><div class="kpi-sub">{% if templates.latest_templates_version != 'unknown' %}latest {{ templates.latest_templates_version }}{% else %}{{ templates.yaml_files }} yaml files{% endif %}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-layers"/></svg></div><div><div class="kpi-label">Indexed</div><div class="kpi-value num" style="font-size:22px">{{ counts.official }} <span class="muted">/</span> {{ counts.custom }}</div><div class="kpi-sub">official / custom{% if indexing %} · <span class="status st-running">indexing</span>{% endif %}</div></div></div>
 </div>
-{% if not templates.dir_exists %}<div class="flash err">No nuclei templates downloaded yet. Run "Update nuclei templates" below.</div>{% endif %}
-<div class="grid-3">
+{% if not templates.dir_exists %}<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>No nuclei templates downloaded yet. Run "Update nuclei templates" below.</div></div>{% endif %}
+<div class="grid grid-3 mb">
   {% for key, a in actions.items() %}
-  <form method="post" action="/updates/{{ key }}" class="card stack">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <h2>{{ a.label }}</h2>
-    <p class="muted small">{{ a.help }}</p>
-    <button class="primary">Run</button>
+  <form method="post" action="/updates/{{ key }}" class="card" data-loading>
+    <div class="card-body stack">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <h2>{{ a.label }}</h2>
+      <p class="text-2 small" style="flex:1">{{ a.help }}</p>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Run update</button></div>
+    </div>
   </form>
   {% endfor %}
 </div>
-<div class="card">
-  <h2>Rebuilding the image (nmap binary / pinned nuclei)</h2>
-  <pre class="log">docker compose build --pull --no-cache && docker compose up -d</pre>
-  <p class="muted small">nmap comes from the Debian package of the base image; nuclei is pinned by <code>NUCLEI_VERSION</code> in the Dockerfile. Data, custom templates and downloaded nuclei-templates live in the <code>/data</code> volume and survive rebuilds.</p>
+<div class="card mb">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-terminal"/></svg>Rebuilding the image</h2></div>
+  <div class="card-body">
+    <pre class="log">docker compose build --pull --no-cache &amp;&amp; docker compose up -d</pre>
+    <p class="muted small" style="margin:10px 0 0">nmap comes from the Debian package of the base image; nuclei is pinned by <code>NUCLEI_VERSION</code> in the Dockerfile. Data, custom templates and downloaded nuclei-templates live in the <code>/data</code> volume and survive rebuilds.</p>
+  </div>
 </div>
-<div class="card"><h2>Recent update jobs</h2>{% include "_jobs_table.html" %}</div>
+<div class="card">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent update jobs</h2></div>
+  <div class="card-body tight">{% include "_jobs_table.html" %}</div>
+</div>
 {% endblock %}
