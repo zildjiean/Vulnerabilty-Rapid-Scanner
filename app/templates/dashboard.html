@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="grid-4 stats">
+  <div class="stat"><b>{{ stats.hosts }}</b><span>hosts</span></div>
+  <div class="stat"><b>{{ stats.services }}</b><span>open services</span></div>
+  <div class="stat"><b>{{ stats.findings }}</b><span>nuclei findings
+    {% for s in ['critical','high','medium','low'] if sev_counts[s] %}<span class="badge sev-{{ s }}">{{ sev_counts[s] }}</span>{% endfor %}</span></div>
+  <div class="stat"><b>{{ stats.rule_matches }}</b><span>potential 0-day (rules: {{ stats.rules }} on, templates indexed: {{ stats.templates }})</span></div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <h2>Quick start</h2>
+    <ol>
+      <li><a href="/updates">Updates</a> → "Update nuclei templates" (first run only, then whenever a CVE drops).</li>
+      <li><a href="/nmap">Nmap</a> → scan a network (top ports or all ports). Results land in <a href="/inventory">Inventory</a>.</li>
+      <li><a href="/inventory">Inventory</a> → filter by product/version, select hosts, "Scan selected with nuclei".</li>
+      <li><a href="/nuclei">Nuclei</a> → search templates (e.g. <code>CVE-2026-109619</code>), pick one or many, start.</li>
+      <li>New 0-day without a template? Add a <a href="/rules">version rule</a> or <a href="/templates">upload / pull a custom template</a>.</li>
+    </ol>
+  </div>
+  <div class="card"><h2>Recent jobs</h2>{% include "_jobs_table.html" %}</div>
+</div>
+{% endblock %}

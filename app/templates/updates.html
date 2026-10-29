@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Updates · 0-Day Rapid Scanner{% endblock %}
+{% block content %}
+<h1>Updates</h1>
+<div class="grid-4 stats">
+  <div class="stat"><b>{{ versions.nmap }}</b><span>nmap version</span></div>
+  <div class="stat"><b>{{ versions.nuclei }}</b><span>nuclei engine{% if templates.nuclei_latest_version != 'unknown' %} · latest {{ templates.nuclei_latest_version }}{% endif %}</span></div>
+  <div class="stat"><b>{{ templates.templates_version }}</b><span>nuclei-templates{% if templates.latest_templates_version != 'unknown' %} · latest {{ templates.latest_templates_version }}{% endif %}</span></div>
+  <div class="stat"><b>{{ counts.official }} / {{ counts.custom }}</b><span>indexed official / custom{% if indexing %} · indexing…{% endif %}</span></div>
+</div>
+{% if not templates.dir_exists %}<div class="flash err">No nuclei templates downloaded yet. Run "Update nuclei templates" below.</div>{% endif %}
+<div class="grid-3">
+  {% for key, a in actions.items() %}
+  <form method="post" action="/updates/{{ key }}" class="card stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h2>{{ a.label }}</h2>
+    <p class="muted small">{{ a.help }}</p>
+    <button class="primary">Run</button>
+  </form>
+  {% endfor %}
+</div>
+<div class="card">
+  <h2>Rebuilding the image (nmap binary / pinned nuclei)</h2>
+  <pre class="log">docker compose build --pull --no-cache && docker compose up -d</pre>
+  <p class="muted small">nmap comes from the Debian package of the base image; nuclei is pinned by <code>NUCLEI_VERSION</code> in the Dockerfile. Data, custom templates and downloaded nuclei-templates live in the <code>/data</code> volume and survive rebuilds.</p>
+</div>
+<div class="card"><h2>Recent update jobs</h2>{% include "_jobs_table.html" %}</div>
+{% endblock %}

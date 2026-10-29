@@ -3,19 +3,20 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
 
 from .auth import AuthMiddleware, LoginRateLimiter, SessionStore, seed_admin
 from .config import Settings, settings_from_env
-from sqlalchemy import select
-
 from .db import TemplateIndex, init_db, make_engine, make_session_factory
-from .render import STATIC_DIR, render
 from .jobs import JobRunner
-from .routers import auth as auth_router, inventory as inventory_router, jobs as jobs_router, nmap as nmap_router, nuclei as nuclei_router, templates as templates_router
-from .routers import rules as rules_router
+from .render import STATIC_DIR
+from .routers import (auth as auth_router, dashboard as dashboard_router, inventory as inventory_router, jobs as jobs_router,
+                      nmap as nmap_router, nuclei as nuclei_router, rules as rules_router, templates as templates_router,
+                      updates as updates_router)
 from .routers.templates import reindex_in_background
+from .routers.updates import start_update_job
 from .rules import seed_example_rule
 
 
@@ -34,7 +35,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.job_runner = JobRunner(SessionLocal)
         app.state.indexing = False
         app.state.last_index_counts = None
-        if needs_index:
+        if not settings.nuclei_templates_dir.is_dir():
+            with SessionLocal() as db:
+                start_update_job(app, db, "nuclei-templates")
+        elif needs_index:
             asyncio.get_running_loop().create_task(reindex_in_background(app))
         yield
 
@@ -45,20 +49,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.login_limiter = LoginRateLimiter()
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.add_middleware(AuthMiddleware)
-    app.include_router(auth_router.router)
-    app.include_router(jobs_router.router)
-    app.include_router(nmap_router.router)
-    app.include_router(inventory_router.router)
-    app.include_router(nuclei_router.router)
-    app.include_router(templates_router.router)
-    app.include_router(rules_router.router)
+    for r in (auth_router, dashboard_router, jobs_router, nmap_router, inventory_router, nuclei_router,
+              templates_router, rules_router, updates_router):
+        app.include_router(r.router)
 
     @app.get("/healthz")
     def healthz():
         return {"status": "ok"}
-
-    @app.get("/")
-    def dashboard_placeholder(request: Request):
-        return render(request, "base.html", active="dashboard")
 
     return app
