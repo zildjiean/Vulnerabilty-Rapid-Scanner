@@ -10,9 +10,8 @@ RUN ARCH="$(dpkg --print-architecture)" \
  && case "$ARCH" in amd64) NARCH=amd64 ;; arm64) NARCH=arm64 ;; *) echo "unsupported arch $ARCH" && exit 1 ;; esac \
  && curl -fsSL -o /tmp/nuclei.zip "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_${NARCH}.zip" \
  && mkdir -p /opt/nuclei && unzip -q /tmp/nuclei.zip nuclei -d /opt/nuclei && rm /tmp/nuclei.zip \
- && chmod +x /opt/nuclei/nuclei
-
-RUN useradd -r -u 10001 -d /data -s /usr/sbin/nologin scanner \
+ && chmod +x /opt/nuclei/nuclei \
+ && useradd -r -u 10001 -d /data -s /usr/sbin/nologin scanner \
  && mkdir -p /data && chown -R scanner:scanner /data /opt/nuclei \
  && setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip /usr/bin/nmap
 
