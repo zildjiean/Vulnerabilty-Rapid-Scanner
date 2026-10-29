@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Job {{ job.id }} · 0-Day Rapid Scanner{% endblock %}
+{% block content %}
+<div class="row between">
+  <h1>Job #{{ job.id }} · {{ job.kind }} · <span id="job-status" class="st-{{ job.status }}">{{ job.status }}</span></h1>
+  <div class="row">
+    {% if job.status in ('queued', 'running') %}
+    <form method="post" action="/jobs/{{ job.id }}/cancel"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Cancel</button></form>
+    {% endif %}
+    {% if job.kind == 'nmap' and job.status == 'done' %}<a class="btn" href="/inventory">View inventory →</a>{% endif %}
+    {% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn" href="/findings?job={{ job.id }}">View findings →</a>{% endif %}
+  </div>
+</div>
+<div class="card">
+  <div class="muted small">{{ summary }}</div>
+  <div class="mono small" style="margin:8px 0">$ {{ job.command }}</div>
+  <div class="small muted">
+    created {{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+    {% if job.started_at %} · started {{ job.started_at.strftime('%H:%M:%S') }}{% endif %}
+    {% if job.finished_at %} · finished {{ job.finished_at.strftime('%H:%M:%S') }} ({{ job.duration }}s, exit {{ job.exit_code }}){% endif %}
+  </div>
+</div>
+<pre class="log" id="joblog" data-job-id="{{ job.id }}" data-live="{{ 'yes' if live or job.status in ('queued','running') else 'no' }}">{{ log }}</pre>
+{% endblock %}

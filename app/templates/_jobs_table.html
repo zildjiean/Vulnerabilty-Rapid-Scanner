@@ -1,0 +1,21 @@
+<table class="data">
+  <thead><tr><th>#</th><th>Kind</th><th>Status</th><th>Summary</th><th>Started</th><th>Duration</th><th></th></tr></thead>
+  <tbody>
+  {% for j in jobs %}
+  <tr>
+    <td><a href="/jobs/{{ j.id }}">{{ j.id }}</a></td>
+    <td>{{ j.kind }}</td>
+    <td><span class="st-{{ j.status }}">{{ j.status }}</span></td>
+    <td class="small">{{ job_summary(j) }}</td>
+    <td class="small">{{ j.started_at.strftime('%Y-%m-%d %H:%M:%S') if j.started_at else '—' }}</td>
+    <td class="small">{{ j.duration ~ 's' if j.duration is not none else '—' }}</td>
+    <td class="small">
+      {% if j.kind == 'nmap' and j.status == 'done' %}<a href="/inventory">inventory</a>{% endif %}
+      {% if j.kind == 'nuclei' and j.status == 'done' %}<a href="/findings?job={{ j.id }}">findings</a>{% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="7" class="muted">No jobs yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

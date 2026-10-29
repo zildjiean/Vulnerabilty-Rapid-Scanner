@@ -9,7 +9,8 @@ from .auth import AuthMiddleware, LoginRateLimiter, SessionStore, seed_admin
 from .config import Settings, settings_from_env
 from .db import init_db, make_engine, make_session_factory
 from .render import STATIC_DIR, render
-from .routers import auth as auth_router
+from .jobs import JobRunner
+from .routers import auth as auth_router, jobs as jobs_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -22,6 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         with SessionLocal() as db:
             seed_admin(db)
+        app.state.job_runner = JobRunner(SessionLocal)
         yield
 
     app = FastAPI(title="0-Day Rapid Scanner", lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -32,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.add_middleware(AuthMiddleware)
     app.include_router(auth_router.router)
+    app.include_router(jobs_router.router)
 
     @app.get("/healthz")
     def healthz():
