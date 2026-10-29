@@ -1,0 +1,24 @@
+id: php-detect
+
+info:
+  name: PHP Detect
+  author: test
+  severity: info
+  description: Detects PHP via the X-Powered-By header.
+  tags: tech,php
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - "(?i)X-Powered-By: PHP"
+    extractors:
+      - type: regex
+        part: header
+        group: 1
+        regex:
+          - "(?i)X-Powered-By: PHP/([0-9.]+)"

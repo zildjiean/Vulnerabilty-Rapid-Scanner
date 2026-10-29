@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Templates · 0-Day Rapid Scanner{% endblock %}
+{% block content %}
+<h1>Nuclei templates</h1>
+<div class="grid-3 stats">
+  <div class="stat"><b>{{ counts.official }}</b><span>official templates indexed</span></div>
+  <div class="stat"><b>{{ counts.custom }}</b><span>custom (0-day) templates</span></div>
+  <div class="stat"><b>{{ counts.last_indexed.strftime('%Y-%m-%d %H:%M') if counts.last_indexed else 'never' }}</b>
+    <span>last indexed{% if indexing %} · <span class="warn">indexing now…</span>{% endif %}</span></div>
+</div>
+{% if not templates_dir_exists %}
+<div class="flash err">Official templates directory <code>{{ templates_dir }}</code> does not exist yet. Go to <a href="/updates">Updates</a> and run "Update nuclei templates".</div>
+{% endif %}
+<div class="grid-2">
+  <form method="post" action="/templates/upload" enctype="multipart/form-data" class="card stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h2>Upload custom templates (0-day)</h2>
+    <p class="muted small">YAML files are validated (structure + <code>nuclei -validate</code>) and stored under <code>custom-templates/&lt;id&gt;.yaml</code>. Uploading the same id overwrites.</p>
+    <input type="file" name="files" accept=".yaml,.yml" multiple required>
+    <button class="primary">Upload &amp; validate</button>
+  </form>
+  <form method="post" action="/templates/pull" class="card stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h2>Pull template from URL</h2>
+    <p class="muted small">Raw YAML over http(s), max 10 MB. Example: a raw GitHub/Gist link of a freshly published CVE template.</p>
+    <input name="url" type="url" placeholder="https://raw.githubusercontent.com/.../CVE-2026-xxxxx.yaml" required>
+    <button class="primary">Pull &amp; validate</button>
+  </form>
+</div>
+<div class="card">
+  <div class="row between">
+    <h2>Custom templates ({{ custom|length }})</h2>
+    <form method="post" action="/templates/reindex"><input type="hidden" name="csrf" value="{{ csrf }}"><button {{ 'disabled' if indexing }}>Re-index all templates</button></form>
+  </div>
+  <table class="data">
+    <thead><tr><th>ID</th><th>Name</th><th>Severity</th><th>Tags</th><th>CVE</th><th></th></tr></thead>
+    <tbody>
+    {% for t in custom %}
+    <tr>
+      <td class="mono">{{ t.template_id }}</td><td>{{ t.name }}</td>
+      <td><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span></td>
+      <td class="small">{{ t.tags }}</td><td class="mono small">{{ t.cve_ids }}</td>
+      <td><form method="post" action="/templates/delete"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="path" value="{{ t.path }}"><button class="link danger">delete</button></form></td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="muted">No custom templates yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="card">
+  <h2>Search the index</h2>
+  <form method="get" action="/templates" class="row">
+    <label>Query <input name="q" value="{{ q }}" placeholder="CVE-2026-109619, php, apache …" size="40"></label>
+    <label>Severity <select name="severity"><option value="">any</option>{% for s in severities %}<option value="{{ s }}" {{ 'selected' if s == severity }}>{{ s }}</option>{% endfor %}</select></label>
+    <button>Search</button>
+  </form>
+  {% if q %}
+  <table class="data" style="margin-top:12px">
+    <thead><tr><th>ID</th><th>Name</th><th>Severity</th><th>Tags</th><th>Source</th><th>Path</th></tr></thead>
+    <tbody>
+    {% for t in results %}
+    <tr><td class="mono">{{ t.template_id }}</td><td>{{ t.name }}</td><td><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span></td><td class="small">{{ t.tags }}</td><td>{{ t.source }}</td><td class="mono small">{{ t.path }}</td></tr>
+    {% else %}<tr><td colspan="6" class="muted">No templates match "{{ q }}".</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">Showing up to 100 results. Use the <a href="/nuclei">Nuclei</a> page to pick templates for a scan.</p>
+  {% endif %}
+</div>
+{% endblock %}
