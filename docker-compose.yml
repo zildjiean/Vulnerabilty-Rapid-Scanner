@@ -1,0 +1,18 @@
+services:
+  scanner:
+    build: .
+    image: zero-day-rapid-scanner:latest
+    container_name: zero-day-rapid-scanner
+    ports:
+      - "8000:8000"
+    volumes:
+      - scanner-data:/data
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    environment:
+      - HTTPS=0
+    restart: unless-stopped
+
+volumes:
+  scanner-data:
