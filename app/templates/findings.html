@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Findings · 0-Day Rapid Scanner{% endblock %}
+{% block content %}
+<h1>Findings</h1>
+<form method="get" action="/findings" class="card row">
+  <label>Job <select name="job"><option value="">all jobs</option>{% for j in jobs %}<option value="{{ j.id }}" {{ 'selected' if j.id == job }}>#{{ j.id }} · {{ j.started_at.strftime('%Y-%m-%d %H:%M') if j.started_at else 'queued' }}</option>{% endfor %}</select></label>
+  <label>Severity <select name="severity"><option value="">any</option>{% for s in severities %}<option value="{{ s }}" {{ 'selected' if s == severity }}>{{ s }}</option>{% endfor %}</select></label>
+  <label>Search <input name="q" value="{{ q }}" placeholder="template, host, url"></label>
+  <button>Filter</button> <a class="btn" href="/findings">Reset</a>
+</form>
+<div class="card">
+  <table class="data">
+    <thead><tr><th>Severity</th><th>Template</th><th>Name</th><th>Host</th><th>Matched at</th><th>Extracted</th><th>Job</th><th>Time</th></tr></thead>
+    <tbody>
+    {% for f in findings %}
+    <tr>
+      <td><span class="badge sev-{{ f.severity }}">{{ f.severity }}</span></td>
+      <td class="mono">{{ f.template_id }}</td><td>{{ f.template_name }}</td>
+      <td class="mono small">{{ f.host }}</td><td class="mono small">{{ f.matched_at }}</td>
+      <td class="mono small">{{ f.extracted }}</td>
+      <td><a href="/jobs/{{ f.job_id }}">#{{ f.job_id }}</a></td>
+      <td class="small">{{ f.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    {% else %}<tr><td colspan="8" class="muted">No findings yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

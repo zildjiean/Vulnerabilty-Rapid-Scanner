@@ -1,5 +1,38 @@
 {% extends "base.html" %}
+{% block title %}Nuclei · 0-Day Rapid Scanner{% endblock %}
 {% block content %}
 <h1>Nuclei scan</h1>
-<textarea name="targets">{{ form.targets }}</textarea>
+<form method="post" action="/nuclei/scan" class="card stack" id="nuclei-form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid-2">
+    <div class="stack">
+      <label>Targets (one per line: URL or host:port) — prefill from <a href="/inventory">Inventory</a>
+        <textarea name="targets" rows="10" required placeholder="http://192.168.1.10:8080&#10;https://web01.lab&#10;192.168.1.12:3306">{{ form.targets }}</textarea></label>
+      <div class="row">
+        <label>Rate limit (req/s) <input type="number" name="rate_limit" value="{{ form.rate_limit }}" min="1" max="1000"></label>
+        <label>Timeout (s) <input type="number" name="timeout" value="{{ form.timeout }}" min="1" max="120"></label>
+      </div>
+    </div>
+    <div class="stack">
+      <label>Search templates (id, name, tag, CVE) — click a result to select; pick one or many
+        <input id="tpl-q" placeholder="e.g. CVE-2026-109619, php, apache, rce" autocomplete="off"></label>
+      <div class="row">
+        <select id="tpl-sev"><option value="">any severity</option>{% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
+        <select id="tpl-src"><option value="">official + custom</option><option value="official">official</option><option value="custom">custom (0-day)</option></select>
+      </div>
+      <div id="tpl-results" class="tpl-results"></div>
+      <h3>Selected templates <span id="tpl-count" class="badge">0</span></h3>
+      <ul id="tpl-selected" class="tpl-selected">
+        {% for t in form.selected %}
+        <li data-path="{{ t.path }}"><input type="hidden" name="template_paths" value="{{ t.path }}"><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span> <b>{{ t.template_id }}</b> <span class="n muted">{{ t.name }}</span> <button type="button" class="link rm" title="remove">✕</button></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <button class="primary">Start nuclei scan</button>
+</form>
+<div class="card">
+  <h2>Recent nuclei jobs</h2>
+  {% include "_jobs_table.html" %}
+</div>
 {% endblock %}
