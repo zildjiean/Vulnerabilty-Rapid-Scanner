@@ -14,7 +14,9 @@ from .db import TemplateIndex, init_db, make_engine, make_session_factory
 from .render import STATIC_DIR, render
 from .jobs import JobRunner
 from .routers import auth as auth_router, inventory as inventory_router, jobs as jobs_router, nmap as nmap_router, nuclei as nuclei_router, templates as templates_router
+from .routers import rules as rules_router
 from .routers.templates import reindex_in_background
+from .rules import seed_example_rule
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -27,6 +29,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         with SessionLocal() as db:
             seed_admin(db)
+            seed_example_rule(db)
             needs_index = db.scalar(select(TemplateIndex).limit(1)) is None
         app.state.job_runner = JobRunner(SessionLocal)
         app.state.indexing = False
@@ -48,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(inventory_router.router)
     app.include_router(nuclei_router.router)
     app.include_router(templates_router.router)
+    app.include_router(rules_router.router)
 
     @app.get("/healthz")
     def healthz():

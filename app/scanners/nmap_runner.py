@@ -43,6 +43,7 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from ..db import Host, Job, Service, utcnow  # noqa: E402
 from ..parsers.nmap_xml import parse_nmap_xml  # noqa: E402
+from ..rules import evaluate_rules  # noqa: E402
 
 
 def ingest_nmap_results(db: Session, job: Job, xml_text: str) -> dict:
@@ -96,4 +97,5 @@ def _merge_params(params_json: str, extra: dict) -> str:
 
 def on_nmap_complete(db: Session, job: Job, output: str) -> None:
     stats = ingest_nmap_results(db, job, output)
+    stats["rule_matches"] = evaluate_rules(db)
     job.params_json = _merge_params(job.params_json, {"result": stats})

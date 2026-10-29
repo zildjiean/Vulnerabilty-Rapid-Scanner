@@ -1,0 +1,14 @@
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label>Name <input name="name" value="{{ form.name }}" required placeholder="PHP < 8.3.15 use-after-free"></label>
+<div class="row">
+  <label>Product pattern (regex, case-insensitive; matched against product, service and CPE)
+    <input name="product_pattern" value="{{ form.product_pattern }}" required placeholder="php|apache:http_server" class="mono" size="40"></label>
+  <label>Version constraint (comma-separated: &lt; &lt;= &gt; &gt;= == !=)
+    <input name="version_constraint" value="{{ form.version_constraint }}" required placeholder=">=8.0, <8.3.15" class="mono" size="24"></label>
+</div>
+<div class="row">
+  <label>CVE id <input name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-109619" class="mono"></label>
+  <label>Severity <select name="severity">{% for s in severities if s != 'unknown' %}<option value="{{ s }}" {{ 'selected' if s == form.severity }}>{{ s }}</option>{% endfor %}</select></label>
+  <label class="inline"><input type="checkbox" name="enabled" value="true" {{ 'checked' if form.enabled }}> Enabled</label>
+</div>
+<label>Description <textarea name="description" rows="2">{{ form.description }}</textarea></label>

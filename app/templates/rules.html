@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}0-Day rules · 0-Day Rapid Scanner{% endblock %}
+{% block content %}
+<h1>0-Day version-match rules</h1>
+<p class="muted">Rules flag inventory services by product + version without touching the target. Use them the moment a new CVE is announced, before a nuclei template exists. Rules are re-evaluated after every nmap scan.</p>
+<div class="grid-2">
+  <form method="post" action="/rules" class="card stack">
+    <h2>New rule</h2>
+    {% include "_rule_fields.html" %}
+    <button class="primary">Create rule</button>
+  </form>
+  <div class="card">
+    <div class="row between"><h2>Rules ({{ rules|length }})</h2>
+      <form method="post" action="/rules/evaluate"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Evaluate now</button></form></div>
+    <table class="data">
+      <thead><tr><th>On</th><th>Name</th><th>Pattern</th><th>Version</th><th>CVE</th><th>Sev</th><th></th></tr></thead>
+      <tbody>
+      {% for r in rules %}
+      <tr class="{{ '' if r.enabled else 'muted' }}">
+        <td><form method="post" action="/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" title="{{ 'disable' if r.enabled else 'enable' }}">{{ '●' if r.enabled else '○' }}</button></form></td>
+        <td>{{ r.name }}</td><td class="mono small">{{ r.product_pattern }}</td><td class="mono small">{{ r.version_constraint }}</td>
+        <td class="mono small">{{ r.cve_id }}</td><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td>
+        <td class="small"><a href="/rules/{{ r.id }}/edit">edit</a> ·
+          <form method="post" action="/rules/{{ r.id }}/delete" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="link danger">delete</button></form></td>
+      </tr>
+      {% else %}<tr><td colspan="7" class="muted">No rules yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="card">
+  <h2>Potential 0-day exposure ({{ matches|length }})</h2>
+  <table class="data">
+    <thead><tr><th>Severity</th><th>Rule</th><th>CVE</th><th>Host</th><th>Port</th><th>Product</th><th>Version</th></tr></thead>
+    <tbody>
+    {% for m, r, s, h in matches %}
+    <tr><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td><td>{{ r.name }}</td><td class="mono">{{ r.cve_id }}</td>
+      <td class="mono">{{ h.address }}</td><td class="mono">{{ s.port }}/{{ s.protocol }}</td><td>{{ s.product }}</td><td class="mono">{{ s.version or s.cpe }}</td></tr>
+    {% else %}<tr><td colspan="7" class="muted">No matches. Enable a rule and run an nmap scan.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
