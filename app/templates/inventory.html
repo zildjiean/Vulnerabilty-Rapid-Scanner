@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Inventory · 0-Day Rapid Scanner{% endblock %}
+{% block content %}
+<h1>Inventory</h1>
+<form method="get" action="/inventory" class="card row">
+  <label>Search <input name="q" placeholder="address, hostname, product, version, cpe" value="{{ q }}" size="36"></label>
+  <label>Product
+    <select name="product"><option value="">All products</option>
+      {% for p in products %}<option value="{{ p }}" {{ 'selected' if p == product }}>{{ p }}</option>{% endfor %}
+    </select></label>
+  <label>Port <input name="port" value="{{ port }}" size="6"></label>
+  <label class="inline"><input type="checkbox" name="only_matches" value="true" {{ 'checked' if only_matches }}> Only 0-day rule matches</label>
+  <button>Filter</button>
+  <a class="btn" href="/inventory">Reset</a>
+</form>
+<form method="post" action="/inventory/to-nuclei" class="card">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="row between" style="margin-bottom:10px">
+    <span class="muted">{{ rows|length }} service(s) on {{ host_count }} host(s)</span>
+    <button class="primary" type="submit">Scan selected with nuclei →</button>
+  </div>
+  <table class="data">
+    <thead><tr>
+      <th><input type="checkbox" data-select-all="service_ids" title="select all"></th>
+      <th>Host</th><th>Hostname</th><th>Port</th><th>Service</th><th>Product</th><th>Version</th><th>Extra</th><th>CPE</th><th>0-day rule</th><th>Last seen</th>
+    </tr></thead>
+    <tbody>
+    {% for svc, host in rows %}
+    <tr>
+      <td><input type="checkbox" name="service_ids" value="{{ svc.id }}"></td>
+      <td class="mono">{{ host.address }}</td>
+      <td class="small">{{ host.hostname or '' }}</td>
+      <td class="mono">{{ svc.port }}/{{ svc.protocol }}{% if svc.tunnel %} <span class="badge">{{ svc.tunnel }}</span>{% endif %}</td>
+      <td>{{ svc.service_name }}</td>
+      <td>{{ svc.product }}</td>
+      <td class="mono">{{ svc.version }}</td>
+      <td class="small muted">{{ svc.extra_info }}</td>
+      <td class="mono small">{{ svc.cpe }}</td>
+      <td>{% for m, r in matches.get(svc.id, []) %}<span class="badge sev-{{ r.severity }}" title="{{ r.name }}: {{ r.product_pattern }} {{ r.version_constraint }}">{{ r.cve_id or r.name }}</span>{% endfor %}</td>
+      <td class="small">{{ host.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="11" class="muted">No services found. Run an <a href="/nmap">nmap scan</a> first.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</form>
+{% endblock %}

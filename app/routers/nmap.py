@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+
+from ..deps import get_db, get_runner, get_settings, verify_csrf
+from ..render import render
+from ..scanners.nmap_runner import build_nmap_argv, on_nmap_complete
+from ..validation import parse_nmap_targets
+from .jobs import job_summary, recent_jobs
+
+router = APIRouter()
+
+DEFAULT_FORM = {"targets": "", "port_mode": "top", "custom_ports": "", "timing": "T3", "skip_ping": False, "scan_type": "syn"}
+
+
+def _page(request: Request, db: Session, form: dict, error: str | None = None, status_code: int = 200):
+    return render(request, "nmap.html", status_code=status_code, active="nmap", form=form, error=error,
+                  jobs=recent_jobs(db, kind="nmap"), job_summary=job_summary)
+
+
+@router.get("/nmap")
+def nmap_page(request: Request, db: Session = Depends(get_db)):
+    return _page(request, db, dict(DEFAULT_FORM))
+
+
+@router.post("/nmap/scan", dependencies=[Depends(verify_csrf)])
+async def nmap_scan(request: Request, targets: str = Form(""), port_mode: str = Form("top"), custom_ports: str = Form(""),
+              timing: str = Form("T3"), skip_ping: bool = Form(False), scan_type: str = Form("syn"),
+              db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
+    form = {"targets": targets, "port_mode": port_mode, "custom_ports": custom_ports, "timing": timing,
+            "skip_ping": skip_ping, "scan_type": scan_type}
+    try:
+        target_list = parse_nmap_targets(targets)
+        argv = build_nmap_argv(settings.nmap_bin, target_list, port_mode=port_mode, custom_ports=custom_ports,
+                               timing=timing, skip_ping=skip_ping, scan_type=scan_type)
+    except ValueError as e:
+        return _page(request, db, form, error=str(e), status_code=400)
+    job = runner.create_job(db, "nmap", argv, params={"targets": target_list, "port_mode": port_mode,
+                                                      "custom_ports": custom_ports, "scan_type": scan_type})
+    runner.start(job.id, argv, on_complete=on_nmap_complete, stdout_to_log=False)
+    return RedirectResponse(f"/jobs/{job.id}", status_code=303)
