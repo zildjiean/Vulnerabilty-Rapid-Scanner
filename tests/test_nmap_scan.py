@@ -73,3 +73,4 @@ def test_nmap_scan_end_to_end_with_fake_nmap(auth):
         assert "Starting Nmap 7.97 (fake)" in job.log
         assert "<nmaprun" not in job.log
         assert len(list(db.scalars(select(Host)))) == 2
+        assert "[nmap] 2 host(s) up, 5 open service(s) stored" in job.log

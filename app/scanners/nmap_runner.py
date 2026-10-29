@@ -95,7 +95,8 @@ def _merge_params(params_json: str, extra: dict) -> str:
     return json.dumps(p)
 
 
-def on_nmap_complete(db: Session, job: Job, output: str) -> None:
+def on_nmap_complete(db: Session, job: Job, output: str) -> str:
     stats = ingest_nmap_results(db, job, output)
     stats["rule_matches"] = evaluate_rules(db)
     job.params_json = _merge_params(job.params_json, {"result": stats})
+    return f"[nmap] {stats['hosts']} host(s) up, {stats['services']} open service(s) stored, {stats['rule_matches']} version-rule match(es)."

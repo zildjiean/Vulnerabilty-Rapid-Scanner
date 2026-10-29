@@ -22,7 +22,10 @@ def build_nuclei_argv(nuclei_bin: str, template_paths: list[str], targets_file: 
     """template_paths may be template files or directories (nuclei runs every template below a directory)."""
     if not template_paths:
         raise ValueError("Select at least one template.")
-    argv = [nuclei_bin, "-jsonl", "-silent", "-disable-update-check", "-no-color", "-ud", templates_dir, "-l", targets_file]
+    # No -silent: nuclei's INF lines (templates/targets loaded, httpx probing, errors) go to stderr and end up in the
+    # job log, so an empty result can be told apart from an unreachable target. Findings stay on stdout as JSONL.
+    argv = [nuclei_bin, "-jsonl", "-disable-update-check", "-no-color", "-stats", "-stats-interval", "30",
+            "-ud", templates_dir, "-l", targets_file]
     for p in template_paths:
         argv += ["-t", p]
     if tags:
@@ -121,7 +124,7 @@ def ingest_nuclei_results(db: Session, job: Job, jsonl_text: str) -> int:
     return len(findings)
 
 
-def on_nuclei_complete(db: Session, job: Job, output: str) -> None:
+def on_nuclei_complete(db: Session, job: Job, output: str) -> str:
     n = ingest_nuclei_results(db, job, output)
     try:
         params = json.loads(job.params_json or "{}")
@@ -129,3 +132,7 @@ def on_nuclei_complete(db: Session, job: Job, output: str) -> None:
         params = {}
     params["result"] = {"findings": n}
     job.params_json = json.dumps(params)
+    if n == 0:
+        return ("[nuclei] 0 findings stored. Check the INF lines above: 'Templates loaded' and 'Targets loaded' show what "
+                "actually ran; 'Found N URL from httpx' confirms the target answered over HTTP(S).")
+    return f"[nuclei] {n} finding(s) stored; open the Findings page for details."

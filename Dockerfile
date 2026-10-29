@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-ARG NUCLEI_VERSION=3.8.0
+ARG NUCLEI_VERSION=3.11.1
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends nmap ca-certificates curl unzip libcap2-bin git \

@@ -12,7 +12,8 @@ from tests.conftest import get_csrf, wait_job
 def test_build_nuclei_argv():
     argv = build_nuclei_argv("/opt/nuclei", ["/t/a.yaml", "/t/b.yaml"], "/data/jobs/t.txt", "/data/nuclei-templates", rate_limit=50, timeout=7)
     assert argv[:2] == ["/opt/nuclei", "-jsonl"]
-    assert "-silent" in argv and "-disable-update-check" in argv and "-no-color" in argv
+    assert "-silent" not in argv and "-disable-update-check" in argv and "-no-color" in argv
+    assert argv[argv.index("-stats-interval") + 1] == "30"
     assert argv[argv.index("-ud") + 1] == "/data/nuclei-templates"
     assert argv[argv.index("-l") + 1] == "/data/jobs/t.txt"
     assert argv.count("-t") == 2 and "/t/a.yaml" in argv and "/t/b.yaml" in argv
@@ -73,3 +74,4 @@ def test_nuclei_scan_end_to_end_with_fake_nuclei(auth):
     assert "CVE-2026-109619" in r.text and "php-detect" not in r.text
     r = auth.get(f"/jobs/{job_id}")
     assert "CVE-2026-109619" in r.text
+    assert "[nuclei] 2 finding(s) stored" in r.text

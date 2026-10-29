@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .db import Job, utcnow
 
-CompletionHook = Callable[[Session, Job, str], None]
+CompletionHook = Callable[[Session, Job, str], Optional[str]]
 MAX_LIVE_LINES = 20000
 
 
@@ -180,9 +180,11 @@ class JobRunner:
                 try:
                     with self.session_factory() as db:
                         job = db.get(Job, job_id)
-                        on_complete(db, job, output)
+                        note = on_complete(db, job, output)
                         db.commit()
                     self._publish(job_id, "[runner] results processed")
+                    if isinstance(note, str) and note:
+                        self._publish(job_id, note)
                 except Exception as e:  # noqa: BLE001 - surface anything to the operator
                     self._publish(job_id, f"[runner] result processing failed: {e!r}")
                     status = "failed"
