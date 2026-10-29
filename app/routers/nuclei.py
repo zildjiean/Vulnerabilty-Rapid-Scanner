@@ -5,12 +5,13 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..db import Finding, TemplateIndex
+from ..db import Finding, Job, TemplateIndex
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..jobs import quote_argv
 from ..render import SEVERITIES, SEVERITY_ORDER, render
-from ..scanners.nuclei_runner import (all_template_paths, build_nuclei_argv, on_nuclei_complete, parse_tags, resolve_group_paths,
-                                      validate_template_paths, write_targets_file)
+from ..jobs import job_warnings
+from ..scanners.nuclei_runner import (DEFAULT_PROFILE, PROFILES, all_template_paths, build_nuclei_argv, on_nuclei_complete, parse_tags,
+                                      profile_flags, resolve_group_paths, validate_template_paths, write_targets_file)
 from ..templates_index import list_template_groups
 from ..validation import parse_nuclei_targets
 from .jobs import job_summary, recent_jobs
@@ -18,7 +19,7 @@ from .jobs import job_summary, recent_jobs
 router = APIRouter()
 
 DEFAULT_NUCLEI_FORM = {"targets": "", "selected": [], "rate_limit": 150, "timeout": 10, "mode": "selected",
-                       "groups": [], "tags": "", "severities": []}
+                       "groups": [], "tags": "", "severities": [], "profile": DEFAULT_PROFILE, "no_mhe": False}
 MODES = ("selected", "all", "groups")
 
 
@@ -42,7 +43,7 @@ def nuclei_page_context(db: Session, targets: str = "", selected=None, error: st
     form.update(extra)
     groups = list_template_groups(db, settings) if settings is not None else []
     return {"active": "nuclei", "form": form, "error": error, "jobs": recent_jobs(db, kind="nuclei"), "job_summary": job_summary,
-            "groups": groups}
+            "groups": groups, "profiles": PROFILES}
 
 
 @router.get("/nuclei")
@@ -54,6 +55,7 @@ def nuclei_page(request: Request, targets: str = "", db: Session = Depends(get_d
 async def nuclei_scan(request: Request, targets: str = Form(""), template_paths: list[str] = Form(default=[]),
                       mode: str = Form("selected"), groups: list[str] = Form(default=[]), tags: str = Form(""),
                       severities: list[str] = Form(default=[]), rate_limit: int = Form(150), timeout: int = Form(10),
+                      profile: str = Form(DEFAULT_PROFILE), no_mhe: bool = Form(False),
                       db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
     selected = selected_from_paths(db, template_paths)
     severities = [s for s in severities if s in SEVERITIES]
@@ -61,7 +63,8 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
     def fail(msg: str):
         return render(request, "nuclei.html", status_code=400,
                       **nuclei_page_context(db, targets=targets, selected=selected, error=msg, settings=settings, rate_limit=rate_limit,
-                                            timeout=timeout, mode=mode, groups=groups, tags=tags, severities=severities))
+                                            timeout=timeout, mode=mode, groups=groups, tags=tags, severities=severities,
+                                            profile=profile, no_mhe=no_mhe))
 
     try:
         if mode not in MODES:
@@ -73,19 +76,21 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
         else:
             paths = validate_template_paths(settings, template_paths)
         tag_list = parse_tags(tags)
+        extra_flags = profile_flags(profile, no_mhe)
         target_list = parse_nuclei_targets(targets)
     except ValueError as e:
         return fail(str(e))
     rate_limit = max(1, min(rate_limit, 1000))
     timeout = max(1, min(timeout, 120))
     template_ids = [s["template_id"] for s in selected] if mode == "selected" else []
-    params = {"targets": target_list, "template_ids": template_ids, "mode": mode, "tags": tag_list, "severities": severities}
+    params = {"targets": target_list, "template_ids": template_ids, "mode": mode, "tags": tag_list, "severities": severities,
+              "profile": profile, "no_mhe": no_mhe}
     if mode == "groups":
         params["groups"] = [g.strip().strip("/") for g in groups]
     job = runner.create_job(db, "nuclei", [settings.nuclei_bin], params=params)
     targets_file = write_targets_file(settings, job.id, target_list)
     argv = build_nuclei_argv(settings.nuclei_bin, paths, str(targets_file), str(settings.nuclei_templates_dir),
-                             rate_limit=rate_limit, timeout=timeout, tags=tag_list, severities=severities)
+                             rate_limit=rate_limit, timeout=timeout, tags=tag_list, severities=severities, extra=extra_flags)
     job.command = quote_argv(argv)
     db.commit()
     runner.start(job.id, argv, on_complete=on_nuclei_complete, stdout_to_log=True)
@@ -105,4 +110,7 @@ def findings_page(request: Request, job: int | None = None, severity: str = "", 
         rows = [f for f in rows if ql in " ".join([f.template_id, f.template_name, f.host, f.matched_at, f.extracted]).lower()]
     rows.sort(key=lambda f: (SEVERITY_ORDER.get(f.severity, 99), -f.id))
     jobs = recent_jobs(db, kind="nuclei", limit=50)
-    return render(request, "findings.html", active="findings", findings=rows, job=job, severity=severity, q=q, jobs=jobs)
+    warned = [(j, job_warnings(j)) for j in jobs if job_warnings(j)]
+    current_warnings = job_warnings(db.get(Job, job)) if job and db.get(Job, job) else []
+    return render(request, "findings.html", active="findings", findings=rows, job=job, severity=severity, q=q, jobs=jobs,
+                  warned=warned, current_warnings=current_warnings)

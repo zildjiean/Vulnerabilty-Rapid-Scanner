@@ -4,6 +4,11 @@
 {% set page_subtitle = "Nuclei results across all jobs, ordered by severity." %}
 {% block page_actions %}<a class="btn primary" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>New nuclei scan</a>{% endblock %}
 {% block content %}
+{% if current_warnings %}
+<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Results for job #{{ job }} are incomplete.</b> nuclei reported problems during the scan, so "no findings" does not mean "not vulnerable".<ul style="margin:6px 0 0;padding-left:18px">{% for w in current_warnings %}<li>{{ w }}</li>{% endfor %}</ul></div></div>
+{% elif not job and warned %}
+<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>{{ warned|length }} recent job(s) finished with warnings</b> (incomplete coverage): {% for j, w in warned %}<a href="/findings?job={{ j.id }}">#{{ j.id }}</a>{{ ', ' if not loop.last }}{% endfor %}. Open a job to see why.</div></div>
+{% endif %}
 <form method="get" action="/findings" class="card mb">
   <div class="card-body row" style="align-items:flex-end">
     <div class="field" style="flex:1;min-width:200px"><label for="job">Job</label><select id="job" name="job"><option value="">All jobs</option>{% for j in jobs %}<option value="{{ j.id }}" {{ 'selected' if j.id == job }}>#{{ j.id }} · {{ j.started_at.strftime('%Y-%m-%d %H:%M') if j.started_at else 'queued' }}</option>{% endfor %}</select></div>

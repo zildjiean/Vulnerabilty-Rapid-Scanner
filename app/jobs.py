@@ -20,6 +20,16 @@ def quote_argv(argv: list[str]) -> str:
     return " ".join(shlex.quote(a) for a in argv)
 
 
+def job_warnings(job: Job) -> list[str]:
+    """Warnings recorded by the completion hook (e.g. nuclei dropped a target). Stored in params_json."""
+    try:
+        params = json.loads(job.params_json or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return []
+    w = params.get("warnings") if isinstance(params, dict) else None
+    return [str(x) for x in w] if isinstance(w, list) else []
+
+
 def fail_interrupted_jobs(db: Session) -> int:
     """On startup, any job still queued/running belongs to a previous process and cannot resume."""
     from sqlalchemy import select
@@ -180,6 +190,7 @@ class JobRunner:
                 try:
                     with self.session_factory() as db:
                         job = db.get(Job, job_id)
+                        job.log = "\n".join(self._live.get(job_id, []))  # hooks may inspect the tool's own status lines
                         note = on_complete(db, job, output)
                         db.commit()
                     self._publish(job_id, "[runner] results processed")

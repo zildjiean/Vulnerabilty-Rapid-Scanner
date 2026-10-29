@@ -13,10 +13,20 @@
         <div class="field"><label for="targets">Target list</label>
           <textarea id="targets" name="targets" rows="12" required placeholder="http://192.168.1.10:8080&#10;https://web01.lab&#10;192.168.1.12:3306" aria-describedby="targets-hint">{{ form.targets }}</textarea>
           <span class="hint" id="targets-hint">One per line: full URL or host:port. Bare hosts are probed for https:// and http:// automatically; the job log shows "Targets loaded" and "Found N URL from httpx" so you can confirm the target answered.</span></div>
+        <fieldset>
+          <legend>Scan profile</legend>
+          <div class="choice-grid">
+            {% for key, pr in profiles.items() %}
+            <label class="choice"><input type="radio" name="profile" value="{{ key }}" data-rate="{{ pr.rate_limit }}" data-timeout="{{ pr.timeout }}" {{ 'checked' if form.profile == key }}><div><b>{{ pr.label }}</b><span>{{ pr.help }}</span></div></label>
+            {% endfor %}
+          </div>
+        </fieldset>
         <div class="row">
           <div class="field w-md"><label for="rate_limit">Rate limit (req/s)</label><input id="rate_limit" type="number" name="rate_limit" value="{{ form.rate_limit }}" min="1" max="1000" inputmode="numeric"></div>
           <div class="field w-md"><label for="timeout">Timeout (s)</label><input id="timeout" type="number" name="timeout" value="{{ form.timeout }}" min="1" max="120" inputmode="numeric"></div>
         </div>
+        <label class="check"><input type="checkbox" name="no_mhe" value="true" {{ 'checked' if form.no_mhe }}> Never drop unresponsive hosts (<code>-no-mhe</code>) — keep testing even after repeated timeouts</label>
+        <p class="muted small" style="margin:0">If nuclei drops a target as unresponsive, the job finishes as <b>Done with warnings</b> and the Findings page flags the result as incomplete.</p>
       </div>
     </div>
     <div class="card">

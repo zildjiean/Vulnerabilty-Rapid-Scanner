@@ -11,6 +11,8 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.filters["fromjson"] = json.loads
+from .jobs import job_warnings  # noqa: E402
+templates.env.globals["job_warnings"] = job_warnings
 
 SEVERITIES = ["critical", "high", "medium", "low", "info", "unknown"]
 SEVERITY_ORDER = {s: i for i, s in enumerate(SEVERITIES)}

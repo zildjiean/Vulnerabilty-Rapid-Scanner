@@ -40,6 +40,8 @@ def job_summary(job: Job) -> str:
         parts.append(f"{len(groups)} group(s): " + ", ".join(groups[:3]) + ("…" if len(groups) > 3 else ""))
     elif tpl:
         parts.append(f"{len(tpl)} template(s): " + ", ".join(tpl[:3]) + ("…" if len(tpl) > 3 else ""))
+    if p.get("profile") and p["profile"] != "normal":
+        parts.append(p["profile"] + " profile")
     if p.get("tags"):
         parts.append("tags " + ",".join(p["tags"]))
     if p.get("severities"):

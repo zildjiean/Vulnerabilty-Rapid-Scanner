@@ -171,6 +171,14 @@
     }
   }
 
+  // ---------- Nuclei scan profile -> rate limit / timeout defaults ----------
+  $$('input[name="profile"]').forEach((r) => r.addEventListener("change", () => {
+    if (!r.checked) return;
+    const rate = $("#rate_limit"), to = $("#timeout");
+    if (rate && r.dataset.rate) rate.value = r.dataset.rate;
+    if (to && r.dataset.timeout) to.value = r.dataset.timeout;
+  }));
+
   // ---------- Nuclei template picker ----------
   const q = $("#tpl-q");
   if (q) {

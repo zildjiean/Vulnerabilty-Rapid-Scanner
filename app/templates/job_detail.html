@@ -9,10 +9,14 @@
 {% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn primary" href="/findings?job={{ job.id }}"><svg class="icon"><use href="#i-alert"/></svg>View findings</a>{% endif %}
 {% endblock %}
 {% block content %}
+{% set warnings = job_warnings(job) %}
+{% if job.status == 'done' and warnings %}
+<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Done with warnings — coverage is incomplete.</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul><p class="small" style="margin:8px 0 0">Re-run with the <a href="/nuclei">Gentle profile</a>, a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.</p></div></div>
+{% endif %}
 <div class="card mb">
   <div class="card-body">
     <dl class="meta" style="margin:0">
-      <div><dt>Status</dt><dd><span id="job-status" class="status st-{{ job.status }}">{{ job.status }}</span></dd></div>
+      <div><dt>Status</dt><dd>{% if job.status == 'done' and warnings %}<span id="job-status" class="status st-warning">Done with warnings</span>{% else %}<span id="job-status" class="status st-{{ job.status }}">{{ job.status }}</span>{% endif %}</dd></div>
       <div><dt>Kind</dt><dd><span class="chip">{{ job.kind }}</span></dd></div>
       <div><dt>Created</dt><dd class="num">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd></div>
       <div><dt>Started</dt><dd class="num">{{ job.started_at.strftime('%H:%M:%S') if job.started_at else '—' }}</dd></div>

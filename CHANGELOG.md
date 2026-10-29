@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Nuclei scan profiles (Gentle / Normal / Aggressive) and a "never drop unresponsive hosts" switch.
+- Post-scan log analysis: jobs whose target was dropped as unresponsive, that had many request errors or
+  nuclei [ERR]/[WRN] lines finish as "Done with warnings"; the Findings page flags incomplete results.
+  Existing jobs are analyzed once on startup.
+
 ### Changed
 - nuclei runs without `-silent` and with periodic stats, so the job log shows templates/targets loaded,
   httpx probing and errors; jobs end with a stored-findings summary line. nmap jobs report hosts/services stored.

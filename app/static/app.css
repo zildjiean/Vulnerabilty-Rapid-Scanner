@@ -207,7 +207,7 @@ fieldset{border:none;padding:0;margin:0;min-width:0}legend{font-size:12.5px;font
 .badge.sev-critical::before,.badge.sev-high::before,.badge.sev-medium::before,.badge.sev-low::before,.badge.sev-info::before,.badge.sev-unknown::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .status{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px;text-transform:capitalize}
 .status::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
-.status.st-queued{color:var(--text-3)}.status.st-running{color:var(--info)}.status.st-done{color:var(--success)}.status.st-failed{color:var(--danger)}.status.st-cancelled{color:var(--warning)}
+.status.st-queued{color:var(--text-3)}.status.st-running{color:var(--info)}.status.st-done{color:var(--success)}.status.st-failed{color:var(--danger)}.status.st-cancelled{color:var(--warning)}.status.st-warning{color:var(--warning)}
 .status.st-running::before{animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;background:var(--surface-3);color:var(--text-2);font-size:12px;border:1px solid var(--border)}

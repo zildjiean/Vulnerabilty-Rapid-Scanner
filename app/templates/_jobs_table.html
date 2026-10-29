@@ -6,7 +6,7 @@
   <tr>
     <td class="num"><a href="/jobs/{{ j.id }}">#{{ j.id }}</a></td>
     <td><span class="chip">{{ j.kind }}</span></td>
-    <td><span class="status st-{{ j.status }}">{{ j.status }}</span></td>
+    <td>{% set w = job_warnings(j) %}{% if j.status == 'done' and w %}<span class="status st-warning" title="{{ w|join(' | ') }}">Done with warnings</span>{% else %}<span class="status st-{{ j.status }}">{{ j.status }}</span>{% endif %}</td>
     <td class="small text-2"><span class="truncate" title="{{ job_summary(j) }}">{{ job_summary(j) or '—' }}</span></td>
     <td class="small num">{{ j.started_at.strftime('%Y-%m-%d %H:%M:%S') if j.started_at else '—' }}</td>
     <td class="small num">{{ j.duration ~ 's' if j.duration is not none else '—' }}</td>

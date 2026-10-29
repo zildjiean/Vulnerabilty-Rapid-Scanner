@@ -18,6 +18,7 @@ from .routers import (auth as auth_router, dashboard as dashboard_router, invent
 from .routers.templates import reindex_in_background
 from .routers.updates import start_update_job
 from .rules import seed_example_rule
+from .scanners.nuclei_runner import backfill_nuclei_warnings
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -32,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             seed_admin(db)
             seed_example_rule(db)
             fail_interrupted_jobs(db)
+            backfill_nuclei_warnings(db)
             needs_index = db.scalar(select(TemplateIndex).limit(1)) is None
         app.state.job_runner = JobRunner(SessionLocal)
         app.state.indexing = False
