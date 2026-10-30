@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Thai user guide ([docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md)) covering setup, every menu and troubleshooting.
+- Compact sidebar: daily pages (Dashboard, Issues, Campaigns, Inventory, Reports) on top; Scanning, Detection library
+  and System as collapsible groups that remember their state. Administration links moved under System.
 - AI assistant with your own provider and key (Administration → AI): Anthropic Claude (official SDK, default
   `claude-opus-5-5`, structured outputs, refusal handling and server-side fallback), OpenAI, Azure OpenAI, Google Gemini
   and any OpenAI-compatible server (official OpenAI SDK). Features: campaign draft from an advisory, detection-template
