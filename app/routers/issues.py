@@ -1,0 +1,220 @@
+"""Issues: list with KPIs and bulk actions, detail with timeline, triage actions; SLA settings."""
+from __future__ import annotations
+
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session, selectinload
+
+from .. import issues as iss
+from ..audit import audit
+from ..authz import require
+from ..db import Finding, Issue, Rule, User, utcnow
+from ..deps import get_db, verify_csrf
+from ..render import SEVERITY_ORDER, render, templates
+
+router = APIRouter()
+LIST_LIMIT = 1000
+VIEWS = {"active": iss.ACTIVE, "closed": iss.CLOSED, "all": iss.STATUSES}
+
+templates.env.globals.update(
+    issue_status_labels=iss.STATUS_LABELS, issue_confidence_labels=iss.CONFIDENCE_LABELS,
+    issue_is_overdue=iss.is_overdue, issue_severities=iss.ISSUE_SEVERITIES,
+)
+
+
+def assignable_users(db: Session) -> list[User]:
+    return list(db.scalars(select(User).where(User.is_active.is_(True), User.role.in_(("admin", "analyst")))
+                           .order_by(User.username)))
+
+
+def issue_kpis(db: Session) -> dict:
+    now = utcnow()
+    active = list(db.scalars(select(Issue).where(Issue.status.in_(iss.ACTIVE))))
+    open_work = [i for i in active if i.status in iss.OPEN_WORK]
+    return {
+        "active": len(active),
+        "overdue": sum(1 for i in open_work if iss.is_overdue(i, now)),
+        "due_soon": sum(1 for i in open_work if i.due_at and now <= i.due_at <= now + timedelta(days=7)),
+        "unassigned": sum(1 for i in open_work if i.assignee_id is None),
+        "confirmed": sum(1 for i in active if i.confidence == "confirmed"),
+        "suspected": sum(1 for i in active if i.confidence == "suspected"),
+        "awaiting_verification": sum(1 for i in active if i.status == "fixed"),
+        "critical": sum(1 for i in open_work if i.severity == "critical"),
+    }
+
+
+def _sort_key(i: Issue):
+    return (SEVERITY_ORDER.get(i.severity, 99), i.due_at or utcnow() + timedelta(days=36500), -i.id)
+
+
+def list_context(request: Request, db: Session, view: str = "active", severity: str = "", status: str = "",
+                 assignee: str = "", confidence: str = "", overdue: str = "", q: str = "") -> dict:
+    view = view if view in VIEWS else "active"
+    stmt = select(Issue).options(selectinload(Issue.assignee))
+    stmt = stmt.where(Issue.status == status) if status in iss.STATUSES else stmt.where(Issue.status.in_(VIEWS[view]))
+    if severity in iss.ISSUE_SEVERITIES:
+        stmt = stmt.where(Issue.severity == severity)
+    if confidence in iss.CONFIDENCE_LABELS:
+        stmt = stmt.where(Issue.confidence == confidence)
+    if assignee == "me":
+        stmt = stmt.where(Issue.assignee_id == request.state.user.id)
+    elif assignee == "none":
+        stmt = stmt.where(Issue.assignee_id.is_(None))
+    elif assignee.isdigit():
+        stmt = stmt.where(Issue.assignee_id == int(assignee))
+    ql = q.strip()
+    if ql:
+        like = f"%{ql}%"
+        stmt = stmt.where(or_(Issue.title.ilike(like), Issue.asset.ilike(like), Issue.vuln_id.ilike(like),
+                              Issue.hostname.ilike(like), Issue.template_id.ilike(like)))
+    rows = list(db.scalars(stmt))
+    if overdue:
+        rows = [i for i in rows if iss.is_overdue(i)]
+    rows.sort(key=_sort_key)
+    filters = {"view": view, "severity": severity, "status": status, "assignee": assignee, "confidence": confidence,
+               "overdue": overdue, "q": q}
+    return dict(active="issues", issues=rows[:LIST_LIMIT], truncated=len(rows) > LIST_LIMIT, kpis=issue_kpis(db),
+                users=assignable_users(db), f=filters, statuses=iss.STATUSES)
+
+
+@router.get("/issues")
+def issues_page(request: Request, view: str = "active", severity: str = "", status: str = "", assignee: str = "",
+                confidence: str = "", overdue: str = "", q: str = "", db: Session = Depends(get_db)):
+    return render(request, "issues.html", **list_context(request, db, view, severity, status, assignee, confidence,
+                                                         overdue, q))
+
+
+def _get(db: Session, issue_id: int) -> Issue:
+    issue = db.get(Issue, issue_id)
+    if issue is None:
+        raise HTTPException(404)
+    return issue
+
+
+def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200, error: str | None = None):
+    findings = list(db.scalars(select(Finding).where(Finding.issue_id == issue.id).order_by(Finding.id.desc()).limit(50)))
+    rule = db.get(Rule, issue.rule_id) if issue.rule_id else None
+    return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
+                  findings=findings, rule=rule, users=assignable_users(db),
+                  transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
+                  sla=iss.get_sla(db))
+
+
+def _label(issue: Issue) -> str:
+    return f"#{issue.id} {issue.vuln_id} on {issue.asset}"
+
+
+def _actor(request: Request, db: Session) -> User:
+    return db.get(User, request.state.user.id)
+
+
+@router.get("/issues/{issue_id}")
+def issue_detail(request: Request, issue_id: int, db: Session = Depends(get_db)):
+    return _detail(request, db, _get(db, issue_id))
+
+
+@router.post("/issues/bulk", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
+def issues_bulk(request: Request, issue_ids: list[int] = Form(default=[]), action: str = Form(""),
+                assignee: str = Form(""), status: str = Form(""), comment: str = Form(""), db: Session = Depends(get_db)):
+    if not issue_ids or action not in ("assign", "status"):
+        return render(request, "issues.html", status_code=400, error="Select at least one issue and an action.",
+                      **list_context(request, db))
+    actor = _actor(request, db)
+    target_user = db.get(User, int(assignee)) if action == "assign" and assignee.isdigit() else None
+    updated = skipped = 0
+    for issue in db.scalars(select(Issue).where(Issue.id.in_(issue_ids))):
+        try:
+            if action == "assign":
+                if issue.assignee_id != (target_user.id if target_user else None):
+                    iss.assign(db, issue, target_user, actor)
+            else:
+                iss.change_status(db, issue, status, actor, comment)
+            updated += 1
+        except ValueError:
+            skipped += 1
+    db.commit()
+    audit(db, request, "issue.bulk_updated", target=f"{updated} issue(s)", operation=action,
+          value=(target_user.username if target_user else "unassigned") if action == "assign" else status,
+          skipped=skipped)
+    msg = f"Updated {updated} issue(s)" + (f", skipped {skipped} (transition not allowed)" if skipped else "")
+    return RedirectResponse("/issues?msg=" + msg.replace(" ", "+"), status_code=303)
+
+
+@router.post("/issues/{issue_id}/status", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
+def issue_status(request: Request, issue_id: int, status: str = Form(""), comment: str = Form(""),
+                 db: Session = Depends(get_db)):
+    issue = _get(db, issue_id)
+    old = issue.status
+    try:
+        iss.change_status(db, issue, status, _actor(request, db), comment)
+    except ValueError as e:
+        db.rollback()
+        return _detail(request, db, _get(db, issue_id), status_code=400, error=str(e))
+    db.commit()
+    audit(db, request, "issue.status_changed", target=_label(issue), status=f"{old} -> {status}",
+          **({"comment": comment.strip()[:200]} if comment.strip() else {}))
+    return RedirectResponse(f"/issues/{issue_id}?msg=Status+updated", status_code=303)
+
+
+@router.post("/issues/{issue_id}/assign", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
+def issue_assign(request: Request, issue_id: int, assignee: str = Form(""), db: Session = Depends(get_db)):
+    issue = _get(db, issue_id)
+    user = db.get(User, int(assignee)) if assignee.isdigit() else None
+    if assignee and (user is None or user not in assignable_users(db)):
+        return _detail(request, db, issue, status_code=400, error="That user cannot be assigned issues.")
+    iss.assign(db, issue, user, _actor(request, db))
+    db.commit()
+    audit(db, request, "issue.assigned", target=_label(issue), assignee=user.username if user else "unassigned")
+    return RedirectResponse(f"/issues/{issue_id}?msg=Assignee+updated", status_code=303)
+
+
+@router.post("/issues/{issue_id}/severity", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
+def issue_severity(request: Request, issue_id: int, severity: str = Form(""), db: Session = Depends(get_db)):
+    issue = _get(db, issue_id)
+    old = issue.severity
+    try:
+        iss.set_severity(db, issue, severity, _actor(request, db))
+    except ValueError as e:
+        db.rollback()
+        return _detail(request, db, _get(db, issue_id), status_code=400, error=str(e))
+    db.commit()
+    audit(db, request, "issue.severity_changed", target=_label(issue), severity=f"{old} -> {severity}")
+    return RedirectResponse(f"/issues/{issue_id}?msg=Severity+updated", status_code=303)
+
+
+@router.post("/issues/{issue_id}/comment", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
+def issue_comment(request: Request, issue_id: int, body: str = Form(""), db: Session = Depends(get_db)):
+    issue = _get(db, issue_id)
+    try:
+        iss.add_comment(db, issue, body, _actor(request, db))
+    except ValueError as e:
+        return _detail(request, db, issue, status_code=400, error=str(e))
+    db.commit()
+    audit(db, request, "issue.commented", target=_label(issue))
+    return RedirectResponse(f"/issues/{issue_id}?msg=Comment+added#timeline", status_code=303)
+
+
+# ----------------------------------------------------------------- settings
+@router.get("/settings", dependencies=[Depends(require("settings.manage"))])
+def settings_page(request: Request, db: Session = Depends(get_db)):
+    return render(request, "settings.html", active="settings", sla=iss.get_sla(db), defaults=iss.DEFAULT_SLA)
+
+
+@router.post("/settings", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
+def settings_save(request: Request, critical: str = Form(""), high: str = Form(""), medium: str = Form(""),
+                  low: str = Form(""), db: Session = Depends(get_db)):
+    values = {"critical": critical, "high": high, "medium": medium, "low": low}
+    old = iss.get_sla(db)
+    try:
+        sla = iss.set_sla(db, values)
+    except ValueError as e:
+        db.rollback()
+        return render(request, "settings.html", status_code=400, active="settings", error=str(e),
+                      sla={**old, **{k: v for k, v in values.items()}}, defaults=iss.DEFAULT_SLA)
+    db.commit()
+    audit(db, request, "settings.updated", target="SLA days",
+          **{k: f"{old[k]} -> {sla[k]}" for k in sla if old[k] != sla[k]})
+    return RedirectResponse("/settings?msg=SLA+saved;+due+dates+recalculated", status_code=303)

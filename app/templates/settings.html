@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% set section = "Administration" %}
+{% set page_title = "Settings" %}
+{% set page_subtitle = "Platform-wide settings. Changes are recorded in the audit log." %}
+{% block content %}
+<form method="post" action="/settings" class="card" style="max-width:720px" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-clock"/></svg>Remediation SLA</h2></div>
+  <div class="card-body stack">
+    <p class="text-2">Days allowed from the first sighting of an issue until it must be fixed. Saving recalculates the due date of every issue. Info findings have no SLA and do not create issues.</p>
+    <div class="grid grid-4">
+      {% for s in ['critical','high','medium','low'] %}
+      <div class="field"><label for="{{ s }}"><span class="badge sev-{{ s }}">{{ s }}</span></label><input id="{{ s }}" name="{{ s }}" type="number" min="1" max="3650" required value="{{ sla[s] }}" inputmode="numeric"><span class="hint">default {{ defaults[s] }}</span></div>
+      {% endfor %}
+    </div>
+    <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save SLA</button></div>
+  </div>
+</form>
+{% endblock %}

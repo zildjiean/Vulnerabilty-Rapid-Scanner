@@ -319,3 +319,32 @@ dialog.confirm .actions{display:flex;justify-content:flex-end;gap:8px;margin-top
 .perm-list .icon{color:var(--success)}
 .pager{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 18px;border-top:1px solid var(--border)}
 .text-danger{color:var(--danger)}
+
+/* ---------- Issues ---------- */
+.kpi-link{color:inherit;text-decoration:none;transition:border-color var(--t-fast),box-shadow var(--t-fast)}
+.kpi-link:hover{text-decoration:none;border-color:var(--text-3);box-shadow:var(--shadow-sm)}
+.status.is-new{background:var(--sev-info-bg);color:var(--sev-info)}
+.status.is-triaged{background:var(--warning-soft);color:var(--warning)}
+.status.is-in_progress{background:var(--primary-soft);color:var(--primary)}
+.status.is-fixed{background:var(--success-soft);color:var(--success)}
+.status.is-verified{background:var(--success-soft);color:var(--success);font-weight:700}
+.status.is-false_positive,.status.is-accepted_risk{background:var(--surface-3);color:var(--text-2)}
+.badge.conf-confirmed{background:var(--danger-soft);color:var(--danger)}
+.badge.conf-suspected{background:var(--surface-3);color:var(--text-2);border:1px dashed var(--border-strong)}
+.due{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.due.overdue{color:var(--danger);font-weight:600}
+tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
+.issue-title{font-weight:600;color:var(--text)}
+.bulk-bar select{min-height:34px;width:auto}
+.grid-issue{display:grid;gap:16px;grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+@media (max-width:1100px){.grid-issue{grid-template-columns:1fr}}
+.issue-head .spacer{flex:1}
+.timeline{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--border);display:grid;gap:14px}
+.timeline li{position:relative}
+.timeline li::before{content:"";position:absolute;left:-24px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--text-3)}
+.timeline li.ev-comment::before{border-color:var(--primary);background:var(--primary)}
+.timeline li.ev-reopened::before,.timeline li.ev-confirmed::before{border-color:var(--danger)}
+.timeline li.ev-auto_fixed::before,.timeline li.ev-status::before{border-color:var(--success)}
+.ev-meta{font-size:13px}
+.ev-body{font-size:13.5px;margin-top:2px}
+.comment{white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-top:4px}
