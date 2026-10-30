@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Inventory grouping: a "Group by" control (Host / Product / Service type / None) renders collapsible
+  group header rows with service, host and rule-match counts and a checkbox that selects the whole group;
+  column sorting works within each group. Services are classified into Web, Database, Remote access,
+  Mail, File sharing, Directory & auth, Network services or Other from their nmap name and port.
+- Static assets are served with a content-hash `?v=` token, so browsers pick up new CSS/JS after upgrades.
 - Nuclei scan profiles (Gentle / Normal / Aggressive) and a "never drop unresponsive hosts" switch.
 - Post-scan log analysis: jobs whose target was dropped as unresponsive, that had many request errors or
   nuclei [ERR]/[WRN] lines finish as "Done with warnings"; the Findings page flags incomplete results.

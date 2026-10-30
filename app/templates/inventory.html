@@ -55,7 +55,7 @@
     {% for g in groups %}
     <tr class="group-row" data-group="{{ g.key }}">
       <td><input type="checkbox" data-group-select="{{ g.key }}" aria-label="Select every service in {{ g.label }}"></td>
-      <td colspan="10">
+      <td colspan="10"><div class="group-head">
         <button type="button" class="group-toggle" data-group-toggle="{{ g.key }}" aria-expanded="true">
           <svg class="icon"><use href="#i-chevron-right"/></svg>
           <span class="group-label{{ ' cell-mono' if group_mode == 'host' }}">{{ g.label }}</span>
@@ -66,7 +66,7 @@
           {% if group_mode != 'host' %}<span class="badge neutral num">{{ g.host_count }} host{{ 's' if g.host_count != 1 }}</span>{% endif %}
           {% if g.match_count %}<span class="badge sev-high num" title="0-day rule matches in this group">{{ g.match_count }} rule match{{ 'es' if g.match_count != 1 }}</span>{% endif %}
         </span>
-      </td>
+      </div></td>
     </tr>
     {% for svc, host in g.rows %}{{ service_row(svc, host, g.key) }}{% endfor %}
     {% endfor %}

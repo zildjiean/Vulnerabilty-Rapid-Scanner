@@ -14,6 +14,19 @@ templates.env.filters["fromjson"] = json.loads
 from .jobs import job_warnings  # noqa: E402
 templates.env.globals["job_warnings"] = job_warnings
 
+
+def static_version() -> str:
+    """Cache-busting token derived from the static files' contents (changes on every release)."""
+    import hashlib
+    h = hashlib.sha1()
+    for f in sorted(STATIC_DIR.glob("*")):
+        if f.is_file():
+            h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+templates.env.globals["static_v"] = static_version()
+
 SEVERITIES = ["critical", "high", "medium", "low", "info", "unknown"]
 SEVERITY_ORDER = {s: i for i, s in enumerate(SEVERITIES)}
 

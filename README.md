@@ -17,6 +17,8 @@ Everything runs in one container. No external services, no accounts, works offli
 
 - **Nmap discovery** from the browser: top 1000 ports, all 65 535 ports or a custom range; SYN or connect scan; live log.
 - **Inventory** of every open service with product, version, CPE and hostname. Filter, sort, select, delete.
+  Group the table by host, product or service type (Web, Database, Remote access, Mail, File sharing,
+  Directory & auth, Network services, Other); groups collapse and select as a unit.
 - **Nuclei scanning** with three selection modes: pick templates (search by id, name, tag, CVE), whole template
   groups (`http/cves/2026`, `network`, …) or all templates, plus tag and severity filters.
 - **Findings** view across jobs with severity ordering and search.
@@ -48,7 +50,8 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 
 1. **Nmap** – enter targets (IP, CIDR, range, hostname), choose the port range, start. SYN scans need
    `NET_RAW`/`NET_ADMIN` (granted in `docker-compose.yml`); pick *Connect* if raw sockets are unavailable.
-2. **Inventory** – review hosts and services, filter by product or version, select rows and hand them to nuclei.
+2. **Inventory** – review hosts and services grouped by host, product or service type, filter by product or
+   version, select rows or whole groups and hand them to nuclei.
 3. **Nuclei** – pick templates, groups or everything, optionally narrow by tags / severity, start. Results land in *Findings*.
 4. **0-day drops** – go to *Templates* to upload or pull a template, or to *Version rules* to flag vulnerable
    versions immediately.
