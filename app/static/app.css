@@ -225,6 +225,15 @@ table.data th[data-sort]:hover{color:var(--text)}
 table.data th[data-sort]::after{content:"↕";margin-left:6px;opacity:.4;font-size:11px}
 table.data th[aria-sort=ascending]::after{content:"↑";opacity:1}table.data th[aria-sort=descending]::after{content:"↓";opacity:1}
 table.data td.actions{white-space:nowrap;text-align:right}
+table.data tr.group-row td{background:var(--surface-2);border-top:1px solid var(--border);padding:8px 14px}
+table.data tr.group-row:hover{background:transparent}
+.group-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.group-toggle,.group-toggle:hover{background:none;border:0;padding:0;min-height:28px;color:var(--text);font-weight:600;gap:8px;box-shadow:none}
+.group-toggle .icon{width:16px;height:16px;color:var(--text-3);transition:transform var(--t-fast)}
+.group-toggle[aria-expanded="true"] .icon{transform:rotate(90deg)}
+.group-toggle .group-sub{font-weight:400;color:var(--text-3)}
+.group-meta{display:inline-flex;gap:6px;align-items:center}
+tr.group-row.is-collapsed td{opacity:.85}
 table.data td.actions form{display:inline}
 table.data .cell-mono{font-family:var(--font-mono);font-size:12.5px}
 .table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}

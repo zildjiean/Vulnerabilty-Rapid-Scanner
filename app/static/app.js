@@ -112,10 +112,16 @@
       const dir = th.getAttribute("aria-sort") === "ascending" ? "descending" : "ascending";
       $$("th", table).forEach((o) => o.removeAttribute("aria-sort"));
       th.setAttribute("aria-sort", dir);
-      const rows = Array.from(tbody.rows).filter((r) => !r.dataset.empty);
       const val = (r) => { const c = r.cells[idx]; const t = (c?.dataset.value ?? c?.textContent ?? "").trim(); return type === "num" ? parseFloat(t.replace(/[^0-9.\-]/g, "")) || 0 : t.toLowerCase(); };
-      rows.sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * (dir === "ascending" ? 1 : -1); });
-      rows.forEach((r) => tbody.appendChild(r));
+      const cmp = (a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * (dir === "ascending" ? 1 : -1); };
+      // Group header rows (tr.group-row) split the body into segments; each segment is sorted on its own.
+      const segments = []; let cur = { head: null, rows: [] };
+      Array.from(tbody.rows).forEach((r) => {
+        if (r.dataset.empty) return;
+        if (r.classList.contains("group-row")) { segments.push(cur); cur = { head: r, rows: [] }; } else cur.rows.push(r);
+      });
+      segments.push(cur);
+      segments.forEach((seg) => { seg.rows.sort(cmp); if (seg.head) tbody.appendChild(seg.head); seg.rows.forEach((r) => tbody.appendChild(r)); });
     };
     th.addEventListener("click", run);
     th.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); run(); } });
@@ -130,6 +136,39 @@
     cb.addEventListener("change", () => { boxes().forEach((x) => { x.checked = cb.checked; }); update(); });
     boxes().forEach((x) => x.addEventListener("change", update));
     update();
+  });
+
+  // ---------- Grouped tables: collapse/expand + group selection ----------
+  $$("table.data").forEach((table) => {
+    const groupRows = $$("tr.group-row", table);
+    if (!groupRows.length) return;
+    const rowsOf = (key) => $$('tr[data-group="' + CSS.escape(key) + '"]:not(.group-row)', table);
+    const setOpen = (head, open) => {
+      const btn = $("[data-group-toggle]", head);
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      head.classList.toggle("is-collapsed", !open);
+      rowsOf(head.dataset.group).forEach((r) => { r.hidden = !open; });
+    };
+    groupRows.forEach((head) => {
+      $("[data-group-toggle]", head).addEventListener("click", () => setOpen(head, $("[data-group-toggle]", head).getAttribute("aria-expanded") !== "true"));
+    });
+    $$("[data-groups-expand]").forEach((b) => b.addEventListener("click", () => groupRows.forEach((h) => setOpen(h, true))));
+    $$("[data-groups-collapse]").forEach((b) => b.addEventListener("click", () => groupRows.forEach((h) => setOpen(h, false))));
+    const syncGroupBoxes = () => groupRows.forEach((head) => {
+      const gb = $("[data-group-select]", head); if (!gb) return;
+      const boxes = rowsOf(head.dataset.group).map((r) => $('input[type="checkbox"]', r)).filter(Boolean);
+      const n = boxes.filter((x) => x.checked).length;
+      gb.checked = n > 0 && n === boxes.length; gb.indeterminate = n > 0 && n < boxes.length;
+    });
+    $$("[data-group-select]", table).forEach((gb) => gb.addEventListener("change", () => {
+      const boxes = rowsOf(gb.dataset.groupSelect).map((r) => $('input[type="checkbox"]', r)).filter(Boolean);
+      boxes.forEach((x) => { x.checked = gb.checked; });
+      // let the select-all counter recompute, then settle the group checkbox state
+      if (boxes.length) boxes[0].dispatchEvent(new Event("change", { bubbles: true }));
+      syncGroupBoxes();
+    }));
+    table.addEventListener("change", (e) => { if (e.target.matches('input[type="checkbox"]:not([data-group-select])')) syncGroupBoxes(); });
+    syncGroupBoxes();
   });
 
   // ---------- Live job log (SSE) ----------

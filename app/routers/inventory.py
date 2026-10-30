@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..db import Host, Rule, RuleMatch, Service
 from ..deps import get_db, verify_csrf
+from ..inventory_groups import DEFAULT_GROUP, GROUP_LABELS, group_rows, normalize_group_mode
 from ..render import render
 
 router = APIRouter()
@@ -54,11 +55,12 @@ def load_inventory(db: Session, q: str = "", product: str = "", port: str = "", 
 
 @router.get("/inventory")
 def inventory(request: Request, q: str = "", product: str = "", port: str = "", only_matches: bool = False,
-              db: Session = Depends(get_db)):
+              group: str = DEFAULT_GROUP, db: Session = Depends(get_db)):
     rows, products, matches = load_inventory(db, q, product, port, only_matches)
-    host_count = len({h.id for _, h in rows})
+    group_mode = normalize_group_mode(group)
     return render(request, "inventory.html", active="inventory", rows=rows, products=products, matches=matches,
-                  host_count=host_count, q=q, product=product, port=port, only_matches=only_matches)
+                  host_count=len({h.id for _, h in rows}), q=q, product=product, port=port, only_matches=only_matches,
+                  group_mode=group_mode, group_labels=GROUP_LABELS, groups=group_rows(rows, group_mode, matches))
 
 
 @router.post("/inventory/to-nuclei", dependencies=[Depends(verify_csrf)])
@@ -76,7 +78,8 @@ def _inventory_error(request: Request, db: Session, message: str):
     rows, products, matches = load_inventory(db)
     return render(request, "inventory.html", status_code=400, active="inventory", rows=rows, products=products,
                   matches=matches, host_count=len({h.id for _, h in rows}), q="", product="", port="",
-                  only_matches=False, error=message)
+                  only_matches=False, error=message, group_mode=DEFAULT_GROUP, group_labels=GROUP_LABELS,
+                  groups=group_rows(rows, DEFAULT_GROUP, matches))
 
 
 def delete_services(db: Session, service_ids: list[int]) -> tuple[int, int]:

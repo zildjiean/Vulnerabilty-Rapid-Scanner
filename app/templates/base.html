@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}{{ page_title or 'Scanner' }} · 0-Day Rapid Scanner{% endblock %}</title>
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/app.css?v={{ static_v }}">
 <script>try{var t=localStorage.getItem("zdrs-theme");if(t)document.documentElement.setAttribute("data-theme",t);if(localStorage.getItem("zdrs-sidebar")==="collapsed")document.documentElement.classList.add("pre-collapsed")}catch(e){}</script>
 </head>
 <body>
@@ -86,6 +86,6 @@
     <div class="actions"><button type="button" id="confirm-cancel">Cancel</button><button type="button" class="danger" id="confirm-ok">Confirm</button></div>
   </div>
 </dialog>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v={{ static_v }}"></script>
 </body>
 </html>
