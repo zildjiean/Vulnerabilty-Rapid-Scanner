@@ -1,0 +1,2 @@
+{# usage: {% with perm="scan.run", what="start scans" %}{% include "_readonly.html" %}{% endwith %} #}
+{% if not can(perm) %}<div class="alert info" role="note"><svg class="icon"><use href="#i-info"/></svg><div>Read-only: your <b>{{ role_labels.get(user.role, user.role) }}</b> role cannot {{ what }}. Ask an administrator if you need access.</div></div>{% endif %}

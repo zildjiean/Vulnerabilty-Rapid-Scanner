@@ -37,7 +37,11 @@ def normalize_severity(value) -> str:
 
 
 def render(request: Request, name: str, status_code: int = 200, **ctx):
+    from .authz import ROLE_LABELS, has_perm
     ctx.setdefault("user", getattr(request.state, "user", None))
+    user = ctx["user"]
+    ctx.setdefault("can", lambda perm: has_perm(user, perm))
+    ctx.setdefault("role_labels", ROLE_LABELS)
     ctx.setdefault("csrf", getattr(request.state, "csrf", "") or "")
     ctx.setdefault("msg", request.query_params.get("msg"))
     ctx.setdefault("error", None)

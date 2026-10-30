@@ -3,17 +3,18 @@
 {% set page_title = "Version rules" %}
 {% set page_subtitle = "Flag exposed software by product and version the moment a CVE is announced, before any nuclei template exists. Rules never touch the target and are re-evaluated after every nmap scan." %}
 {% block page_actions %}
-<form method="post" action="/rules/evaluate"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Evaluate now</button></form>
+{% if can('rules.manage') %}<form method="post" action="/rules/evaluate"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Evaluate now</button></form>{% endif %}
 {% endblock %}
 {% block content %}
-<div class="grid grid-2 mb">
-  <form method="post" action="/rules" class="card" data-loading>
+{% with perm="rules.manage", what="create or change version rules" %}{% include "_readonly.html" %}{% endwith %}
+<div class="grid {{ 'grid-2' if can('rules.manage') }} mb">
+  {% if can('rules.manage') %}<form method="post" action="/rules" class="card" data-loading>
     <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>New rule</h2></div>
     <div class="card-body stack">
       {% include "_rule_fields.html" %}
       <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Create rule</button></div>
     </div>
-  </form>
+  </form>{% endif %}
   <div class="card">
     <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>Rules <span class="chip num">{{ rules|length }}</span></h2></div>
     <div class="table-wrap">
@@ -22,13 +23,13 @@
       <tbody>
       {% for r in rules %}
       <tr style="{{ '' if r.enabled else 'opacity:.6' }}">
-        <td><form method="post" action="/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" role="switch" aria-checked="{{ 'true' if r.enabled else 'false' }}" aria-label="{{ 'Disable' if r.enabled else 'Enable' }} rule {{ r.name }}" title="{{ 'Disable' if r.enabled else 'Enable' }}"><svg class="icon" style="color:{{ 'var(--success)' if r.enabled else 'var(--text-3)' }}"><use href="#i-{{ 'check-circle' if r.enabled else 'power' }}"/></svg></button></form></td>
+        <td>{% if can('rules.manage') %}<form method="post" action="/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" role="switch" aria-checked="{{ 'true' if r.enabled else 'false' }}" aria-label="{{ 'Disable' if r.enabled else 'Enable' }} rule {{ r.name }}" title="{{ 'Disable' if r.enabled else 'Enable' }}"><svg class="icon" style="color:{{ 'var(--success)' if r.enabled else 'var(--text-3)' }}"><use href="#i-{{ 'check-circle' if r.enabled else 'power' }}"/></svg></button></form>{% else %}<span class="badge neutral">{{ 'on' if r.enabled else 'off' }}</span>{% endif %}</td>
         <td>{{ r.name }}</td><td class="cell-mono small">{{ r.product_pattern }}</td><td class="cell-mono small">{{ r.version_constraint }}</td>
         <td class="cell-mono small">{{ r.cve_id }}</td><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td>
-        <td class="actions"><a class="btn ghost sm" href="/rules/{{ r.id }}/edit"><svg class="icon sm"><use href="#i-edit"/></svg>Edit</a>
-          <form method="post" action="/rules/{{ r.id }}/delete" data-confirm="Delete rule '{{ r.name }}'?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm danger" type="submit" style="border-color:transparent"><svg class="icon sm"><use href="#i-trash"/></svg>Delete</button></form></td>
+        <td class="actions">{% if can('rules.manage') %}<a class="btn ghost sm" href="/rules/{{ r.id }}/edit"><svg class="icon sm"><use href="#i-edit"/></svg>Edit</a>
+          <form method="post" action="/rules/{{ r.id }}/delete" data-confirm="Delete rule '{{ r.name }}'?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm danger" type="submit" style="border-color:transparent"><svg class="icon sm"><use href="#i-trash"/></svg>Delete</button></form>{% endif %}</td>
       </tr>
-      {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-rule"/></svg><b>No rules yet</b>Create one on the left.</div></td></tr>{% endfor %}
+      {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-rule"/></svg><b>No rules yet</b>{{ 'Create one on the left.' if can('rules.manage') }}</div></td></tr>{% endfor %}
       </tbody>
     </table>
     </div>

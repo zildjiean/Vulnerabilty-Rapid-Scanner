@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import Job
+from ..audit import audit
+from ..authz import require
 from ..deps import get_db, get_runner, verify_csrf
 from ..render import render
 
@@ -82,9 +84,10 @@ def job_status(job_id: int, db: Session = Depends(get_db)):
     return JSONResponse({"id": job.id, "kind": job.kind, "status": job.status, "exit_code": job.exit_code})
 
 
-@router.post("/jobs/{job_id}/cancel", dependencies=[Depends(verify_csrf)])
-def job_cancel(job_id: int, runner=Depends(get_runner)):
+@router.post("/jobs/{job_id}/cancel", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
+def job_cancel(request: Request, job_id: int, runner=Depends(get_runner), db: Session = Depends(get_db)):
     runner.cancel(job_id)
+    audit(db, request, "job.cancelled", target=f"job #{job_id}", job_id=job_id)
     return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
 

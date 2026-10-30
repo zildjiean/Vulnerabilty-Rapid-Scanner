@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% set section = "Error" %}
+{% set page_title = title %}
+{% block content %}
+<div class="card" style="max-width:640px"><div class="card-body stack">
+  <div class="alert {{ 'warn' if status == 403 else 'error' }}" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>{{ message }}</div></div>
+  {% if status == 403 and user %}
+  <p class="text-2">You are signed in as <b>{{ user.username }}</b> with the <span class="badge neutral">{{ user.role }}</span> role. Ask an administrator if you need more access.</p>
+  {% endif %}
+  <div class="row"><a class="btn" href="javascript:history.back()">Go back</a><a class="btn ghost" href="/">Dashboard</a></div>
+</div></div>
+{% endblock %}

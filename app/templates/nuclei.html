@@ -4,6 +4,7 @@
 {% set page_subtitle = "Run one or many nuclei templates against URLs or host:port targets. Search the index by id, name, tag or CVE." %}
 {% block page_actions %}<a class="btn" href="/templates"><svg class="icon"><use href="#i-file"/></svg>Manage templates</a>{% endblock %}
 {% block content %}
+{% with perm="scan.run", what="start scans" %}{% include "_readonly.html" %}{% endwith %}
 <form method="post" action="/nuclei/scan" id="nuclei-form" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grid grid-2 mb">
@@ -91,7 +92,7 @@
   </div>
   <div class="row between center mb">
     <span class="muted small">The job runs in the background. Findings are stored per job and in the global findings list.</span>
-    <button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>Start nuclei scan</button>
+    <button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start nuclei scan</button>
   </div>
 </form>
 <div class="card">

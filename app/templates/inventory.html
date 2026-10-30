@@ -3,8 +3,8 @@
 {% set page_title = "Inventory" %}
 {% set page_subtitle = "Every open service discovered by nmap with product, version and CPE. Select rows to hand them to nuclei." %}
 {% block page_actions %}
-<form method="post" action="/inventory/clear" data-confirm="Remove every host and service from the inventory? Findings and jobs are kept. This cannot be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="danger" {{ 'disabled' if not rows and not q and not product and not port and not only_matches }}><svg class="icon"><use href="#i-trash"/></svg>Clear inventory</button></form>
-<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New scan</a>
+{% if can('inventory.manage') %}<form method="post" action="/inventory/clear" data-confirm="Remove every host and service from the inventory? Findings and jobs are kept. This cannot be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="danger" {{ 'disabled' if not rows and not q and not product and not port and not only_matches }}><svg class="icon"><use href="#i-trash"/></svg>Clear inventory</button></form>{% endif %}
+{% if can('scan.run') %}<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New scan</a>{% endif %}
 {% endblock %}
 {% block content %}
 <form method="get" action="/inventory" class="card mb">
@@ -26,8 +26,8 @@
     <div class="text-2"><b class="num">{{ rows|length }}</b> service(s) on <b class="num">{{ host_count }}</b> host(s) · <span class="num" data-selected-count>0</span> selected</div>
     <div class="row center">
       {% if groups %}<button type="button" class="ghost" data-groups-expand>Expand all</button><button type="button" class="ghost" data-groups-collapse>Collapse all</button>{% endif %}
-      <button class="danger" type="submit" formaction="/inventory/delete" data-needs-selection data-confirm="Delete the selected services from the inventory? Hosts left without services are removed as well. Rule matches for them are dropped. This does not touch the targets."><svg class="icon"><use href="#i-trash"/></svg>Delete selected</button>
-      <button class="primary" type="submit" data-needs-selection><svg class="icon"><use href="#i-bug"/></svg>Scan selected with nuclei</button>
+      {% if can('inventory.manage') %}<button class="danger" type="submit" formaction="/inventory/delete" data-needs-selection data-confirm="Delete the selected services from the inventory? Hosts left without services are removed as well. Rule matches for them are dropped. This does not touch the targets."><svg class="icon"><use href="#i-trash"/></svg>Delete selected</button>{% endif %}
+      {% if can('scan.run') %}<button class="primary" type="submit" data-needs-selection><svg class="icon"><use href="#i-bug"/></svg>Scan selected with nuclei</button>{% endif %}
     </div>
   </div>
   <div class="table-wrap">

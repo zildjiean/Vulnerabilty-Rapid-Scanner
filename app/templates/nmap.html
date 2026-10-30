@@ -3,6 +3,7 @@
 {% set page_title = "Nmap scan" %}
 {% set page_subtitle = "Discover hosts and fingerprint services with version detection. Results are parsed into the inventory when the job completes." %}
 {% block content %}
+{% with perm="scan.run", what="start scans" %}{% include "_readonly.html" %}{% endwith %}
 <div class="grid grid-2">
   <form method="post" action="/nmap/scan" class="card" data-loading>
     <div class="card-head"><h2><svg class="icon"><use href="#i-radar"/></svg>Scan configuration</h2></div>
@@ -37,7 +38,7 @@
       </div>
       <label class="check"><input type="checkbox" name="skip_ping" value="true" {{ 'checked' if form.skip_ping }}> Skip host discovery (-Pn) — treat every target as up</label>
       <p class="muted small">Service and version detection (<code>-sV</code>) is always enabled.</p>
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>Start nmap scan</button></div>
+      <div><button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start nmap scan</button></div>
     </div>
   </form>
   <div class="card">

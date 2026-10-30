@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from ..audit import audit
+from ..authz import require
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import render
 from ..templates_index import count_templates
@@ -35,9 +37,10 @@ async def updates_page(request: Request, db: Session = Depends(get_db), settings
                   indexing=getattr(request.app.state, "indexing", False))
 
 
-@router.post("/updates/{action}", dependencies=[Depends(verify_csrf)])
+@router.post("/updates/{action}", dependencies=[Depends(require("system.update")), Depends(verify_csrf)])
 async def updates_run(request: Request, action: str, db: Session = Depends(get_db)):
     if action not in UPDATE_ACTIONS:
         raise HTTPException(404)
     job = start_update_job(request.app, db, action)
+    audit(db, request, "system.update", target=action, job_id=job.id)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)

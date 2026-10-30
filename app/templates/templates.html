@@ -3,7 +3,7 @@
 {% set page_title = "Nuclei templates" %}
 {% set page_subtitle = "Official nuclei-templates plus your own custom templates for vulnerabilities that have no public check yet." %}
 {% block page_actions %}
-<form method="post" action="/templates/reindex"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" {{ 'disabled' if indexing }}><svg class="icon"><use href="#i-refresh"/></svg>Re-index</button></form>
+{% if can('templates.manage') %}<form method="post" action="/templates/reindex"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" {{ 'disabled' if indexing }}><svg class="icon"><use href="#i-refresh"/></svg>Re-index</button></form>{% endif %}
 {% endblock %}
 {% block content %}
 <div class="grid grid-3 mb">
@@ -14,6 +14,7 @@
 {% if not templates_dir_exists %}
 <div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>Official templates directory <code>{{ templates_dir }}</code> does not exist yet. Go to <a href="/updates">Updates</a> and run "Update nuclei templates".</div></div>
 {% endif %}
+{% if can('templates.manage') %}
 <div class="grid grid-2 mb">
   <form method="post" action="/templates/upload" enctype="multipart/form-data" class="card" data-loading>
     <div class="card-head"><h2><svg class="icon"><use href="#i-upload"/></svg>Upload custom templates</h2></div>
@@ -32,6 +33,7 @@
     </div>
   </form>
 </div>
+{% else %}{% with perm="templates.manage", what="upload, pull or delete templates" %}{% include "_readonly.html" %}{% endwith %}{% endif %}
 <div class="card mb">
   <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Custom templates <span class="chip num">{{ custom|length }}</span></h2></div>
   <div class="table-wrap">
@@ -43,7 +45,7 @@
       <td class="cell-mono">{{ t.template_id }}</td><td>{{ t.name }}</td>
       <td><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span></td>
       <td class="small text-2">{{ t.tags }}</td><td class="cell-mono small">{{ t.cve_ids }}</td>
-      <td class="actions"><form method="post" action="/templates/delete" data-confirm="Delete custom template {{ t.template_id }}? This cannot be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="path" value="{{ t.path }}"><button class="link danger" type="submit"><svg class="icon sm"><use href="#i-trash"/></svg>Delete</button></form></td>
+      <td class="actions">{% if can('templates.manage') %}<form method="post" action="/templates/delete" data-confirm="Delete custom template {{ t.template_id }}? This cannot be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="path" value="{{ t.path }}"><button class="link danger" type="submit"><svg class="icon sm"><use href="#i-trash"/></svg>Delete</button></form>{% endif %}</td>
     </tr>
     {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-file"/></svg><b>No custom templates yet</b>Upload a YAML file or pull one from a URL.</div></td></tr>{% endfor %}
     </tbody>

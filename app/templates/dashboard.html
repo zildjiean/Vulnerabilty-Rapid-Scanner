@@ -3,8 +3,8 @@
 {% set page_title = "Dashboard" %}
 {% set page_subtitle = "Exposure overview across discovered hosts, nuclei findings and version-rule matches." %}
 {% block page_actions %}
-<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New nmap scan</a>
-<a class="btn primary" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>New nuclei scan</a>
+{% if can('scan.run') %}<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New nmap scan</a>
+<a class="btn primary" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>New nuclei scan</a>{% endif %}
 {% endblock %}
 {% block content %}
 {% set sev_total = sev_counts.critical + sev_counts.high + sev_counts.medium + sev_counts.low + sev_counts.info %}

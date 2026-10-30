@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import TemplateIndex
+from ..audit import audit
+from ..authz import require
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import render
 from .. import templates_index as ti
@@ -69,13 +71,14 @@ def templates_search(q: str = "", severity: str = "", source: str = "", db: Sess
                           "cve_ids": r.cve_ids, "source": r.source, "path": r.path} for r in rows])
 
 
-@router.post("/templates/reindex", dependencies=[Depends(verify_csrf)])
-async def templates_reindex(request: Request):
+@router.post("/templates/reindex", dependencies=[Depends(require("templates.manage")), Depends(verify_csrf)])
+async def templates_reindex(request: Request, db: Session = Depends(get_db)):
     asyncio.get_running_loop().create_task(reindex_in_background(request.app))
+    audit(db, request, "template.reindexed", target="template index")
     return RedirectResponse("/templates?msg=Re-indexing+started", status_code=303)
 
 
-@router.post("/templates/upload", dependencies=[Depends(verify_csrf)])
+@router.post("/templates/upload", dependencies=[Depends(require("templates.manage")), Depends(verify_csrf)])
 async def templates_upload(request: Request, files: list[UploadFile], db: Session = Depends(get_db), settings=Depends(get_settings)):
     saved, errors = [], []
     for f in files:
@@ -93,12 +96,14 @@ async def templates_upload(request: Request, files: list[UploadFile], db: Sessio
             continue
         index_single(db, path, "custom")
         saved.append(path.name)
+    if saved:
+        audit(db, request, "template.uploaded", target=", ".join(saved), files=len(saved), rejected=len(errors))
     if errors:
         return _page(request, db, settings, error="; ".join(errors), status_code=400)
     return RedirectResponse(f"/templates?msg=Saved+{len(saved)}+template(s)", status_code=303)
 
 
-@router.post("/templates/pull", dependencies=[Depends(verify_csrf)])
+@router.post("/templates/pull", dependencies=[Depends(require("templates.manage")), Depends(verify_csrf)])
 async def templates_pull(request: Request, url: str = Form(""), db: Session = Depends(get_db), settings=Depends(get_settings)):
     try:
         text = await asyncio.to_thread(fetch_template_from_url, url.strip(), ti.http_fetch)
@@ -110,14 +115,16 @@ async def templates_pull(request: Request, url: str = Form(""), db: Session = De
         path.unlink(missing_ok=True)
         return _page(request, db, settings, error=f"nuclei validation failed: {line}", status_code=400)
     index_single(db, path, "custom")
+    audit(db, request, "template.pulled", target=path.name, url=url.strip())
     return RedirectResponse(f"/templates?msg=Pulled+{path.name}", status_code=303)
 
 
-@router.post("/templates/delete", dependencies=[Depends(verify_csrf)])
+@router.post("/templates/delete", dependencies=[Depends(require("templates.manage")), Depends(verify_csrf)])
 def templates_delete(request: Request, path: str = Form(""), db: Session = Depends(get_db), settings=Depends(get_settings)):
     if not is_custom_path(settings, path):
         return _page(request, db, settings, error="Only custom templates can be deleted.", status_code=400)
     p = Path(path)
     p.unlink(missing_ok=True)
     remove_from_index(db, p)
+    audit(db, request, "template.deleted", target=p.name)
     return RedirectResponse(f"/templates?msg=Deleted+{p.name}", status_code=303)
