@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_campaign_macros.html" import kev_badge, progress_bar %}
+{% from "_issue_macros.html" import status_badge, confidence_badge %}
+{% set section = "Reports" %}
+{% set page_title = "Campaign report: " ~ c.name %}
+{% set page_subtitle = "Generated " ~ generated.strftime('%Y-%m-%d %H:%M') ~ " UTC" %}
+{% block page_actions %}<a class="btn ghost no-print" href="/campaigns/{{ c.id }}">Open campaign</a><button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>Print / Save as PDF</button>{% endblock %}
+{% block content %}
+<div class="card mb"><div class="card-body stack">
+  <div class="row center" style="gap:8px">{% if c.cve_id %}<span class="cell-mono">{{ c.cve_id }}</span>{% endif %}<span class="badge sev-{{ c.severity }}">{{ c.severity }}</span>{{ kev_badge(c) }}{% if c.cvss_score is not none %}<span class="small">CVSS {{ c.cvss_version }} <b>{{ c.cvss_score }}</b></span>{% endif %}<span class="status {{ 'st-running' if c.status == 'active' else 'st-done' }}">{{ c.status }}</span></div>
+  {% if c.description %}<p class="intel-desc">{{ c.description }}</p>{% endif %}
+  {% if c.kev %}<p class="small">CISA KEV: added {{ c.kev_date_added }}, federal due date <b>{{ c.kev_due }}</b>{% if c.kev_ransomware %}, known ransomware use{% endif %}. {{ c.kev_action }}</p>{% endif %}
+</div></div>
+<div class="grid grid-4 mb">
+  <div class="card kpi"><div><div class="kpi-label">Exposed assets</div><div class="kpi-value">{{ p.total }}</div><div class="kpi-sub">{{ p.confirmed }} confirmed · {{ p.suspected }} suspected</div></div></div>
+  <div class="card kpi"><div><div class="kpi-label">Open</div><div class="kpi-value">{{ p.open }}</div></div></div>
+  <div class="card kpi"><div style="flex:1"><div class="kpi-label">Remediated</div><div class="kpi-value">{{ p.remediated_pct }}%</div>{{ progress_bar(p) }}</div></div>
+  <div class="card kpi"><div><div class="kpi-label">Verified</div><div class="kpi-value">{{ p.verified }}</div><div class="kpi-sub">{{ p.fixed }} awaiting verification</div></div></div>
+</div>
+<div class="card"><div class="table-wrap"><table class="data">
+  <thead><tr><th>Asset</th><th>Severity</th><th>Confidence</th><th>Status</th><th>Assignee</th><th>First seen</th><th>Resolved</th></tr></thead>
+  <tbody>{% for i in issues %}<tr><td class="cell-mono small">{{ i.asset }}{% if i.hostname %} {{ i.hostname }}{% endif %}</td><td><span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td><td>{{ confidence_badge(i.confidence) }}</td><td>{{ status_badge(i.status) }}</td><td class="small">{{ i.assignee.username if i.assignee else '—' }}</td><td class="small num">{{ i.first_seen.strftime('%Y-%m-%d') }}</td><td class="small num">{{ i.resolved_at.strftime('%Y-%m-%d') if i.resolved_at else '—' }}</td></tr>
+  {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><b>No exposed assets</b></div></td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

@@ -53,7 +53,8 @@ def _sort_key(i: Issue):
 
 
 def list_context(request: Request, db: Session, view: str = "active", severity: str = "", status: str = "",
-                 assignee: str = "", confidence: str = "", overdue: str = "", q: str = "", scope: str = "") -> dict:
+                 assignee: str = "", confidence: str = "", overdue: str = "", q: str = "", scope: str = "",
+                 limit: int = LIST_LIMIT) -> dict:
     view = view if view in VIEWS else "active"
     stmt = select(Issue).options(selectinload(Issue.assignee), selectinload(Issue.scope))
     if scope == "none":
@@ -83,7 +84,7 @@ def list_context(request: Request, db: Session, view: str = "active", severity: 
     filters = {"view": view, "severity": severity, "status": status, "assignee": assignee, "confidence": confidence,
                "overdue": overdue, "q": q, "scope": scope}
     from ..db import Scope
-    return dict(scopes=list(db.scalars(select(Scope).order_by(Scope.name))), active="issues", issues=rows[:LIST_LIMIT], truncated=len(rows) > LIST_LIMIT, kpis=issue_kpis(db),
+    return dict(scopes=list(db.scalars(select(Scope).order_by(Scope.name))), active="issues", issues=rows[:limit], truncated=len(rows) > limit, kpis=issue_kpis(db),
                 users=assignable_users(db), f=filters, statuses=iss.STATUSES)
 
 
