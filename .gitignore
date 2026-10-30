@@ -4,3 +4,7 @@ __pycache__/
 .pytest_cache/
 data/
 *.db
+
+# editor swap files
+*.swp
+*.swo

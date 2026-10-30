@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import Host, Rule, RuleMatch, Service
+from ..audit import audit
+from ..authz import require
 from ..deps import get_db, verify_csrf
 from ..render import SEVERITIES, render
 from ..rules import evaluate_rules, validate_rule
@@ -47,7 +49,7 @@ def rules_page(request: Request, db: Session = Depends(get_db)):
     return _rules_page(request, db)
 
 
-@router.post("/rules", dependencies=[Depends(verify_csrf)])
+@router.post("/rules", dependencies=[Depends(require("rules.manage")), Depends(verify_csrf)])
 def rules_create(request: Request, name: str = Form(""), product_pattern: str = Form(""), version_constraint: str = Form(""),
                  cve_id: str = Form(""), severity: str = Form("high"), description: str = Form(""), enabled: bool = Form(False),
                  db: Session = Depends(get_db)):
@@ -55,14 +57,17 @@ def rules_create(request: Request, name: str = Form(""), product_pattern: str = 
     err = _validate_form(form)
     if err:
         return _rules_page(request, db, form=form, error=err, status_code=400)
-    db.add(Rule(**form))
+    rule = Rule(**form)
+    db.add(rule)
     db.commit()
     evaluate_rules(db)
     db.commit()
+    audit(db, request, "rule.created", target=rule.name, rule_id=rule.id, product=rule.product_pattern,
+          constraint=rule.version_constraint, cve=rule.cve_id)
     return RedirectResponse("/rules?msg=Rule+created+and+evaluated", status_code=303)
 
 
-@router.get("/rules/{rule_id}/edit")
+@router.get("/rules/{rule_id}/edit", dependencies=[Depends(require("rules.manage"))])
 def rule_edit_page(request: Request, rule_id: int, db: Session = Depends(get_db)):
     rule = db.get(Rule, rule_id)
     if rule is None:
@@ -71,7 +76,7 @@ def rule_edit_page(request: Request, rule_id: int, db: Session = Depends(get_db)
     return render(request, "rule_form.html", active="rules", rule=rule, form=form)
 
 
-@router.post("/rules/{rule_id}/edit", dependencies=[Depends(verify_csrf)])
+@router.post("/rules/{rule_id}/edit", dependencies=[Depends(require("rules.manage")), Depends(verify_csrf)])
 def rule_edit(request: Request, rule_id: int, name: str = Form(""), product_pattern: str = Form(""), version_constraint: str = Form(""),
               cve_id: str = Form(""), severity: str = Form("high"), description: str = Form(""), enabled: bool = Form(False),
               db: Session = Depends(get_db)):
@@ -87,11 +92,13 @@ def rule_edit(request: Request, rule_id: int, name: str = Form(""), product_patt
     db.commit()
     evaluate_rules(db)
     db.commit()
+    audit(db, request, "rule.updated", target=rule.name, rule_id=rule.id, product=rule.product_pattern,
+          constraint=rule.version_constraint, cve=rule.cve_id, enabled=rule.enabled)
     return RedirectResponse("/rules?msg=Rule+updated+and+evaluated", status_code=303)
 
 
-@router.post("/rules/{rule_id}/toggle", dependencies=[Depends(verify_csrf)])
-def rule_toggle(rule_id: int, db: Session = Depends(get_db)):
+@router.post("/rules/{rule_id}/toggle", dependencies=[Depends(require("rules.manage")), Depends(verify_csrf)])
+def rule_toggle(request: Request, rule_id: int, db: Session = Depends(get_db)):
     rule = db.get(Rule, rule_id)
     if rule is None:
         raise HTTPException(404)
@@ -99,20 +106,24 @@ def rule_toggle(rule_id: int, db: Session = Depends(get_db)):
     db.commit()
     evaluate_rules(db)
     db.commit()
+    audit(db, request, "rule.toggled", target=rule.name, rule_id=rule.id, enabled=rule.enabled)
     return RedirectResponse("/rules", status_code=303)
 
 
-@router.post("/rules/{rule_id}/delete", dependencies=[Depends(verify_csrf)])
-def rule_delete(rule_id: int, db: Session = Depends(get_db)):
+@router.post("/rules/{rule_id}/delete", dependencies=[Depends(require("rules.manage")), Depends(verify_csrf)])
+def rule_delete(request: Request, rule_id: int, db: Session = Depends(get_db)):
     rule = db.get(Rule, rule_id)
     if rule is not None:
+        name = rule.name
         db.delete(rule)
         db.commit()
+        audit(db, request, "rule.deleted", target=name, rule_id=rule_id)
     return RedirectResponse("/rules?msg=Rule+deleted", status_code=303)
 
 
-@router.post("/rules/evaluate", dependencies=[Depends(verify_csrf)])
-def rules_evaluate(db: Session = Depends(get_db)):
+@router.post("/rules/evaluate", dependencies=[Depends(require("rules.manage")), Depends(verify_csrf)])
+def rules_evaluate(request: Request, db: Session = Depends(get_db)):
     n = evaluate_rules(db)
     db.commit()
+    audit(db, request, "rule.evaluated", target="all enabled rules", matches=n)
     return RedirectResponse(f"/rules?msg={n}+match(es)+found", status_code=303)

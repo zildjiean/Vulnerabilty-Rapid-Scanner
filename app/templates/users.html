@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% set section = "Administration" %}
+{% set page_title = "Users" %}
+{% set page_subtitle = "Who can sign in and what their role allows. New users receive a temporary password they must change at first sign-in." %}
+{% block content %}
+{% if secret %}
+<div class="alert ok" role="status">
+  <svg class="icon"><use href="#i-key"/></svg>
+  <div class="stack" style="gap:8px">
+    <div>{{ 'Created' if secret.reason == 'created' else 'Reset the password of' }} <b>{{ secret.username }}</b>. Share this temporary password over a secure channel. It is shown <b>only once</b> and must be changed at first sign-in.</div>
+    <div class="row center"><code class="secret" data-secret="{{ secret.password }}">{{ secret.password }}</code><button type="button" class="sm" data-copy="{{ secret.password }}"><svg class="icon sm"><use href="#i-copy"/></svg>Copy</button></div>
+  </div>
+</div>
+{% endif %}
+<div class="grid grid-users mb">
+  <form method="post" action="/users" class="card" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>New user</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label for="username">Username <span class="req" aria-hidden="true">*</span></label><input id="username" name="username" required autocomplete="off" value="{{ form.username }}" pattern="[A-Za-z0-9][A-Za-z0-9._@\-]{1,63}"></div>
+      <div class="field"><label for="display_name">Display name</label><input id="display_name" name="display_name" value="{{ form.display_name }}"></div>
+      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ form.email }}"></div>
+      <fieldset class="field"><legend>Role</legend>
+        <div class="role-list">
+        {% for r in roles %}
+          <label class="role-opt"><input type="radio" name="role" value="{{ r }}" {{ 'checked' if r == form.role }}><span><b>{{ role_labels[r] }}</b><span class="small text-2">{{ role_descriptions[r] }}</span></span></label>
+        {% endfor %}
+        </div>
+      </fieldset>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-plus"/></svg>Create user</button></div>
+    </div>
+  </form>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Users <span class="chip num">{{ users|length }}</span></h2></div>
+    <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th data-sort="text">User</th><th data-sort="text">Role</th><th data-sort="text">Status</th><th data-sort="text">Last sign-in</th><th></th></tr></thead>
+      <tbody>
+      {% for u in users %}
+      <tr style="{{ '' if u.is_active else 'opacity:.6' }}">
+        <td><div class="row center" style="gap:10px;flex-wrap:nowrap"><span class="avatar" aria-hidden="true">{{ u.username[:1]|upper }}</span>
+          <div><b>{{ u.username }}</b>{% if u.id == user.id %} <span class="badge neutral">you</span>{% endif %}<div class="small text-2">{{ u.display_name or '' }}{% if u.display_name and u.email %} · {% endif %}{{ u.email or '' }}</div></div></div></td>
+        <td><span class="badge role-{{ u.role }}">{{ role_labels.get(u.role, u.role) }}</span></td>
+        <td>{% if not u.is_active %}<span class="status st-cancelled">inactive</span>{% elif u.must_change_password %}<span class="status st-queued">password change pending</span>{% else %}<span class="status st-done">active</span>{% endif %}</td>
+        <td class="small text-2 num" data-value="{{ u.last_login_at.isoformat() if u.last_login_at else '' }}">{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') if u.last_login_at else 'never' }}</td>
+        <td class="actions"><a class="btn ghost sm" href="/users/{{ u.id }}"><svg class="icon sm"><use href="#i-edit"/></svg>Manage</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from ..audit import audit
+from ..authz import require
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..render import render
 from ..scanners.nmap_runner import build_nmap_argv, on_nmap_complete
@@ -25,7 +27,7 @@ def nmap_page(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, dict(DEFAULT_FORM))
 
 
-@router.post("/nmap/scan", dependencies=[Depends(verify_csrf)])
+@router.post("/nmap/scan", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
 async def nmap_scan(request: Request, targets: str = Form(""), port_mode: str = Form("top"), custom_ports: str = Form(""),
               timing: str = Form("T3"), skip_ping: bool = Form(False), scan_type: str = Form("syn"),
               db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
@@ -40,4 +42,5 @@ async def nmap_scan(request: Request, targets: str = Form(""), port_mode: str = 
     job = runner.create_job(db, "nmap", argv, params={"targets": target_list, "port_mode": port_mode,
                                                       "custom_ports": custom_ports, "scan_type": scan_type})
     runner.start(job.id, argv, on_complete=on_nmap_complete, stdout_to_log=False)
+    audit(db, request, "scan.nmap", target=", ".join(target_list), job_id=job.id, port_mode=port_mode, scan_type=scan_type)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)

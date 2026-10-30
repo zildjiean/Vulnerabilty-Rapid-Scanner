@@ -42,6 +42,13 @@
         <a href="/updates" class="{{ 'active' if active == 'updates' }}" {% if active == 'updates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-refresh"/></svg><span>Updates</span></a>
         <a href="/jobs" class="{{ 'active' if active == 'jobs' }}" {% if active == 'jobs' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-activity"/></svg><span>Jobs</span></a>
       </div>
+      {% if can('users.manage') or can('audit.view') %}
+      <div class="nav-group">
+        <div class="nav-group-label">Administration</div>
+        {% if can('users.manage') %}<a href="/users" class="{{ 'active' if active == 'users' }}" {% if active == 'users' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-users"/></svg><span>Users</span></a>{% endif %}
+        {% if can('audit.view') %}<a href="/audit" class="{{ 'active' if active == 'audit' }}" {% if active == 'audit' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-scroll"/></svg><span>Audit log</span></a>{% endif %}
+      </div>
+      {% endif %}
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="collapse-btn" id="collapse-btn" aria-label="Collapse sidebar"><svg class="icon"><use href="#i-chevrons-left"/></svg><span>Collapse</span></button>
@@ -54,8 +61,7 @@
       <div class="crumbs" aria-label="Breadcrumb"><span>{{ section or 'Scanner' }}</span><svg class="icon sm"><use href="#i-chevron-right"/></svg><b>{{ page_title or '' }}</b></div>
       <div class="spacer"></div>
       <button type="button" class="icon-btn ghost theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle theme"><svg class="icon sun"><use href="#i-sun"/></svg><svg class="icon moon"><use href="#i-moon"/></svg></button>
-      <a class="icon-btn btn ghost" href="/change-password" aria-label="Change password" title="Change password"><svg class="icon"><use href="#i-key"/></svg></a>
-      <div class="user-chip"><span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span><span class="small">{{ user.username }}</span></div>
+      <a class="user-chip" href="/profile" title="Your profile"><span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span><span class="stack" style="gap:0"><span class="small">{{ user.display_name or user.username }}</span><span class="role">{{ role_labels.get(user.role, user.role) }}</span></span></a>
       <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-logout"/></svg>Logout</button></form>
     </header>
     <main class="content" id="main" tabindex="-1">

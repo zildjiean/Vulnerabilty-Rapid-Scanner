@@ -27,6 +27,8 @@ Everything runs in one container. No external services, no accounts, works offli
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
 - **Updates** for nuclei templates, the nuclei engine and the nmap script DB, each as a tracked job.
 - **Jobs** with persisted logs, Server-Sent Events streaming, cancel, and automatic cleanup after restarts.
+- **Team access**: multiple users with **admin / analyst / viewer** roles, one-time temporary passwords, deactivation
+  that ends sessions immediately, and a filterable, CSV-exportable **audit log** of every sign-in and change.
 - **Security basics**: forced password change on first login, CSRF tokens, login rate limiting, HttpOnly session
   cookie, argv-only subprocesses with allow-list validated targets, non-root container.
 - **Enterprise-grade UI**: sidebar navigation, light/dark theme, KPI cards, sortable tables, keyboard and
@@ -57,6 +59,25 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
    versions immediately.
 5. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
    rebuilding the image: `docker compose build --pull --no-cache && docker compose up -d`.
+
+## Users and roles
+
+| Permission | Admin | Analyst | Viewer |
+|---|:-:|:-:|:-:|
+| Read every page, job log, finding and inventory row | ✓ | ✓ | ✓ |
+| Start nmap / nuclei scans, cancel jobs | ✓ | ✓ | |
+| Delete inventory services, clear the inventory | ✓ | ✓ | |
+| Manage version rules and custom templates | ✓ | ✓ | |
+| Update nmap, nuclei and the templates | ✓ | | |
+| Manage users, read and export the audit log | ✓ | | |
+
+Admins add users under *Administration → Users*. The scanner generates a temporary password that is shown once;
+the user must replace it at first sign-in. Deactivating a user, resetting their password or changing their role
+signs them out everywhere. You cannot deactivate, delete or demote yourself, and the last active admin is protected.
+Users who existed before roles were introduced are upgraded to admin automatically.
+
+Everything that changes state is written to *Administration → Audit log* (who, what, target, details, source IP),
+including failed sign-ins and denied attempts. Filter by user, action group and date range, or export to CSV.
 
 ## Configuration
 

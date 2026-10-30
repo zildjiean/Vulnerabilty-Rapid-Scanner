@@ -3,6 +3,7 @@
 {% set page_title = "Updates" %}
 {% set page_subtitle = "Keep the detection engines and template feeds current. Every action runs as a job with a live log." %}
 {% block content %}
+{% with perm="system.update", what="run updates" %}{% include "_readonly.html" %}{% endwith %}
 <div class="grid grid-4 mb">
   <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-radar"/></svg></div><div><div class="kpi-label">nmap</div><div class="kpi-value" style="font-size:22px">{{ versions.nmap }}</div><div class="kpi-sub">binary version</div></div></div>
   <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-bug"/></svg></div><div><div class="kpi-label">nuclei engine</div><div class="kpi-value" style="font-size:22px">{{ versions.nuclei }}</div><div class="kpi-sub">{% if templates.nuclei_latest_version != 'unknown' %}latest {{ templates.nuclei_latest_version }}{% else %}installed{% endif %}</div></div></div>
@@ -17,7 +18,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <h2>{{ a.label }}</h2>
       <p class="text-2 small" style="flex:1">{{ a.help }}</p>
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Run update</button></div>
+      <div><button class="primary" type="submit" {{ 'disabled' if not can('system.update') }}><svg class="icon"><use href="#i-refresh"/></svg>Run update</button></div>
     </div>
   </form>
   {% endfor %}

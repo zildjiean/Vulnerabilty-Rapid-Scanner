@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% set section = "Administration" %}
+{% set page_title = "Manage " ~ target.username %}
+{% set page_subtitle = "Role changes sign the user out so the new permissions apply immediately." %}
+{% set is_self = target.id == user.id %}
+{% block page_actions %}<a class="btn ghost" href="/users">Back to users</a>{% endblock %}
+{% block content %}
+<div class="grid grid-2">
+  <form method="post" action="/users/{{ target.id }}" class="card" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Profile and role</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label>Username</label><input value="{{ target.username }}" disabled></div>
+      <div class="field"><label for="display_name">Display name</label><input id="display_name" name="display_name" value="{{ target.display_name }}"></div>
+      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ target.email }}"></div>
+      <fieldset class="field"><legend>Role</legend>
+        <div class="role-list">
+        {% for r in roles %}
+          <label class="role-opt"><input type="radio" name="role" value="{{ r }}" {{ 'checked' if r == target.role }} {{ 'disabled' if is_self and r != target.role }}><span><b>{{ role_labels[r] }}</b><span class="small text-2">{{ role_descriptions[r] }}</span></span></label>
+        {% endfor %}
+        </div>
+        {% if is_self %}<input type="hidden" name="role" value="{{ target.role }}"><span class="hint">You cannot change your own role.</span>{% endif %}
+      </fieldset>
+      <div class="row"><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save</button><a class="btn ghost" href="/users">Cancel</a></div>
+    </div>
+  </form>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-shield"/></svg>Access</h2></div>
+    <div class="card-body stack">
+      <dl class="kv">
+        <dt>Status</dt><dd>{% if not target.is_active %}<span class="status st-cancelled">inactive</span>{% elif target.must_change_password %}<span class="status st-queued">password change pending</span>{% else %}<span class="status st-done">active</span>{% endif %}</dd>
+        <dt>Last sign-in</dt><dd class="num">{{ target.last_login_at.strftime('%Y-%m-%d %H:%M') if target.last_login_at else 'never' }}</dd>
+        <dt>Created</dt><dd class="num">{{ target.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+      </dl>
+      {% if is_self %}
+      <p class="text-2 small">You cannot deactivate, delete or reset yourself here. Change your own password from <a href="/profile">your profile</a>.</p>
+      {% else %}
+      <div class="danger-zone stack">
+        <form method="post" action="/users/{{ target.id }}/reset-password" data-confirm="Reset the password of {{ target.username }}? They are signed out and get a new temporary password."><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-key"/></svg>Reset password</button><span class="hint">Generates a temporary password and signs the user out.</span></form>
+        <form method="post" action="/users/{{ target.id }}/active" {% if target.is_active %}data-confirm="Deactivate {{ target.username }}? They are signed out and cannot sign in until reactivated."{% endif %}><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-power"/></svg>{{ 'Deactivate' if target.is_active else 'Activate' }}</button><span class="hint">{{ 'Blocks sign-in and ends current sessions. History is kept.' if target.is_active else 'Allows the user to sign in again.' }}</span></form>
+        <form method="post" action="/users/{{ target.id }}/delete" data-confirm="Delete {{ target.username }} permanently? Audit entries keep their username."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit"><svg class="icon"><use href="#i-trash"/></svg>Delete user</button><span class="hint">Prefer deactivating: deletion cannot be undone.</span></form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

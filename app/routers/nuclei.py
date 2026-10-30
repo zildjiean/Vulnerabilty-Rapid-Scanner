@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import Finding, Job, TemplateIndex
+from ..audit import audit
+from ..authz import require
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..jobs import quote_argv
 from ..render import SEVERITIES, SEVERITY_ORDER, render
@@ -51,7 +53,7 @@ def nuclei_page(request: Request, targets: str = "", db: Session = Depends(get_d
     return render(request, "nuclei.html", **nuclei_page_context(db, targets=targets, settings=settings))
 
 
-@router.post("/nuclei/scan", dependencies=[Depends(verify_csrf)])
+@router.post("/nuclei/scan", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
 async def nuclei_scan(request: Request, targets: str = Form(""), template_paths: list[str] = Form(default=[]),
                       mode: str = Form("selected"), groups: list[str] = Form(default=[]), tags: str = Form(""),
                       severities: list[str] = Form(default=[]), rate_limit: int = Form(150), timeout: int = Form(10),
@@ -94,6 +96,8 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
     job.command = quote_argv(argv)
     db.commit()
     runner.start(job.id, argv, on_complete=on_nuclei_complete, stdout_to_log=True)
+    audit(db, request, "scan.nuclei", target=", ".join(target_list), job_id=job.id, mode=mode, profile=profile,
+          templates=len(paths), severities=",".join(severities))
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 

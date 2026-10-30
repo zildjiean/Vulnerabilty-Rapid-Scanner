@@ -47,7 +47,8 @@ def validate_new_password(new: str, confirm: str, current: str) -> str | None:
 
 def seed_admin(db: Session) -> None:
     if db.scalar(select(User).limit(1)) is None:
-        db.add(User(username=DEFAULT_USERNAME, password_hash=hash_password(DEFAULT_PASSWORD), must_change_password=True))
+        db.add(User(username=DEFAULT_USERNAME, password_hash=hash_password(DEFAULT_PASSWORD), must_change_password=True,
+                    role="admin"))
         db.commit()
 
 
@@ -55,8 +56,8 @@ class SessionStore:
     def __init__(self, secret_key: str):
         self._s = URLSafeTimedSerializer(secret_key, salt="zdrs-session")
 
-    def encode(self, user_id: int) -> str:
-        return self._s.dumps({"uid": user_id, "csrf": secrets.token_urlsafe(24)})
+    def encode(self, user_id: int, session_version: int = 0) -> str:
+        return self._s.dumps({"uid": user_id, "sv": session_version, "csrf": secrets.token_urlsafe(24)})
 
     def decode(self, token: str) -> dict | None:
         try:
@@ -103,7 +104,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if data:
             with app.state.SessionLocal() as db:
                 user = db.get(User, data["uid"])
-            if user is not None:
+            # a deactivated user, or one whose sessions were revoked (password reset, deactivation), is signed out
+            if user is not None and user.is_active and data.get("sv", 0) == user.session_version:
                 request.state.user = user
                 request.state.csrf = data["csrf"]
 
