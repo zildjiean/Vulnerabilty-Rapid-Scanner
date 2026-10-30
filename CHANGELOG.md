@@ -18,6 +18,9 @@ All notable changes to this project are documented here. The format follows
   Existing jobs are analyzed once on startup.
 
 ### Changed
+- "Done with warnings" request-error rule: warn when at least 2 % of requests failed and at least 5 did
+  (previously any 20+ errors warned, which flagged healthy 10k-request scans). Finished jobs are re-analyzed
+  once on startup when the rules change.
 - nuclei runs without `-silent` and with periodic stats, so the job log shows templates/targets loaded,
   httpx probing and errors; jobs end with a stored-findings summary line. nmap jobs report hosts/services stored.
 - nuclei pinned to v3.11.1 in the Dockerfile.
