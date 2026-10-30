@@ -61,6 +61,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: StarletteHTTPException):
         from fastapi.exception_handlers import http_exception_handler
+        if isinstance(exc, Forbidden):
+            from .audit import audit
+            with request.app.state.SessionLocal() as db:
+                audit(db, request, "auth.denied", target=f"{request.method} {request.url.path}", permission=exc.perm)
         accept = request.headers.get("accept", "")
         wants_json = "application/json" in accept and "text/html" not in accept
         if exc.status_code not in (403, 404) or wants_json or request.url.path.endswith(("/status", "/stream", "/search")):

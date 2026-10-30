@@ -86,7 +86,7 @@ Permissions are defined once in `app/authz.py`.
 - Table `audit_log`: `id, created_at, user_id, username, action, target, details (JSON), ip`.
   `username` is copied so entries survive user deletion.
 - `app/audit.py` → `audit(db, request, action, target="", **details)` adds and commits a row.
-- Recorded actions: `auth.login`, `auth.login_failed`, `auth.logout`, `auth.password_changed`,
+- Recorded actions: `auth.login`, `auth.login_failed`, `auth.denied`, `auth.logout`, `auth.password_changed`,
   `profile.updated`, `user.created|updated|activated|deactivated|password_reset|deleted`,
   `scan.nmap`, `scan.nuclei`, `job.cancelled`, `inventory.deleted`, `inventory.cleared`,
   `rule.created|updated|toggled|deleted|evaluated`, `template.uploaded|pulled|deleted|reindexed`,

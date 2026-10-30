@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Users and roles: admin, analyst and viewer. Every mutating route checks a permission, and pages hide or disable
+  what the role cannot do. Existing users become admins through an automatic schema migration.
+- Administration → Users: create users with a one-time temporary password, edit role and details,
+  activate / deactivate, reset password, delete. Self and last-active-admin guards. Deactivation, password reset
+  and role changes end the user's sessions.
+- Profile page: display name, email, role permissions and your recent activity.
+- Administration → Audit log: sign-ins (including failures), denied attempts, scans, inventory, rule, template, update and user
+  changes with source IP. Filters, paging and CSV export (formula-safe; exports are audited).
+- In-app "Access denied" / "Not found" pages.
 - Inventory grouping: a "Group by" control (Host / Product / Service type / None) renders collapsible
   group header rows with service, host and rule-match counts and a checkbox that selects the whole group;
   column sorting works within each group. Services are classified into Web, Database, Remote access,

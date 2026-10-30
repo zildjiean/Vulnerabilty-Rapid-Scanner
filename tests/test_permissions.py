@@ -114,3 +114,14 @@ def test_actions_are_audited(auth):
     assert got["scan.nmap"].target == "10.0.0.9"
     assert got["rule.created"].target == "PHP old"
     assert got["system.update"].target == "nuclei-templates"
+
+
+def test_denied_attempts_are_audited(auth):
+    _as(auth, "viewer")
+    csrf = get_csrf(auth, "/")
+    auth.post("/inventory/clear", data={"csrf": csrf})
+    auth.get("/users")
+    with auth.app.state.SessionLocal() as db:
+        denied = list(db.scalars(select(AuditLog).where(AuditLog.action == "auth.denied").order_by(AuditLog.id)))
+    assert [(d.username, d.target) for d in denied] == [("u-viewer", "POST /inventory/clear"), ("u-viewer", "GET /users")]
+    assert "inventory.manage" in denied[0].details
