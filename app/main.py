@@ -49,15 +49,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         elif needs_index:
             asyncio.get_running_loop().create_task(reindex_in_background(app))
         from .scheduler import scheduler_loop
+        from .notifications import notifications_loop
         app.state.scheduler_task = asyncio.get_running_loop().create_task(scheduler_loop(app))
+        app.state.notifications_task = asyncio.get_running_loop().create_task(notifications_loop(app))
         yield
         app.state.scheduler_task.cancel()
+        app.state.notifications_task.cancel()
 
     app = FastAPI(title="0-Day Rapid Scanner", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.settings = settings
     app.state.SessionLocal = SessionLocal
     app.state.sessions = SessionStore(settings.secret_key)
     app.state.login_limiter = LoginRateLimiter()
+    from . import channels
+    from .secretbox import SecretBox
+    app.state.secretbox = SecretBox(settings.secret_key)
+    app.state.http = channels.real_http
+    app.state.smtp_send = channels.real_smtp_send
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.add_middleware(AuthMiddleware)
     for r in (auth_router, dashboard_router, jobs_router, nmap_router, inventory_router, nuclei_router,

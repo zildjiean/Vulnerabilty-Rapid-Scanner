@@ -209,6 +209,9 @@ async def run_schedule(app, schedule_id: int, manual: bool = False, actor=None, 
         s.last_status, s.last_message = status, message
         if job is not None:
             s.last_job_id = job.id
+        if status == "error":
+            from .notifications import notify, schedule_message
+            notify(db, "schedule.error", message=schedule_message(db, s, message))
         db.commit()
         audit(db, request, "schedule.run", target=s.name, user=actor,
               **({} if actor else {"username": "scheduler"}), schedule_id=s.id, status=status,
