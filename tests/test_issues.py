@@ -300,3 +300,5 @@ def test_backfill_is_idempotent(db):
     confirmed = db.scalar(select(Issue).where(Issue.confidence == "confirmed"))
     assert confirmed.first_seen == datetime(2026, 10, 1, 8, 0) and confirmed.last_seen == datetime(2026, 10, 2, 8, 0)
     assert confirmed.occurrences == 2
+    # timeline shows when the scan saw it, not when the backfill ran
+    assert [e.created_at for e in confirmed.events] == [datetime(2026, 10, 1, 8, 0), datetime(2026, 10, 2, 8, 0)]

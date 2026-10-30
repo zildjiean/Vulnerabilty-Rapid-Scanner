@@ -21,7 +21,12 @@ Everything runs in one container. No external services, no accounts, works offli
   Directory & auth, Network services, Other); groups collapse and select as a unit.
 - **Nuclei scanning** with three selection modes: pick templates (search by id, name, tag, CVE), whole template
   groups (`http/cves/2026`, `network`, …) or all templates, plus tag and severity filters.
-- **Findings** view across jobs with severity ordering and search.
+- **Issues** that turn findings into work: one issue per vulnerability per asset, deduplicated across scans.
+  Version-rule matches open *suspected* issues instantly; nuclei results open or confirm them. Lifecycle
+  New → Triaged → In progress → Fixed → Verified (or False positive / Accepted risk with a reason), owners,
+  SLA due dates (critical 3, high 7, medium 30, low 90 days by default), timeline and comments, bulk triage.
+  Fixed issues reopen when seen again; suspected issues close themselves when a re-scan shows a patched version.
+- **Findings** view across jobs with severity ordering and search; every finding links to its issue.
 - **0-day response** without waiting for upstream:
   - upload custom nuclei templates or pull them from a raw URL (validated with `nuclei -validate`);
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
@@ -57,7 +62,9 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 3. **Nuclei** – pick templates, groups or everything, optionally narrow by tags / severity, start. Results land in *Findings*.
 4. **0-day drops** – go to *Templates* to upload or pull a template, or to *Version rules* to flag vulnerable
    versions immediately.
-5. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
+5. **Issues** – triage what was found: assign an owner, move it through the lifecycle, watch the SLA, and
+   re-scan to verify the fix.
+6. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
    rebuilding the image: `docker compose build --pull --no-cache && docker compose up -d`.
 
 ## Users and roles
@@ -68,8 +75,9 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 | Start nmap / nuclei scans, cancel jobs | ✓ | ✓ | |
 | Delete inventory services, clear the inventory | ✓ | ✓ | |
 | Manage version rules and custom templates | ✓ | ✓ | |
+| Triage issues (status, owner, severity, comments) | ✓ | ✓ | |
 | Update nmap, nuclei and the templates | ✓ | | |
-| Manage users, read and export the audit log | ✓ | | |
+| Manage users, SLA settings, read and export the audit log | ✓ | | |
 
 Admins add users under *Administration → Users*. The scanner generates a temporary password that is shown once;
 the user must replace it at first sign-in. Deactivating a user, resetting their password or changing their role

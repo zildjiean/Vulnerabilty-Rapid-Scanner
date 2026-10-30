@@ -139,8 +139,9 @@ def is_overdue(issue: Issue, now: datetime | None = None) -> bool:
 
 
 # ----------------------------------------------------------------- events
-def _event(db: Session, issue: Issue, kind: str, actor=None, from_value="", to_value="", body="") -> IssueEvent:
-    ev = IssueEvent(issue_id=issue.id, kind=kind, user_id=getattr(actor, "id", None),
+def _event(db: Session, issue: Issue, kind: str, actor=None, from_value="", to_value="", body="",
+           at: datetime | None = None) -> IssueEvent:
+    ev = IssueEvent(issue_id=issue.id, kind=kind, created_at=at or utcnow(), user_id=getattr(actor, "id", None),
                     username=getattr(actor, "username", None) or "system",
                     from_value=str(from_value or "")[:255], to_value=str(to_value or "")[:255], body=body or "")
     db.add(ev)
@@ -173,7 +174,7 @@ def upsert_issue(db: Session, *, address: str, port: str, hostname: str, vuln_id
                       status_changed_at=utcnow(), occurrences=1, due_at=compute_due(seen_at, severity, sla))
         db.add(issue)
         db.flush()
-        _event(db, issue, "created", body=source)
+        _event(db, issue, "created", body=source, at=seen_at)
         return issue, True
 
     if seen_at < issue.first_seen:
@@ -186,7 +187,7 @@ def upsert_issue(db: Session, *, address: str, port: str, hostname: str, vuln_id
     issue.rule_id = issue.rule_id or rule_id
     if count_sighting:
         issue.occurrences += 1
-        _event(db, issue, "seen", body=source)
+        _event(db, issue, "seen", body=source, at=seen_at)
     if confidence == "confirmed" and issue.confidence != "confirmed":
         issue.confidence = "confirmed"
         issue.title = title[:512] or issue.title

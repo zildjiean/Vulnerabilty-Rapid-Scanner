@@ -45,7 +45,7 @@ Automation (recorded as events by `system`):
 
 Default days from first seen: critical 3, high 7, medium 30, low 90 (no SLA for info / unknown). Stored in
 `app_settings`; admins edit them on a Settings page, which recomputes due dates of active issues.
-Overdue = active and past due.
+Overdue = new, triaged or in progress and past due (fixed counts as remediated for the SLA).
 
 ## Data model
 
