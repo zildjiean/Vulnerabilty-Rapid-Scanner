@@ -11,6 +11,8 @@
   <a class="card kpi kpi-link" href="/issues?assignee=none"><div class="kpi-icon warn"><svg class="icon"><use href="#i-user"/></svg></div><div><div class="kpi-label">Unassigned</div><div class="kpi-value" data-kpi="unassigned">{{ kpis.unassigned }}</div><div class="kpi-sub">open work without an owner</div></div></a>
   <a class="card kpi kpi-link" href="/issues?status=fixed"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div><div class="kpi-label">Awaiting verification</div><div class="kpi-value" data-kpi="fixed">{{ kpis.awaiting_verification }}</div><div class="kpi-sub">marked fixed, re-scan to verify</div></div></a>
 </div>
+{% from "_ai.html" import ask_bar with context %}
+{{ ask_bar('/issues', 'Ask in plain language, e.g. "overdue critical issues in the DMZ assigned to nobody"') }}
 <form method="get" action="/issues" class="card mb">
   <div class="card-body row" style="align-items:flex-end">
     <div class="field" style="flex:2;min-width:200px"><label for="q">Search</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="q" name="q" placeholder="CVE, title, asset, hostname" value="{{ f.q }}"></div></div>

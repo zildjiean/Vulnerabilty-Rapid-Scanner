@@ -4,6 +4,28 @@
 {% set page_subtitle = "Start the response to a new vulnerability. Everything except a name or CVE is optional and can be added later." %}
 {% block page_actions %}<a class="btn ghost" href="/campaigns">Cancel</a>{% endblock %}
 {% block content %}
+{% from "_ai.html" import ai_badge %}
+{% if ai_draft %}
+<div class="alert {{ 'warn' if ai_draft.warning else 'info' }}" role="status"><svg class="icon"><use href="#i-spark"/></svg><div>
+  <b>AI draft filled the form below ({{ ai_draft.provider }} · {{ ai_draft.model }}, confidence {{ ai_draft.confidence or 'n/a' }}).</b> Review every field before creating the campaign.
+  {% if ai_draft.warning %}<div><b>Check the suggested rule:</b> {{ ai_draft.warning }}</div>{% endif %}
+  {% if ai_draft.notes %}<div class="small" style="margin-top:4px">{{ ai_draft.notes }}</div>{% endif %}
+  {% if ai_draft.terms %}<div class="small" style="margin-top:4px">Template search: {% for t in ai_draft.terms %}<a href="/templates?q={{ t|urlencode }}">{{ t }}</a>{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}
+</div></div>
+{% endif %}
+{% if ai_ready %}
+<form method="post" action="/ai/campaign-draft" class="card mb" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card-head"><h2>{{ ai_badge() }} Draft from an advisory</h2></div>
+  <div class="card-body stack">
+    <div class="row">
+      <div class="field w-md"><label for="ai-cve">CVE id</label><input id="ai-cve" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-12345"></div>
+      <div class="field" style="flex:1"><label for="ai-advisory">Advisory text, vendor bulletin or notes</label><textarea id="ai-advisory" name="advisory" rows="3" placeholder="Paste the advisory. With only a CVE id, the NVD description is used."></textarea></div>
+    </div>
+    <div><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>Draft campaign with AI</button></div>
+  </div>
+</form>
+{% endif %}
 <form method="post" action="/campaigns" class="grid grid-2" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card">

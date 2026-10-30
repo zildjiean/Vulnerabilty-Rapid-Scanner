@@ -47,7 +47,8 @@ def render(request: Request, name: str, status_code: int = 200, **ctx):
     ctx.setdefault("ai_ready", bool(getattr(request.app.state, "ai_ready", False)) and has_perm(user, "ai.use"))
     ctx.setdefault("csrf", getattr(request.state, "csrf", "") or "")
     ctx.setdefault("msg", request.query_params.get("msg"))
-    ctx.setdefault("error", None)
+    if ctx.get("error") is None:  # errors from a redirect (e.g. a failed AI call) arrive as ?err=
+        ctx["error"] = request.query_params.get("err")
     ctx.setdefault("active", "")
     ctx.setdefault("severities", SEVERITIES)
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)

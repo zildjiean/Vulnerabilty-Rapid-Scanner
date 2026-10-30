@@ -8,6 +8,14 @@
 <button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>Print / Save as PDF</button>
 {% endblock %}
 {% block content %}
+{% from "_ai.html" import ai_meta, ai_badge %}
+{% if ai_summary or ai_ready %}
+<div class="card mb">
+  <div class="card-head"><h2>{{ ai_badge() }} Summary</h2>
+    {% if ai_ready %}<form method="post" action="/ai/reports/summary" class="no-print" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="days" value="{{ r.days }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>{{ 'Rewrite' if ai_summary else 'Write' }} summary with AI</button></form>{% endif %}</div>
+  {% if ai_summary %}<div class="card-body md">{{ ai_summary.content|mdlite }}<div class="no-print">{{ ai_meta(ai_summary) }}</div></div>{% endif %}
+</div>
+{% endif %}
 <div class="grid grid-4 mb">
   <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Open issues</div><div class="kpi-value">{{ r.open_total }}</div><div class="kpi-sub">{{ r.open_by_severity.critical }} critical · {{ r.open_by_severity.high }} high · {{ r.open_by_severity.medium }} medium · {{ r.open_by_severity.low }} low</div></div></div>
   <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">Overdue</div><div class="kpi-value">{{ r.overdue }}</div><div class="kpi-sub">{{ r.awaiting_verification }} fixed, awaiting verification</div></div></div>

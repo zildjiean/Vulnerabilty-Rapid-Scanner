@@ -49,11 +49,12 @@ def campaigns_page(request: Request, view: str = "active", db: Session = Depends
     return render(request, "campaigns.html", active="campaigns", rows=rows, view=view)
 
 
-def _new_form(request: Request, status_code: int = 200, error: str | None = None, form: dict | None = None):
+def _new_form(request: Request, status_code: int = 200, error: str | None = None, form: dict | None = None,
+              ai_draft: dict | None = None):
     defaults = {"cve_id": "", "name": "", "severity": "auto", "description": "", "product_pattern": "",
                 "version_constraint": "", "attach_templates": True, "fetch_intel": True}
     return render(request, "campaign_new.html", status_code=status_code, active="campaigns", error=error,
-                  form={**defaults, **(form or {})}, severities=ISSUE_SEVERITIES)
+                  form={**defaults, **(form or {})}, severities=ISSUE_SEVERITIES, ai_draft=ai_draft)
 
 
 @router.get("/campaigns/new", dependencies=[Depends(require("campaigns.manage"))])

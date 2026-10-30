@@ -6,6 +6,34 @@
 {% if can('templates.manage') %}<form method="post" action="/templates/reindex"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" {{ 'disabled' if indexing }}><svg class="icon"><use href="#i-refresh"/></svg>Re-index</button></form>{% endif %}
 {% endblock %}
 {% block content %}
+{% from "_ai.html" import ai_badge %}
+{% if draft %}
+<form method="post" action="/templates/save-text" class="card mb" id="ai-draft" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card-head"><h2>{{ ai_badge() }} Template draft{% if draft.template_id %} <span class="cell-mono small">{{ draft.template_id }}</span>{% endif %}</h2>
+    <span class="status {{ 'st-done' if draft.ok else 'st-failed' }}">{{ draft.message }}</span></div>
+  <div class="card-body stack">
+    {% if draft.notes %}<p class="small text-2">{{ draft.notes }}</p>{% endif %}
+    <div class="field"><label for="draft-yaml">Review and edit before saving{% if draft.provider %} (drafted by {{ draft.provider }} · {{ draft.model }}){% endif %}</label>
+      <textarea id="draft-yaml" name="yaml" rows="18" class="code-input" spellcheck="false">{{ draft.yaml }}</textarea></div>
+    <div class="row"><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Validate &amp; save as custom template</button><a class="btn ghost" href="/templates">Discard</a></div>
+  </div>
+</form>
+{% endif %}
+{% if ai_ready and can('templates.manage') %}
+<form method="post" action="/ai/template-draft" class="card mb" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card-head"><h2>{{ ai_badge() }} Draft a detection template</h2><span class="small text-2">detection only · validated with nuclei before you can save</span></div>
+  <div class="card-body stack">
+    <div class="row">
+      <div class="field w-md"><label for="t-cve">CVE id</label><input id="t-cve" name="cve_id" value="{{ draft_cve or (draft.cve_id if draft else '') }}" placeholder="CVE-2026-12345"></div>
+      <div class="field" style="flex:1"><label for="t-hints">Target hints</label><input id="t-hints" name="hints" placeholder="e.g. version shown in /api/version, header Server: Example/1.2"></div>
+    </div>
+    <div class="field"><label for="t-advisory">Advisory / PoC description</label><textarea id="t-advisory" name="advisory" rows="3">{{ draft.advisory if draft else '' }}</textarea></div>
+    <div><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>Draft template with AI</button></div>
+  </div>
+</form>
+{% endif %}
 <div class="grid grid-3 mb">
   <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-file"/></svg></div><div><div class="kpi-label">Official</div><div class="kpi-value num">{{ counts.official }}</div><div class="kpi-sub">templates indexed</div></div></div>
   <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Custom (0-day)</div><div class="kpi-value num">{{ counts.custom }}</div><div class="kpi-sub">uploaded or pulled</div></div></div>
