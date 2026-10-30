@@ -31,6 +31,14 @@
       navToggle.setAttribute("aria-expanded", open ? "true" : "false");
     });
     $("#nav-overlay")?.addEventListener("click", closeNav);
+    $$("[data-nav-group]").forEach((g) => {
+      const btn = $(".nav-group-label", g);
+      const key = "zdrs-nav-" + g.dataset.navGroup;
+      const setOpen = (open) => { g.classList.toggle("closed", !open); btn.setAttribute("aria-expanded", open ? "true" : "false"); };
+      const saved = store.get(key);
+      if (saved && !g.hasAttribute("data-has-active")) setOpen(saved === "open");
+      btn.addEventListener("click", () => { const open = g.classList.contains("closed"); setOpen(open); store.set(key, open ? "open" : "closed"); });
+    });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
   }
 

@@ -85,10 +85,15 @@ code{background:var(--surface-3);padding:1px 6px;border-radius:4px}
 .brand .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2563EB,#7C3AED);display:grid;place-items:center;flex:none}
 .brand .logo .icon{stroke:#fff;width:18px;height:18px}
 .brand small{display:block;font-weight:500;font-size:11px;color:var(--sidebar-muted);letter-spacing:.03em}
-.nav{padding:10px 10px;overflow-y:auto;flex:1}
-.nav-group{margin-bottom:10px}
-.nav-group-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--sidebar-muted);padding:10px 10px 4px;white-space:nowrap}
-.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--sidebar-text);min-height:40px;white-space:nowrap;transition:background var(--t-fast),color var(--t-fast)}
+.nav{padding:8px 10px;overflow-y:auto;flex:1}
+.nav-group{margin-bottom:4px}
+.nav-core{padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--sidebar-border)}
+.nav-group-label{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:32px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--sidebar-muted);padding:6px 10px;white-space:nowrap;background:transparent;border:0;border-radius:6px;cursor:pointer}
+.nav-group-label:hover{color:#fff;background:var(--sidebar-active)}
+.nav-group-label .chev{transition:transform var(--t-fast) var(--ease)}
+.nav-group.closed .nav-group-label .chev{transform:rotate(-90deg)}
+.nav-group.closed .nav-items{display:none}
+.nav a{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;color:var(--sidebar-text);min-height:36px;white-space:nowrap;transition:background var(--t-fast),color var(--t-fast)}
 .nav a:hover{background:var(--sidebar-active);color:#fff;text-decoration:none}
 .nav a.active{background:var(--sidebar-active);color:#fff;box-shadow:inset 3px 0 0 #60A5FA}
 .nav a .icon{opacity:.85}
@@ -96,7 +101,9 @@ code{background:var(--surface-3);padding:1px 6px;border-radius:4px}
 .sidebar-foot button{width:100%;justify-content:flex-start;background:transparent;border-color:transparent;color:var(--sidebar-muted)}
 .sidebar-foot button:hover{background:var(--sidebar-active);color:#fff}
 .shell.collapsed .brand small,.shell.collapsed .brand .name,.shell.collapsed .nav-group-label,.shell.collapsed .nav a span,.shell.collapsed .sidebar-foot span{display:none}
-.shell.collapsed .nav a{justify-content:center;padding:9px 0}
+.shell.collapsed .nav a{justify-content:center;padding:7px 0}
+.shell.collapsed .nav-group.closed .nav-items{display:block}
+.shell.collapsed .nav-group+.nav-group{border-top:1px solid var(--sidebar-border);padding-top:4px}
 .shell.collapsed .brand{justify-content:center;padding:14px 0}
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{height:var(--topbar-h);display:flex;align-items:center;gap:12px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:30}
@@ -116,7 +123,10 @@ code{background:var(--surface-3);padding:1px 6px;border-radius:4px}
   .sidebar{position:fixed;left:0;top:0;width:var(--sidebar-w);transform:translateX(-100%);transition:transform var(--t-base) var(--ease)}
   .shell.nav-open .sidebar{transform:none}.shell.nav-open .overlay{display:block}
   .shell.collapsed .brand small,.shell.collapsed .brand .name,.shell.collapsed .nav-group-label,.shell.collapsed .nav a span,.shell.collapsed .sidebar-foot span{display:initial}
-  .shell.collapsed .nav a{justify-content:flex-start;padding:9px 10px}
+  .shell.collapsed .nav a{justify-content:flex-start;padding:7px 10px}
+  .shell.collapsed .nav-group-label{display:flex}
+  .shell.collapsed .nav-group.closed .nav-items{display:none}
+  .shell.collapsed .nav-group+.nav-group{border-top:0;padding-top:0}
   .hamburger{display:inline-flex}.sidebar-foot .collapse-btn{display:none}
   .content{padding:16px}
 }

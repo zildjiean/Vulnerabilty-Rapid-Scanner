@@ -17,47 +17,43 @@
       <span class="logo"><svg class="icon"><use href="#i-shield"/></svg></span>
       <span class="name">0-Day Rapid Scanner<small>Enterprise exposure platform</small></span>
     </a>
+    {% macro item(href, key, icon, label) %}<a href="{{ href }}" class="{{ 'active' if active == key }}" {% if active == key %}aria-current="page"{% endif %} title="{{ label }}"><svg class="icon"><use href="#i-{{ icon }}"/></svg><span>{{ label }}</span></a>{% endmacro %}
+    {% macro group(key, label, keys, closed_by_default=False) %}
+      {% set has_active = active in keys %}
+      <div class="nav-group{{ ' closed' if closed_by_default and not has_active }}" data-nav-group="{{ key }}"{% if has_active %} data-has-active{% endif %}>
+        <button type="button" class="nav-group-label" aria-expanded="{{ 'false' if closed_by_default and not has_active else 'true' }}" aria-controls="nav-{{ key }}"><span>{{ label }}</span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></button>
+        <div class="nav-items" id="nav-{{ key }}">{{ caller() }}</div>
+      </div>
+    {% endmacro %}
     <nav class="nav">
-      <div class="nav-group">
-        <div class="nav-group-label">Overview</div>
-        <a href="/" class="{{ 'active' if active == 'dashboard' }}" {% if active == 'dashboard' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
-        <a href="/reports" class="{{ 'active' if active == 'reports' }}" {% if active == 'reports' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-file"/></svg><span>Reports</span></a>
+      <div class="nav-group nav-core">
+        {{ item('/', 'dashboard', 'dashboard', 'Dashboard') }}
+        {{ item('/issues', 'issues', 'target', 'Issues') }}
+        {{ item('/campaigns', 'campaigns', 'flag', 'Campaigns') }}
+        {{ item('/inventory', 'inventory', 'server', 'Inventory') }}
+        {{ item('/reports', 'reports', 'file', 'Reports') }}
       </div>
-      <div class="nav-group">
-        <div class="nav-group-label">Discovery</div>
-        <a href="/nmap" class="{{ 'active' if active == 'nmap' }}" {% if active == 'nmap' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-radar"/></svg><span>Nmap scan</span></a>
-        <a href="/scopes" class="{{ 'active' if active == 'scopes' }}" {% if active == 'scopes' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-layers"/></svg><span>Scopes</span></a>
-        <a href="/inventory" class="{{ 'active' if active == 'inventory' }}" {% if active == 'inventory' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-server"/></svg><span>Inventory</span></a>
-      </div>
-      <div class="nav-group">
-        <div class="nav-group-label">Detection</div>
-        <a href="/issues" class="{{ 'active' if active == 'issues' }}" {% if active == 'issues' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-target"/></svg><span>Issues</span></a>
-        <a href="/nuclei" class="{{ 'active' if active == 'nuclei' }}" {% if active == 'nuclei' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-bug"/></svg><span>Nuclei scan</span></a>
-        <a href="/findings" class="{{ 'active' if active == 'findings' }}" {% if active == 'findings' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-alert"/></svg><span>Findings</span></a>
-      </div>
-      <div class="nav-group">
-        <div class="nav-group-label">0-Day intelligence</div>
-        <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}" {% if active == 'campaigns' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-flag"/></svg><span>Campaigns</span></a>
-        <a href="/templates" class="{{ 'active' if active == 'templates' }}" {% if active == 'templates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-file"/></svg><span>Templates</span></a>
-        <a href="/rules" class="{{ 'active' if active == 'rules' }}" {% if active == 'rules' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-rule"/></svg><span>Version rules</span></a>
-      </div>
-      <div class="nav-group">
-        <div class="nav-group-label">System</div>
-        <a href="/updates" class="{{ 'active' if active == 'updates' }}" {% if active == 'updates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-refresh"/></svg><span>Updates</span></a>
-        <a href="/api-keys" class="{{ 'active' if active == 'api' }}" {% if active == 'api' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-key"/></svg><span>API</span></a>
-        <a href="/schedules" class="{{ 'active' if active == 'schedules' }}" {% if active == 'schedules' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clock"/></svg><span>Schedules</span></a>
-        <a href="/jobs" class="{{ 'active' if active == 'jobs' }}" {% if active == 'jobs' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-activity"/></svg><span>Jobs</span></a>
-      </div>
-      {% if can('users.manage') or can('audit.view') or can('settings.manage') or can('ai.manage') %}
-      <div class="nav-group">
-        <div class="nav-group-label">Administration</div>
-        {% if can('users.manage') %}<a href="/users" class="{{ 'active' if active == 'users' }}" {% if active == 'users' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-users"/></svg><span>Users</span></a>{% endif %}
-        {% if can('settings.manage') %}<a href="/settings" class="{{ 'active' if active == 'settings' }}" {% if active == 'settings' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clock"/></svg><span>Settings</span></a>{% endif %}
-        {% if can('integrations.manage') %}<a href="/integrations" class="{{ 'active' if active == 'integrations' }}" {% if active == 'integrations' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-link"/></svg><span>Integrations</span></a>{% endif %}
-        {% if can('ai.manage') %}<a href="/ai" class="{{ 'active' if active == 'ai' }}" {% if active == 'ai' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-spark"/></svg><span>AI assistant</span></a>{% endif %}
-        {% if can('audit.view') %}<a href="/audit" class="{{ 'active' if active == 'audit' }}" {% if active == 'audit' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-scroll"/></svg><span>Audit log</span></a>{% endif %}
-      </div>
-      {% endif %}
+      {% call group('scan', 'Scanning', ['nmap', 'nuclei', 'findings', 'jobs', 'schedules', 'scopes']) %}
+        {{ item('/nmap', 'nmap', 'radar', 'Nmap scan') }}
+        {{ item('/nuclei', 'nuclei', 'bug', 'Nuclei scan') }}
+        {{ item('/findings', 'findings', 'alert', 'Findings') }}
+        {{ item('/jobs', 'jobs', 'activity', 'Jobs') }}
+        {{ item('/schedules', 'schedules', 'clock', 'Schedules') }}
+        {{ item('/scopes', 'scopes', 'layers', 'Scopes') }}
+      {% endcall %}
+      {% call group('library', 'Detection library', ['templates', 'rules']) %}
+        {{ item('/templates', 'templates', 'book', 'Templates') }}
+        {{ item('/rules', 'rules', 'rule', 'Version rules') }}
+      {% endcall %}
+      {% call group('system', 'System', ['updates', 'api', 'users', 'settings', 'integrations', 'ai', 'audit'], closed_by_default=True) %}
+        {{ item('/updates', 'updates', 'refresh', 'Updates') }}
+        {{ item('/api-keys', 'api', 'key', 'API') }}
+        {% if can('users.manage') %}{{ item('/users', 'users', 'users', 'Users') }}{% endif %}
+        {% if can('settings.manage') %}{{ item('/settings', 'settings', 'sliders', 'Settings') }}{% endif %}
+        {% if can('integrations.manage') %}{{ item('/integrations', 'integrations', 'link', 'Integrations') }}{% endif %}
+        {% if can('ai.manage') %}{{ item('/ai', 'ai', 'spark', 'AI assistant') }}{% endif %}
+        {% if can('audit.view') %}{{ item('/audit', 'audit', 'scroll', 'Audit log') }}{% endif %}
+      {% endcall %}
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="collapse-btn" id="collapse-btn" aria-label="Collapse sidebar"><svg class="icon"><use href="#i-chevrons-left"/></svg><span>Collapse</span></button>
