@@ -157,6 +157,11 @@ def _set_status(db: Session, issue: Issue, new: str, actor, kind: str = "status"
         issue.resolved_at = issue.resolved_at or issue.status_changed_at
     else:
         issue.resolved_at = None
+    # confirmed fixes are re-scanned automatically (app/reverify.py); any other move cancels a pending request
+    if new == "fixed" and issue.confidence == "confirmed" and issue.template_id:
+        issue.reverify_requested_at, issue.reverify_job_id = issue.status_changed_at, None
+    else:
+        issue.reverify_requested_at = None
     _event(db, issue, kind, actor, old, new, body)
     from .notifications import on_status_change
     on_status_change(db, issue, old, new, kind, actor, sync_tickets)
@@ -288,6 +293,16 @@ def sync_rule_issues(db: Session) -> int:
             continue
         _set_status(db, issue, "fixed", None, kind="auto_fixed",
                     body="The service no longer matches the version rule (re-scan shows a different version).")
+    # suspected fixes are verified once a scan *after* the fix still shows a non-matching version
+    seen = {asset_key(h.address, str(s.port)): h.last_seen
+            for s, h in db.execute(select(Service, Host).join(Host, Host.id == Service.host_id))}
+    for issue in db.scalars(select(Issue).where(Issue.rule_id.is_not(None), Issue.confidence == "suspected",
+                                                Issue.status == "fixed")):
+        last = seen.get(issue.asset)
+        if issue.id in matched or issue.rule_id not in enabled or last is None or last <= issue.status_changed_at:
+            continue
+        _set_status(db, issue, "verified", None,
+                    body=f"nmap re-scan on {last:%Y-%m-%d %H:%M} UTC shows a version the rule no longer matches.")
     db.flush()
     return created
 

@@ -61,6 +61,29 @@ def campaign_new(request: Request, cve: str = ""):
     return _new_form(request, form={"cve_id": cve})
 
 
+async def create_from_request(request: Request, db: Session, *, cve_id: str, name: str, severity: str, description: str,
+                              product_pattern: str, version_constraint: str, attach_templates: bool,
+                              fetch_intel: bool) -> Campaign:
+    """Shared by the web form and the API. Raises ValueError with a user-facing message."""
+    cve = normalize_cve(cve_id) if cve_id.strip() else ""
+    intel = await load_intel(request, cve) if cve and fetch_intel else None
+    if intel and not name.strip() and intel[0].get("kev_name"):
+        name = f"{cve} {intel[0]['kev_name']}"
+    try:
+        c = camp.create_campaign(db, name=name, cve_id=cve, description=description, severity=severity,
+                                 product_pattern=product_pattern, version_constraint=version_constraint,
+                                 attach_templates=attach_templates, intel=intel, created_by=request.state.user.username)
+    except ValueError:
+        db.rollback()
+        raise
+    from ..notifications import campaign_message, notify
+    notify(db, "campaign.created", message=campaign_message(db, c), severity=c.severity)
+    db.commit()
+    audit(db, request, "campaign.created", target=c.name, campaign_id=c.id, cve=c.cve_id, severity=c.severity,
+          kev=c.kev, templates=len(c.templates))
+    return c
+
+
 @router.post("/campaigns", dependencies=MANAGE)
 async def campaign_create(request: Request, cve_id: str = Form(""), name: str = Form(""), severity: str = Form("auto"),
                           description: str = Form(""), product_pattern: str = Form(""),
@@ -70,24 +93,11 @@ async def campaign_create(request: Request, cve_id: str = Form(""), name: str = 
             "product_pattern": product_pattern, "version_constraint": version_constraint,
             "attach_templates": attach_templates, "fetch_intel": fetch_intel}
     try:
-        cve = normalize_cve(cve_id) if cve_id.strip() else ""
+        c = await create_from_request(request, db, cve_id=cve_id, name=name, severity=severity, description=description,
+                                      product_pattern=product_pattern, version_constraint=version_constraint,
+                                      attach_templates=attach_templates, fetch_intel=fetch_intel)
     except ValueError as e:
         return _new_form(request, 400, str(e), form)
-    intel = await load_intel(request, cve) if cve and fetch_intel else None
-    if intel and not name.strip() and intel[0].get("kev_name"):
-        name = f"{cve} {intel[0]['kev_name']}"
-    try:
-        c = camp.create_campaign(db, name=name, cve_id=cve, description=description, severity=severity,
-                                 product_pattern=product_pattern, version_constraint=version_constraint,
-                                 attach_templates=attach_templates, intel=intel, created_by=request.state.user.username)
-    except ValueError as e:
-        db.rollback()
-        return _new_form(request, 400, str(e), form)
-    from ..notifications import campaign_message, notify
-    notify(db, "campaign.created", message=campaign_message(db, c), severity=c.severity)
-    db.commit()
-    audit(db, request, "campaign.created", target=c.name, campaign_id=c.id, cve=c.cve_id, severity=c.severity,
-          kev=c.kev, templates=len(c.templates))
     return RedirectResponse(f"/campaigns/{c.id}", status_code=303)
 
 
@@ -106,22 +116,17 @@ def campaign_detail(request: Request, cid: int, db: Session = Depends(get_db)):
     return _detail(request, db, _get(db, cid))
 
 
-@router.post("/campaigns/{cid}/verify", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
-async def campaign_verify(request: Request, cid: int, profile: str = Form(DEFAULT_PROFILE), extra_targets: str = Form(""),
-                          db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
-    c = _get(db, cid)
-    try:
-        if not c.templates:
-            raise ValueError("Attach at least one nuclei template before verifying.")
-        paths = validate_template_paths(settings, [t.path for t in c.templates])
-        targets = camp.verify_targets(db, c)
-        extra = parse_nuclei_targets(extra_targets) if extra_targets.strip() else []
-        targets += [t for t in extra if t not in targets]
-        if not targets:
-            raise ValueError("No exposed assets to verify. Add a version rule, run an nmap scan, or type extra targets.")
-        flags = profile_flags(profile, False)
-    except ValueError as e:
-        return _detail(request, db, c, status_code=400, error=str(e))
+def start_verify(request: Request, db: Session, settings, runner, c: Campaign, profile: str, extra_targets: str) -> Job:
+    """Validate and launch a campaign verification job. Raises ValueError with a user-facing message."""
+    if not c.templates:
+        raise ValueError("Attach at least one nuclei template before verifying.")
+    paths = validate_template_paths(settings, [t.path for t in c.templates])
+    targets = camp.verify_targets(db, c)
+    extra = parse_nuclei_targets(extra_targets) if extra_targets.strip() else []
+    targets += [t for t in extra if t not in targets]
+    if not targets:
+        raise ValueError("No exposed assets to verify. Add a version rule, run an nmap scan, or type extra targets.")
+    flags = profile_flags(profile, False)
     prof = PROFILES[profile]
     params = {"targets": targets, "template_ids": [t.template_id for t in c.templates], "mode": "selected",
               "profile": profile, "campaign": c.cve_id or c.name}
@@ -129,6 +134,17 @@ async def campaign_verify(request: Request, cid: int, profile: str = Form(DEFAUL
                         timeout=prof["timeout"], extra_flags=flags, campaign_id=c.id)
     audit(db, request, "campaign.verified", target=c.name, campaign_id=c.id, job_id=job.id, targets=len(targets),
           profile=profile)
+    return job
+
+
+@router.post("/campaigns/{cid}/verify", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
+async def campaign_verify(request: Request, cid: int, profile: str = Form(DEFAULT_PROFILE), extra_targets: str = Form(""),
+                          db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
+    c = _get(db, cid)
+    try:
+        job = start_verify(request, db, settings, runner, c, profile, extra_targets)
+    except ValueError as e:
+        return _detail(request, db, c, status_code=400, error=str(e))
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 

@@ -196,6 +196,8 @@ class Issue(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     scope_id: Mapped[int | None] = mapped_column(ForeignKey("scopes.id", ondelete="SET NULL"), nullable=True, index=True)
     overdue_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reverify_requested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    reverify_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     assignee: Mapped["User | None"] = relationship()
     scope: Mapped["Scope | None"] = relationship()
     events: Mapped[list["IssueEvent"]] = relationship(back_populates="issue", cascade="all, delete-orphan",
@@ -343,6 +345,23 @@ class IssueTicket(Base):
     channel: Mapped["NotificationChannel"] = relationship()
 
 
+class ApiKey(Base):
+    """REST API credential. Only a SHA-256 hash is stored; the key acts with ``role`` (never above its owner)."""
+    __tablename__ = "api_keys"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64))
+    prefix: Mapped[str] = mapped_column(String(16), index=True)
+    key_hash: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(16), default="viewer")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_ip: Mapped[str] = mapped_column(String(64), default="")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    owner: Mapped["User"] = relationship()
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -382,6 +401,8 @@ _ADDED_COLUMNS = [
     ("issues", "scope_id", "INTEGER"),
     ("jobs", "schedule_id", "INTEGER"),
     ("issues", "overdue_notified_at", "DATETIME"),
+    ("issues", "reverify_requested_at", "DATETIME"),
+    ("issues", "reverify_job_id", "INTEGER"),
 ]
 
 

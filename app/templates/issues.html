@@ -3,7 +3,7 @@
 {% set section = "Detection" %}
 {% set page_title = "Issues" %}
 {% set page_subtitle = "One row per vulnerability per asset, deduplicated across scans and version rules. Triage, assign and drive each one to a verified fix." %}
-{% block page_actions %}{% if can('settings.manage') %}<a class="btn ghost" href="/settings"><svg class="icon"><use href="#i-clock"/></svg>SLA settings</a>{% endif %}{% endblock %}
+{% block page_actions %}{% set qs = f.items()|selectattr(1)|map('join', '=')|join('&') %}<a class="btn" href="/reports/issues.csv?{{ qs }}"><svg class="icon"><use href="#i-download"/></svg>CSV</a><a class="btn" href="/reports/issues.json?{{ qs }}"><svg class="icon"><use href="#i-download"/></svg>JSON</a>{% if can('settings.manage') %}<a class="btn ghost" href="/settings"><svg class="icon"><use href="#i-clock"/></svg>SLA settings</a>{% endif %}{% endblock %}
 {% block content %}
 <div class="grid grid-4 mb">
   <a class="card kpi kpi-link" href="/issues"><div class="kpi-icon"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Active</div><div class="kpi-value" data-kpi="active">{{ kpis.active }}</div><div class="kpi-sub">{{ kpis.confirmed }} confirmed · {{ kpis.suspected }} suspected</div></div></a>

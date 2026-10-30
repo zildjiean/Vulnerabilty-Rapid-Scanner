@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import issues as iss
 from ..audit import audit
 from ..campaigns import campaigns_for_issue
+from ..reverify import get_reverify_settings
 from ..authz import require
 from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, User, utcnow
 from ..deps import get_db, verify_csrf
@@ -52,7 +53,8 @@ def _sort_key(i: Issue):
 
 
 def list_context(request: Request, db: Session, view: str = "active", severity: str = "", status: str = "",
-                 assignee: str = "", confidence: str = "", overdue: str = "", q: str = "", scope: str = "") -> dict:
+                 assignee: str = "", confidence: str = "", overdue: str = "", q: str = "", scope: str = "",
+                 limit: int = LIST_LIMIT) -> dict:
     view = view if view in VIEWS else "active"
     stmt = select(Issue).options(selectinload(Issue.assignee), selectinload(Issue.scope))
     if scope == "none":
@@ -82,7 +84,7 @@ def list_context(request: Request, db: Session, view: str = "active", severity: 
     filters = {"view": view, "severity": severity, "status": status, "assignee": assignee, "confidence": confidence,
                "overdue": overdue, "q": q, "scope": scope}
     from ..db import Scope
-    return dict(scopes=list(db.scalars(select(Scope).order_by(Scope.name))), active="issues", issues=rows[:LIST_LIMIT], truncated=len(rows) > LIST_LIMIT, kpis=issue_kpis(db),
+    return dict(scopes=list(db.scalars(select(Scope).order_by(Scope.name))), active="issues", issues=rows[:limit], truncated=len(rows) > limit, kpis=issue_kpis(db),
                 users=assignable_users(db), f=filters, statuses=iss.STATUSES)
 
 
@@ -106,7 +108,7 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
                   findings=findings, rule=rule, users=assignable_users(db),
                   transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
-                  sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue),
+                  sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue), reverify=get_reverify_settings(db),
                   tickets=list(db.scalars(select(IssueTicket).where(IssueTicket.issue_id == issue.id))),
                   ticket_channels=list(db.scalars(select(NotificationChannel).where(
                       NotificationChannel.kind.in_(("jira", "gitlab")), NotificationChannel.enabled.is_(True)))))
@@ -209,12 +211,27 @@ def issue_comment(request: Request, issue_id: int, body: str = Form(""), db: Ses
 # ----------------------------------------------------------------- settings
 def _settings(request: Request, db: Session, status_code: int = 200, error: str | None = None, sla=None, tz=None):
     from ..notifications import get_base_url, get_smtp
+    from ..reverify import get_reverify_settings
     from ..scheduler import get_timezone
     smtp = get_smtp(db, request.app.state.secretbox)
     return render(request, "settings.html", status_code=status_code, active="settings", error=error,
                   sla=sla or iss.get_sla(db), defaults=iss.DEFAULT_SLA, timezone=tz or get_timezone(db),
-                  common_timezones=COMMON_TIMEZONES, base_url=get_base_url(db),
+                  common_timezones=COMMON_TIMEZONES, base_url=get_base_url(db), reverify=get_reverify_settings(db),
                   smtp={k: v for k, v in smtp.items() if k != "password"}, smtp_password_set=bool(smtp.get("password")))
+
+
+@router.post("/settings/reverify", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
+def settings_reverify(request: Request, enabled: bool = Form(False), delay_minutes: str = Form("15"),
+                      db: Session = Depends(get_db)):
+    from ..reverify import set_reverify_settings
+    try:
+        set_reverify_settings(db, enabled, int(delay_minutes) if delay_minutes.strip().lstrip("-").isdigit() else -1)
+    except ValueError as e:
+        db.rollback()
+        return _settings(request, db, 400, str(e))
+    db.commit()
+    audit(db, request, "settings.updated", target="re-verify", enabled=enabled, delay_minutes=delay_minutes)
+    return RedirectResponse("/settings?msg=Re-verify+settings+saved#reverify", status_code=303)
 
 
 @router.post("/settings/notifications", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])

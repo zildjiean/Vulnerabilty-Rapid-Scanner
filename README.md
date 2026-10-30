@@ -39,6 +39,12 @@ Everything runs in one container. No external services, no accounts, works offli
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
 - **Updates** for nuclei templates, the nuclei engine and the nmap script DB, each as a tracked job.
 - **Jobs** with persisted logs, Server-Sent Events streaming, cancel, and automatic cleanup after restarts.
+- **Automatic re-verification**: when a confirmed issue is marked fixed, its template is re-run against the asset
+  after a short delay; not found → verified, found → reopened, incomplete scan → stays fixed with a note.
+- **Reports**: printable executive summary (open exposure, overdue, MTTR, SLA compliance, weekly trend, riskiest
+  assets, scopes, campaigns), campaign and scope reports (Save as PDF from the browser), CSV / JSON issue exports.
+- **REST API** (`/api/v1`) with hashed, role-scoped, expiring API keys: issues, assets, campaigns, scans and jobs.
+  See *System → API → API reference* in the app.
 - **Notifications and ticketing**: Slack, Microsoft Teams, email, signed webhooks, Jira and GitLab. Rules pick
   events (new / reopened / overdue / assigned issues, status changes, campaigns, failed scans, schedule errors),
   a minimum severity and a scope. Jira / GitLab tickets stay in sync both ways: closing the issue closes the
@@ -79,14 +85,17 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
    yet, upload or pull one under *Templates* and attach it to the campaign.
 5. **Issues** – triage what was found: assign an owner, move it through the lifecycle, watch the SLA, and
    re-scan to verify the fix.
-6. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
+6. **Reports** – share the executive summary or a campaign report; export issues to CSV / JSON or pull them over
+   the REST API.
+7. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
    rebuilding the image: `docker compose build --pull --no-cache && docker compose up -d`.
 
 ## Users and roles
 
 | Permission | Admin | Analyst | Viewer |
 |---|:-:|:-:|:-:|
-| Read every page, job log, finding and inventory row | ✓ | ✓ | ✓ |
+| Read every page, job log, finding and inventory row, reports and exports | ✓ | ✓ | ✓ |
+| Create API keys (up to your own role) | ✓ | ✓ | ✓ |
 | Start nmap / nuclei scans, cancel jobs | ✓ | ✓ | |
 | Delete inventory services, clear the inventory | ✓ | ✓ | |
 | Manage version rules and custom templates | ✓ | ✓ | |

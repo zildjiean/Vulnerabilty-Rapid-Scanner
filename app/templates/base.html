@@ -21,6 +21,7 @@
       <div class="nav-group">
         <div class="nav-group-label">Overview</div>
         <a href="/" class="{{ 'active' if active == 'dashboard' }}" {% if active == 'dashboard' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
+        <a href="/reports" class="{{ 'active' if active == 'reports' }}" {% if active == 'reports' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-file"/></svg><span>Reports</span></a>
       </div>
       <div class="nav-group">
         <div class="nav-group-label">Discovery</div>
@@ -43,6 +44,7 @@
       <div class="nav-group">
         <div class="nav-group-label">System</div>
         <a href="/updates" class="{{ 'active' if active == 'updates' }}" {% if active == 'updates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-refresh"/></svg><span>Updates</span></a>
+        <a href="/api-keys" class="{{ 'active' if active == 'api' }}" {% if active == 'api' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-key"/></svg><span>API</span></a>
         <a href="/schedules" class="{{ 'active' if active == 'schedules' }}" {% if active == 'schedules' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clock"/></svg><span>Schedules</span></a>
         <a href="/jobs" class="{{ 'active' if active == 'jobs' }}" {% if active == 'jobs' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-activity"/></svg><span>Jobs</span></a>
       </div>

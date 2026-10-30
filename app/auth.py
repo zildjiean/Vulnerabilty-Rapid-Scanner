@@ -99,6 +99,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         app = request.app
         request.state.user = None
         request.state.csrf = None
+        if request.url.path.startswith("/api/"):
+            return await self._api(request, call_next)
         token = request.cookies.get(SESSION_COOKIE)
         data = app.state.sessions.decode(token) if token else None
         if data:
@@ -116,6 +118,23 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return RedirectResponse("/login", status_code=303)
         elif request.state.user.must_change_password and not public and path not in CHANGE_PASSWORD_ALLOWED:
             return RedirectResponse("/change-password", status_code=303)
+        return await call_next(request)
+
+
+    @staticmethod
+    async def _api(request: Request, call_next):
+        """/api/* accepts only API keys (never the session cookie), so it needs no CSRF protection."""
+        from starlette.responses import JSONResponse
+        from .apikeys import authenticate
+        header = request.headers.get("authorization", "")
+        raw = header[7:] if header.lower().startswith("bearer ") else request.headers.get("x-api-key", "")
+        ip = request.client.host if request.client else ""
+        with request.app.state.SessionLocal() as db:
+            principal = authenticate(db, raw, ip) if raw else None
+        if principal is None:
+            return JSONResponse({"detail": "Missing, invalid, expired or revoked API key."}, status_code=401,
+                                headers={"WWW-Authenticate": "Bearer"})
+        request.state.user = principal
         return await call_next(request)
 
 

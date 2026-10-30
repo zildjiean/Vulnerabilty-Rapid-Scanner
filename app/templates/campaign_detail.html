@@ -6,6 +6,7 @@
 {% set page_subtitle = (c.cve_id ~ " · ") if c.cve_id and c.cve_id != c.name else "" %}
 {% set manage = can('campaigns.manage') %}
 {% block page_actions %}
+<a class="btn ghost" href="/reports/campaigns/{{ c.id }}"><svg class="icon"><use href="#i-file"/></svg>Report</a>
 {% if manage and c.cve_id %}<form method="post" action="/campaigns/{{ c.id }}/refresh"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Refresh intel</button></form>{% endif %}
 {% if manage %}<form method="post" action="/campaigns/{{ c.id }}/status" {% if c.status == 'active' %}data-confirm="Close this campaign? Issues stay as they are; you can reopen it later."{% endif %}><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost">{{ 'Close campaign' if c.status == 'active' else 'Reopen campaign' }}</button></form>{% endif %}
 {% endblock %}

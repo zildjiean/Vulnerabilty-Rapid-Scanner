@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% set section = "System" %}
+{% set page_title = "API reference" %}
+{% set page_subtitle = "REST API v1. JSON in and out. Every call needs an API key; the key's role decides what it may do." %}
+{% block page_actions %}<a class="btn primary" href="/api-keys"><svg class="icon"><use href="#i-key"/></svg>API keys</a>{% endblock %}
+{% block content %}
+{% set B = base ~ "/api/v1" %}
+<div class="card mb"><div class="card-body stack">
+  <h2>Authentication</h2>
+  <p class="text-2">Send <code>Authorization: Bearer &lt;key&gt;</code> (or <code>X-API-Key: &lt;key&gt;</code>). Browser sessions are not accepted on <code>/api</code>. Errors return <code>{"detail": …}</code> with 400, 401, 403 (missing permission) or 404.</p>
+  <pre class="code">export ZDRS_KEY=zdrs_…
+curl -s -H "Authorization: Bearer $ZDRS_KEY" {{ B }}/me</pre>
+</div></div>
+<div class="card"><div class="table-wrap"><table class="data api-table">
+  <thead><tr><th>Method</th><th>Path</th><th>Permission</th><th>Description</th></tr></thead>
+  <tbody>
+  {% for m, p, perm, desc in [
+    ('GET', '/me', 'view', 'Key owner, role and key name.'),
+    ('GET', '/issues', 'view', 'Issues. Query: view (active|closed|all), status, severity, scope (id|none), assignee (me|none|id), confidence, overdue=1, q, limit (≤500), offset.'),
+    ('GET', '/issues/{id}', 'view', 'One issue with timeline events, finding count and tickets.'),
+    ('PATCH', '/issues/{id}', 'issues.manage', 'Body: status, comment, severity, assignee (username or null).'),
+    ('GET', '/assets', 'view', 'Inventory hosts with services and scope.'),
+    ('GET', '/campaigns', 'view', 'Campaigns with progress. Query: status (active|closed).'),
+    ('GET', '/campaigns/{id}', 'view', 'One campaign with rules, templates and progress.'),
+    ('POST', '/campaigns', 'campaigns.manage', 'Body: cve_id, name, severity (auto|critical|high|medium|low), description, product_pattern, version_constraint, attach_templates, fetch_intel.'),
+    ('POST', '/campaigns/{id}/verify', 'scan.run', 'Body: profile (gentle|normal|aggressive), extra_targets []. Returns job_id.'),
+    ('POST', '/scans/nmap', 'scan.run', 'Body: targets [], port_mode (top|all|custom), custom_ports, timing (T2|T3|T4), scan_type (syn|connect), skip_ping.'),
+    ('POST', '/scans/nuclei', 'scan.run', 'Body: targets [], mode (selected|all|groups), template_ids [], groups [], severities [], profile.'),
+    ('GET', '/jobs/{id}', 'view', 'Job status, summary, warnings, finding count. Query: log=true adds the log tail.'),
+  ] %}
+  <tr><td><span class="badge method-{{ m|lower }}">{{ m }}</span></td><td class="cell-mono">/api/v1{{ p }}</td><td class="small"><code>{{ perm }}</code></td><td class="small">{{ desc }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+<div class="grid grid-2" style="margin-top:16px">
+  <div class="card"><div class="card-body stack"><h2>Start a campaign for a new CVE</h2>
+<pre class="code">curl -s -X POST {{ B }}/campaigns \
+  -H "Authorization: Bearer $ZDRS_KEY" -H "Content-Type: application/json" \
+  -d '{"cve_id":"CVE-2026-12345","product_pattern":"nginx","version_constraint":"< 1.27.3"}'</pre></div></div>
+  <div class="card"><div class="card-body stack"><h2>Close an issue from CI after deploying a fix</h2>
+<pre class="code">curl -s -X PATCH {{ B }}/issues/42 \
+  -H "Authorization: Bearer $ZDRS_KEY" -H "Content-Type: application/json" \
+  -d '{"status":"fixed","comment":"Patched in release 2026.11.1"}'</pre></div></div>
+  <div class="card"><div class="card-body stack"><h2>Pull open critical issues into a SIEM</h2>
+<pre class="code">curl -s "{{ B }}/issues?severity=critical&amp;limit=500" \
+  -H "Authorization: Bearer $ZDRS_KEY"</pre></div></div>
+  <div class="card"><div class="card-body stack"><h2>Scan and wait for the result</h2>
+<pre class="code">JOB=$(curl -s -X POST {{ B }}/scans/nuclei -H "Authorization: Bearer $ZDRS_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"targets":["https://app.example.com"],"mode":"groups","groups":["http/cves"],"severities":["critical","high"]}' | jq .job_id)
+curl -s {{ B }}/jobs/$JOB -H "Authorization: Bearer $ZDRS_KEY" | jq .status</pre></div></div>
+</div>
+{% endblock %}
