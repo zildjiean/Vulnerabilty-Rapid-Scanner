@@ -366,3 +366,10 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
 .tab{padding:8px 14px;color:var(--text-2);border-bottom:2px solid transparent;margin-bottom:-1px;text-decoration:none;font-weight:500}
 .tab:hover{color:var(--text);text-decoration:none}
 .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+
+/* ---------- Scopes & schedules ---------- */
+.badge.crit-critical{background:var(--sev-critical-bg);color:var(--sev-critical)}
+.badge.crit-high{background:var(--sev-high-bg);color:var(--sev-high)}
+.badge.crit-medium{background:var(--sev-medium-bg);color:var(--sev-medium)}
+.badge.crit-low{background:var(--sev-low-bg);color:var(--sev-low)}
+.page-actions .badge{align-self:center}

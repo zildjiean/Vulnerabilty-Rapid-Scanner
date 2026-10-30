@@ -52,9 +52,13 @@ def _sort_key(i: Issue):
 
 
 def list_context(request: Request, db: Session, view: str = "active", severity: str = "", status: str = "",
-                 assignee: str = "", confidence: str = "", overdue: str = "", q: str = "") -> dict:
+                 assignee: str = "", confidence: str = "", overdue: str = "", q: str = "", scope: str = "") -> dict:
     view = view if view in VIEWS else "active"
-    stmt = select(Issue).options(selectinload(Issue.assignee))
+    stmt = select(Issue).options(selectinload(Issue.assignee), selectinload(Issue.scope))
+    if scope == "none":
+        stmt = stmt.where(Issue.scope_id.is_(None))
+    elif scope.isdigit():
+        stmt = stmt.where(Issue.scope_id == int(scope))
     stmt = stmt.where(Issue.status == status) if status in iss.STATUSES else stmt.where(Issue.status.in_(VIEWS[view]))
     if severity in iss.ISSUE_SEVERITIES:
         stmt = stmt.where(Issue.severity == severity)
@@ -76,16 +80,17 @@ def list_context(request: Request, db: Session, view: str = "active", severity: 
         rows = [i for i in rows if iss.is_overdue(i)]
     rows.sort(key=_sort_key)
     filters = {"view": view, "severity": severity, "status": status, "assignee": assignee, "confidence": confidence,
-               "overdue": overdue, "q": q}
-    return dict(active="issues", issues=rows[:LIST_LIMIT], truncated=len(rows) > LIST_LIMIT, kpis=issue_kpis(db),
+               "overdue": overdue, "q": q, "scope": scope}
+    from ..db import Scope
+    return dict(scopes=list(db.scalars(select(Scope).order_by(Scope.name))), active="issues", issues=rows[:LIST_LIMIT], truncated=len(rows) > LIST_LIMIT, kpis=issue_kpis(db),
                 users=assignable_users(db), f=filters, statuses=iss.STATUSES)
 
 
 @router.get("/issues")
 def issues_page(request: Request, view: str = "active", severity: str = "", status: str = "", assignee: str = "",
-                confidence: str = "", overdue: str = "", q: str = "", db: Session = Depends(get_db)):
+                confidence: str = "", overdue: str = "", q: str = "", scope: str = "", db: Session = Depends(get_db)):
     return render(request, "issues.html", **list_context(request, db, view, severity, status, assignee, confidence,
-                                                         overdue, q))
+                                                         overdue, q, scope))
 
 
 def _get(db: Session, issue_id: int) -> Issue:
@@ -199,9 +204,34 @@ def issue_comment(request: Request, issue_id: int, body: str = Form(""), db: Ses
 
 
 # ----------------------------------------------------------------- settings
+def _settings(request: Request, db: Session, status_code: int = 200, error: str | None = None, sla=None, tz=None):
+    from ..scheduler import get_timezone
+    return render(request, "settings.html", status_code=status_code, active="settings", error=error,
+                  sla=sla or iss.get_sla(db), defaults=iss.DEFAULT_SLA, timezone=tz or get_timezone(db),
+                  common_timezones=COMMON_TIMEZONES)
+
+
+COMMON_TIMEZONES = ("Asia/Bangkok", "UTC", "Asia/Singapore", "Asia/Tokyo", "Asia/Kolkata", "Europe/London",
+                    "Europe/Berlin", "America/New_York", "America/Los_Angeles", "Australia/Sydney")
+
+
 @router.get("/settings", dependencies=[Depends(require("settings.manage"))])
 def settings_page(request: Request, db: Session = Depends(get_db)):
-    return render(request, "settings.html", active="settings", sla=iss.get_sla(db), defaults=iss.DEFAULT_SLA)
+    return _settings(request, db)
+
+
+@router.post("/settings/timezone", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
+def settings_timezone(request: Request, timezone: str = Form(""), db: Session = Depends(get_db)):
+    from ..scheduler import get_timezone, set_timezone
+    old = get_timezone(db)
+    try:
+        set_timezone(db, timezone)
+    except ValueError as e:
+        db.rollback()
+        return _settings(request, db, 400, str(e), tz=timezone)
+    db.commit()
+    audit(db, request, "settings.updated", target="timezone", timezone=f"{old} -> {timezone.strip()}")
+    return RedirectResponse("/settings?msg=Timezone+saved;+schedules+recalculated", status_code=303)
 
 
 @router.post("/settings", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
@@ -213,8 +243,7 @@ def settings_save(request: Request, critical: str = Form(""), high: str = Form("
         sla = iss.set_sla(db, values)
     except ValueError as e:
         db.rollback()
-        return render(request, "settings.html", status_code=400, active="settings", error=str(e),
-                      sla={**old, **{k: v for k, v in values.items()}}, defaults=iss.DEFAULT_SLA)
+        return _settings(request, db, 400, str(e), sla={**old, **values})
     db.commit()
     audit(db, request, "settings.updated", target="SLA days",
           **{k: f"{old[k]} -> {sla[k]}" for k in sla if old[k] != sla[k]})

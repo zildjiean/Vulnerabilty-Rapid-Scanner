@@ -49,7 +49,7 @@ def _rows():
 
 def test_normalize_group_mode():
     assert DEFAULT_GROUP == "host"
-    assert set(GROUP_MODES) == {"host", "product", "type", "none"}
+    assert set(GROUP_MODES) == {"host", "product", "type", "scope", "none"}
     assert normalize_group_mode("product") == "product"
     assert normalize_group_mode("zzz") == "host"
     assert normalize_group_mode("") == "host"

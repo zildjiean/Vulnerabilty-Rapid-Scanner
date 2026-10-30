@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Scopes: named asset groups (nmap target syntax with exclusions), owner and criticality. New issues inside a
+  scope are auto-assigned to its owner; issues show and filter by scope; inventory can group by scope.
+- Schedules: nmap discovery and nuclei scans per scope and re-verification of active campaigns, every N hours,
+  daily or weekly in the platform timezone (Settings, default Asia/Bangkok). Runs are skipped while the previous
+  one is still running, can be triggered with Run now, and are audited. nmap gains `--exclude` support.
+  New permission `scopes.manage` (analyst, admin).
 - Threat campaigns: create from a CVE to pull NVD (CVSS, description, references) and CISA KEV (known exploited,
   ransomware use, due date) intel, add version rules and attach nuclei templates (auto-attached from the index).
   Campaign pages show exposure, remediation progress, verification jobs, and run Verify against exposed assets

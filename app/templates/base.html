@@ -25,6 +25,7 @@
       <div class="nav-group">
         <div class="nav-group-label">Discovery</div>
         <a href="/nmap" class="{{ 'active' if active == 'nmap' }}" {% if active == 'nmap' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-radar"/></svg><span>Nmap scan</span></a>
+        <a href="/scopes" class="{{ 'active' if active == 'scopes' }}" {% if active == 'scopes' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-layers"/></svg><span>Scopes</span></a>
         <a href="/inventory" class="{{ 'active' if active == 'inventory' }}" {% if active == 'inventory' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-server"/></svg><span>Inventory</span></a>
       </div>
       <div class="nav-group">
@@ -42,6 +43,7 @@
       <div class="nav-group">
         <div class="nav-group-label">System</div>
         <a href="/updates" class="{{ 'active' if active == 'updates' }}" {% if active == 'updates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-refresh"/></svg><span>Updates</span></a>
+        <a href="/schedules" class="{{ 'active' if active == 'schedules' }}" {% if active == 'schedules' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clock"/></svg><span>Schedules</span></a>
         <a href="/jobs" class="{{ 'active' if active == 'jobs' }}" {% if active == 'jobs' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-activity"/></svg><span>Jobs</span></a>
       </div>
       {% if can('users.manage') or can('audit.view') or can('settings.manage') %}

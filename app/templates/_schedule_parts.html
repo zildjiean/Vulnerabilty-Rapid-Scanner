@@ -1,0 +1,64 @@
+{% macro schedules_table(schedules, back) %}
+<div class="table-wrap">
+<table class="data">
+  <thead><tr><th>Schedule</th><th>When ({{ tz_name }})</th><th>Next run</th><th>Last run</th><th></th></tr></thead>
+  <tbody>
+  {% for s in schedules %}
+  {% set lj = last_jobs.get(s.last_job_id) %}
+  <tr style="{{ '' if s.enabled else 'opacity:.6' }}">
+    <td><b>{{ s.name }}</b><div class="small text-2">{{ kinds[s.kind] }}{% if s.scope %} · <a href="/scopes/{{ s.scope.id }}">{{ s.scope.name }}</a>{% endif %}{% if not s.enabled %} · <span class="badge neutral">paused</span>{% endif %}</div></td>
+    <td class="small">{{ describe(s) }}</td>
+    <td class="small num">{% if s.enabled and s.next_run_at %}{{ to_local(s.next_run_at).strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td class="small">{% if s.last_run_at %}<span class="num">{{ to_local(s.last_run_at).strftime('%Y-%m-%d %H:%M') }}</span>
+      <span class="status {{ {'started':'st-done','skipped':'st-warning','error':'st-failed'}.get(s.last_status, '') }}">{{ s.last_status }}</span>
+      {% if lj %}<a href="/jobs/{{ lj.id }}">job #{{ lj.id }}</a> <span class="text-2">({{ lj.status }})</span>{% endif %}
+      {% if s.last_message %}<div class="text-2">{{ s.last_message }}</div>{% endif %}
+      {% else %}<span class="muted">never</span>{% endif %}</td>
+    <td class="actions">{% if can('scopes.manage') %}
+      <form method="post" action="/schedules/{{ s.id }}/run"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-play"/></svg>Run now</button></form>
+      <form method="post" action="/schedules/{{ s.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}"><button class="ghost sm" type="submit">{{ 'Pause' if s.enabled else 'Enable' }}</button></form>
+      <form method="post" action="/schedules/{{ s.id }}/delete" data-confirm="Delete schedule '{{ s.name }}'?"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}"><button class="ghost sm icon-btn" type="submit" aria-label="Delete schedule"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>
+    {% endif %}</td>
+  </tr>
+  {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-clock"/></svg><b>No schedules</b>Add one to keep the inventory fresh and re-verify campaigns automatically.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% macro schedule_form(back, fixed_scope=None) %}
+<form method="post" action="/schedules" class="card schedule-form" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>New schedule</h2></div>
+  <div class="card-body stack">
+    <div class="field"><label for="s-kind">What</label><select id="s-kind" name="kind" data-schedule-kind>{% for k, label in kinds.items() if not (fixed_scope and k == 'campaign_verify') %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></div>
+    {% if fixed_scope %}<input type="hidden" name="scope_id" value="{{ fixed_scope.id }}">
+    {% else %}<div class="field" data-show-kind="nmap nuclei"><label for="s-scope">Scope</label><select id="s-scope" name="scope_id"><option value="">Choose a scope</option>{% for sc in all_scopes %}<option value="{{ sc.id }}">{{ sc.name }}</option>{% endfor %}</select>{% if not all_scopes %}<span class="hint"><a href="/scopes/new">Create a scope</a> first.</span>{% endif %}</div>{% endif %}
+    <div class="field"><label for="s-name">Name</label><input id="s-name" name="name" placeholder="Nightly discovery"></div>
+    <div class="row">
+      <div class="field" style="flex:1"><label for="s-frequency">Frequency</label><select id="s-frequency" name="frequency" data-schedule-frequency>{% for k, label in frequencies.items() %}<option value="{{ k }}" {{ 'selected' if k == 'daily' }}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field w-sm" data-show-frequency="interval" hidden><label for="s-hours">Hours</label><input id="s-hours" name="interval_hours" type="number" min="1" max="168" value="24"></div>
+      <div class="field w-sm" data-show-frequency="weekly" hidden><label for="s-weekday">Day</label><select id="s-weekday" name="weekday">{% for d in weekdays %}<option value="{{ loop.index0 }}">{{ d }}</option>{% endfor %}</select></div>
+      <div class="field w-sm" data-show-frequency="daily weekly"><label for="s-time">Time</label><input id="s-time" name="time_of_day" type="time" value="02:00"></div>
+    </div>
+    <div class="stack" data-show-kind="nmap">
+      <div class="row">
+        <div class="field" style="flex:1"><label for="s-ports">Ports</label><select id="s-ports" name="port_mode"><option value="top">Top 1000</option><option value="all">All 65535</option><option value="custom">Custom</option></select></div>
+        <div class="field" style="flex:1"><label for="s-custom">Custom ports</label><input id="s-custom" name="custom_ports" placeholder="22,80,443,8000-9000"></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1"><label for="s-timing">Timing</label><select id="s-timing" name="timing">{% for t in timings %}<option value="{{ t }}" {{ 'selected' if t == 'T3' }}>{{ t }}</option>{% endfor %}</select></div>
+        <div class="field" style="flex:1"><label for="s-type">Scan type</label><select id="s-type" name="scan_type"><option value="syn">SYN</option><option value="connect">Connect</option></select></div>
+      </div>
+      <label class="check"><input type="checkbox" name="skip_ping" value="true"> Skip host discovery (-Pn)</label>
+    </div>
+    <div class="stack" data-show-kind="nuclei" hidden>
+      <div class="field"><label for="s-mode">Templates</label><select id="s-mode" name="nuclei_mode"><option value="all">All templates</option><option value="groups">Template groups</option></select></div>
+      <div class="field"><label for="s-groups">Groups (when using groups)</label><input id="s-groups" name="groups" placeholder="http/cves, network"></div>
+      <fieldset class="field"><legend>Severities</legend><div class="row center">{% for sv in nuclei_severities %}<label class="check"><input type="checkbox" name="severities" value="{{ sv }}" {{ 'checked' if sv in ('critical','high') }}> {{ sv }}</label>{% endfor %}</div></fieldset>
+    </div>
+    <div class="field" data-show-kind="nuclei campaign_verify" hidden><label for="s-profile">Profile</label><select id="s-profile" name="profile">{% for k, pr in profiles.items() %}<option value="{{ k }}" {{ 'selected' if k == default_profile }}>{{ pr.label }}</option>{% endfor %}</select></div>
+    <div><button class="primary" type="submit"><svg class="icon"><use href="#i-clock"/></svg>Create schedule</button></div>
+  </div>
+</form>
+{% endmacro %}

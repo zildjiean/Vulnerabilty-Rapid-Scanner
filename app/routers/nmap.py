@@ -22,6 +22,22 @@ def _page(request: Request, db: Session, form: dict, error: str | None = None, s
                   jobs=recent_jobs(db, kind="nmap"), job_summary=job_summary)
 
 
+def launch_nmap(db: Session, settings, runner, target_list: list[str], *, port_mode: str = "top",
+                custom_ports: str = "", timing: str = "T3", skip_ping: bool = False, scan_type: str = "syn",
+                exclude: list[str] | None = None, extra_params: dict | None = None, schedule_id: int | None = None):
+    """Validate options, create and start an nmap job. Raises ValueError for bad options."""
+    argv = build_nmap_argv(settings.nmap_bin, target_list, port_mode=port_mode, custom_ports=custom_ports,
+                           timing=timing, skip_ping=skip_ping, scan_type=scan_type, exclude=exclude)
+    params = {"targets": target_list, "port_mode": port_mode, "custom_ports": custom_ports, "scan_type": scan_type,
+              **(extra_params or {})}
+    job = runner.create_job(db, "nmap", argv, params=params)
+    if schedule_id is not None:
+        job.schedule_id = schedule_id
+        db.commit()
+    runner.start(job.id, argv, on_complete=on_nmap_complete, stdout_to_log=False)
+    return job
+
+
 @router.get("/nmap")
 def nmap_page(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, dict(DEFAULT_FORM))
@@ -35,12 +51,9 @@ async def nmap_scan(request: Request, targets: str = Form(""), port_mode: str = 
             "skip_ping": skip_ping, "scan_type": scan_type}
     try:
         target_list = parse_nmap_targets(targets)
-        argv = build_nmap_argv(settings.nmap_bin, target_list, port_mode=port_mode, custom_ports=custom_ports,
-                               timing=timing, skip_ping=skip_ping, scan_type=scan_type)
+        job = launch_nmap(db, settings, runner, target_list, port_mode=port_mode, custom_ports=custom_ports,
+                          timing=timing, skip_ping=skip_ping, scan_type=scan_type)
     except ValueError as e:
         return _page(request, db, form, error=str(e), status_code=400)
-    job = runner.create_job(db, "nmap", argv, params={"targets": target_list, "port_mode": port_mode,
-                                                      "custom_ports": custom_ports, "scan_type": scan_type})
-    runner.start(job.id, argv, on_complete=on_nmap_complete, stdout_to_log=False)
     audit(db, request, "scan.nmap", target=", ".join(target_list), job_id=job.id, port_mode=port_mode, scan_type=scan_type)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)

@@ -27,6 +27,9 @@ Everything runs in one container. No external services, no accounts, works offli
   SLA due dates (critical 3, high 7, medium 30, low 90 days by default), timeline and comments, bulk triage.
   Fixed issues reopen when seen again; suspected issues close themselves when a re-scan shows a patched version.
 - **Findings** view across jobs with severity ordering and search; every finding links to its issue.
+- **Scopes and schedules**: group assets by environment with an owner and a business criticality; new issues
+  in a scope are assigned to its owner. Schedule nmap discovery and nuclei scans per scope (every N hours, daily
+  or weekly in your timezone) and automatic re-verification of active campaigns.
 - **Threat campaigns** for every new CVE: NVD details (CVSS, description, references) and CISA KEV status
   (known exploited, ransomware use, federal due date) pulled automatically; a version rule and the matching
   nuclei templates in the same form; live exposure, remediation progress and one-click **Verify** that scans only
@@ -59,6 +62,8 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 
 ## Workflow
 
+0. **Scopes** – describe each environment once (targets, exclusions, owner, criticality) and add schedules:
+   nightly discovery, weekly nuclei, re-verify campaigns every few hours.
 1. **Nmap** – enter targets (IP, CIDR, range, hostname), choose the port range, start. SYN scans need
    `NET_RAW`/`NET_ADMIN` (granted in `docker-compose.yml`); pick *Connect* if raw sockets are unavailable.
 2. **Inventory** – review hosts and services grouped by host, product or service type, filter by product or
@@ -82,8 +87,9 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 | Manage version rules and custom templates | ✓ | ✓ | |
 | Triage issues (status, owner, severity, comments) | ✓ | ✓ | |
 | Create and run campaigns (verify also needs scan rights) | ✓ | ✓ | |
+| Manage scopes and schedules | ✓ | ✓ | |
 | Update nmap, nuclei and the templates | ✓ | | |
-| Manage users, SLA settings, read and export the audit log | ✓ | | |
+| Manage users, SLA and timezone settings, read and export the audit log | ✓ | | |
 
 Admins add users under *Administration → Users*. The scanner generates a temporary password that is shown once;
 the user must replace it at first sign-in. Deactivating a user, resetting their password or changing their role

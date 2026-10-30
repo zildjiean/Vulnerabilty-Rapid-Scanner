@@ -50,6 +50,10 @@ def job_summary(job: Job) -> str:
         parts.append("severity " + ",".join(p["severities"]))
     if p.get("action"):
         parts.append(p["action"])
+    if p.get("campaign"):
+        parts.append("campaign " + str(p["campaign"]))
+    if p.get("schedule"):
+        parts.append("scheduled: " + str(p["schedule"]))
     result = p.get("result")
     if isinstance(result, dict):
         parts.append(", ".join(f"{k} {v}" for k, v in result.items()))

@@ -6,8 +6,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-GROUP_MODES = ("host", "product", "type", "none")
-GROUP_LABELS = {"host": "Host", "product": "Product", "type": "Service type", "none": "None (flat list)"}
+GROUP_MODES = ("host", "product", "type", "scope", "none")
+GROUP_LABELS = {"host": "Host", "product": "Product", "type": "Service type", "scope": "Scope", "none": "None (flat list)"}
+_CRIT_ORDER = ("critical", "high", "medium", "low")
 DEFAULT_GROUP = "host"
 
 # Service categories in display order. Classification uses the nmap service name first,
@@ -76,10 +77,11 @@ class Group:
     match_count: int = 0
 
 
-def group_rows(rows, mode: str, matches: dict) -> list[Group]:
+def group_rows(rows, mode: str, matches: dict, scope_of: dict | None = None) -> list[Group]:
     """Split ``(service, host)`` rows into ordered groups for ``mode``.
 
     ``matches`` maps service id -> list of rule matches; only its lengths are used.
+    ``scope_of`` maps host id -> Scope (mode ``scope``); hosts without one go to "Unscoped".
     Returns ``[]`` for mode ``none``.
     """
     mode = normalize_group_mode(mode)
@@ -89,6 +91,9 @@ def group_rows(rows, mode: str, matches: dict) -> list[Group]:
     for svc, host in rows:
         if mode == "host":
             key, label, sub = f"h{host.id}", host.address, host.hostname or ""
+        elif mode == "scope":
+            sc = (scope_of or {}).get(host.id)
+            key, label, sub = (f"s{sc.id}", sc.name, f"{sc.criticality} criticality") if sc else ("s:", "Unscoped", "")
         elif mode == "product":
             prod = (svc.product or "").strip()
             key, label, sub = ("p:" + prod.lower()) if prod else "p:", prod or "Unknown product", ""
@@ -107,4 +112,8 @@ def group_rows(rows, mode: str, matches: dict) -> list[Group]:
         groups.sort(key=lambda g: (g.key == "p:", g.label.lower()))
     elif mode == "type":
         groups.sort(key=lambda g: TYPE_ORDER.index(g.label))
+    elif mode == "scope":
+        crit = {s.id: s.criticality for s in (scope_of or {}).values()}
+        groups.sort(key=lambda g: (g.key == "s:", _CRIT_ORDER.index(crit.get(int(g.key[1:]), "low"))
+                                   if g.key != "s:" else 9, g.label.lower()))
     return groups

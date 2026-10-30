@@ -175,6 +175,7 @@ def upsert_issue(db: Session, *, address: str, port: str, hostname: str, vuln_id
         db.add(issue)
         db.flush()
         _event(db, issue, "created", body=source, at=seen_at)
+        _apply_scope(db, issue)
         return issue, True
 
     if seen_at < issue.first_seen:
@@ -199,6 +200,20 @@ def upsert_issue(db: Session, *, address: str, port: str, hostname: str, vuln_id
     if reopen and issue.status in ("fixed", "verified"):
         _set_status(db, issue, "triaged", None, kind="reopened", body=f"Seen again: {source}")
     return issue, False
+
+
+def _apply_scope(db: Session, issue: Issue) -> None:
+    """Place a new issue in its scope and hand it to the scope owner when that owner can triage."""
+    from .db import User
+    from .scopes import scope_for_asset
+    scope = scope_for_asset(db, issue.address, issue.hostname)
+    if scope is None:
+        return
+    issue.scope_id = scope.id
+    owner = db.get(User, scope.owner_id) if scope.owner_id else None
+    if owner is not None and owner.is_active and owner.role in ("admin", "analyst"):
+        issue.assignee_id = owner.id
+        _event(db, issue, "assigned", None, "", owner.username, body=f"Auto-assigned to the owner of scope {scope.name}")
 
 
 def issues_from_findings(db: Session, findings: list[Finding], job=None) -> int:

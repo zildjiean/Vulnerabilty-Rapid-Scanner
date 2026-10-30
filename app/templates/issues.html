@@ -19,6 +19,7 @@
     <div class="field"><label for="severity">Severity</label><select id="severity" name="severity"><option value="">All</option>{% for s in issue_severities %}<option value="{{ s }}" {{ 'selected' if f.severity == s }}>{{ s }}</option>{% endfor %}</select></div>
     <div class="field"><label for="assignee">Assignee</label><select id="assignee" name="assignee"><option value="">Anyone</option><option value="me" {{ 'selected' if f.assignee == 'me' }}>Me</option><option value="none" {{ 'selected' if f.assignee == 'none' }}>Unassigned</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if f.assignee == u.id|string }}>{{ u.display_name or u.username }}</option>{% endfor %}</select></div>
     <div class="field"><label for="confidence">Confidence</label><select id="confidence" name="confidence"><option value="">All</option><option value="confirmed" {{ 'selected' if f.confidence == 'confirmed' }}>Confirmed</option><option value="suspected" {{ 'selected' if f.confidence == 'suspected' }}>Suspected</option></select></div>
+    {% if scopes %}<div class="field"><label for="scope">Scope</label><select id="scope" name="scope"><option value="">All</option><option value="none" {{ 'selected' if f.scope == 'none' }}>No scope</option>{% for sc in scopes %}<option value="{{ sc.id }}" {{ 'selected' if f.scope == sc.id|string }}>{{ sc.name }}</option>{% endfor %}</select></div>{% endif %}
     <label class="check"><input type="checkbox" name="overdue" value="1" {{ 'checked' if f.overdue }}> Overdue only</label>
     <button type="submit"><svg class="icon"><use href="#i-filter"/></svg>Filter</button>
     <a class="btn ghost" href="/issues">Reset</a>
@@ -42,7 +43,7 @@
   <table class="data">
     <thead><tr>
       {% if manage %}<th><input type="checkbox" data-select-all="issue_ids" aria-label="Select all issues"></th>{% endif %}
-      <th data-sort="num">Severity</th><th data-sort="text">Issue</th><th data-sort="text">Asset</th><th data-sort="text">Confidence</th><th data-sort="text">Status</th><th data-sort="text">Assignee</th><th data-sort="text">Due</th><th data-sort="text">Last seen</th>
+      <th data-sort="num">Severity</th><th data-sort="text">Issue</th><th data-sort="text">Asset</th><th data-sort="text">Scope</th><th data-sort="text">Confidence</th><th data-sort="text">Status</th><th data-sort="text">Assignee</th><th data-sort="text">Due</th><th data-sort="text">Last seen</th>
     </tr></thead>
     <tbody>
     {% for i in issues %}
@@ -51,6 +52,7 @@
       <td data-value="{{ {'critical':0,'high':1,'medium':2,'low':3}.get(i.severity, 9) }}"><span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td>
       <td><a href="/issues/{{ i.id }}" class="issue-title">{{ i.title or i.vuln_id }}</a><div class="small text-2 cell-mono">{{ i.vuln_id }}{% if i.occurrences > 1 %} · seen {{ i.occurrences }}×{% endif %}</div></td>
       <td class="cell-mono small">{{ i.asset }}{% if i.hostname and i.hostname != i.address %}<div class="text-2">{{ i.hostname }}</div>{% endif %}</td>
+      <td class="small">{% if i.scope %}<a href="/scopes/{{ i.scope.id }}">{{ i.scope.name }}</a> <span class="badge crit-{{ i.scope.criticality }}" title="Scope criticality">{{ i.scope.criticality }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td>{{ confidence_badge(i.confidence) }}</td>
       <td>{{ status_badge(i.status) }}</td>
       <td class="small">{{ (i.assignee.display_name or i.assignee.username) if i.assignee else '—' }}</td>
@@ -58,7 +60,7 @@
       <td class="small text-2 num">{{ i.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
     </tr>
     {% else %}
-    <tr data-empty="1"><td colspan="{{ 9 if manage else 8 }}"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No issues</b>{% if f.view == 'active' and not f.q %}Nothing open. New issues appear when nuclei confirms a vulnerability or a <a href="/rules">version rule</a> matches the inventory.{% else %}Widen the filters.{% endif %}</div></td></tr>
+    <tr data-empty="1"><td colspan="{{ 10 if manage else 9 }}"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No issues</b>{% if f.view == 'active' and not f.q %}Nothing open. New issues appear when nuclei confirms a vulnerability or a <a href="/rules">version rule</a> matches the inventory.{% else %}Widen the filters.{% endif %}</div></td></tr>
     {% endfor %}
     </tbody>
   </table>

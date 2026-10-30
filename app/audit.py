@@ -32,7 +32,7 @@ def client_ip(request) -> str:
 
 def audit(db: Session, request, action: str, target: str = "", user=None, **details) -> AuditLog:
     """Record ``action`` by the request's user (or ``user``) and commit it."""
-    actor = user if user is not None else getattr(request.state, "user", None)
+    actor = user if user is not None else getattr(getattr(request, "state", None), "user", None)
     row = AuditLog(
         user_id=getattr(actor, "id", None),
         username=details.pop("username", None) or getattr(actor, "username", "") or "",

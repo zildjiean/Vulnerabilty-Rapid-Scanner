@@ -60,9 +60,13 @@ def inventory(request: Request, q: str = "", product: str = "", port: str = "", 
               group: str = DEFAULT_GROUP, db: Session = Depends(get_db)):
     rows, products, matches = load_inventory(db, q, product, port, only_matches)
     group_mode = normalize_group_mode(group)
+    scope_of = None
+    if group_mode == "scope":
+        from ..scopes import scope_of_hosts
+        scope_of = scope_of_hosts(db)
     return render(request, "inventory.html", active="inventory", rows=rows, products=products, matches=matches,
                   host_count=len({h.id for _, h in rows}), q=q, product=product, port=port, only_matches=only_matches,
-                  group_mode=group_mode, group_labels=GROUP_LABELS, groups=group_rows(rows, group_mode, matches))
+                  group_mode=group_mode, group_labels=GROUP_LABELS, groups=group_rows(rows, group_mode, matches, scope_of))
 
 
 @router.post("/inventory/to-nuclei", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
