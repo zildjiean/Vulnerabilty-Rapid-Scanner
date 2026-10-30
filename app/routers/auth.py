@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import (clear_session_cookie, hash_password, set_session_cookie, validate_new_password, verify_password)
-from ..db import User, utcnow
+from ..authz import PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_PERMISSIONS
+from ..db import AuditLog, User, utcnow
 from ..audit import audit
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import render
@@ -76,3 +77,31 @@ def change_password(request: Request, current_password: str = Form(""), new_pass
     response = RedirectResponse("/?msg=Password+updated", status_code=303)
     set_session_cookie(response, request.app.state.sessions.encode(user.id, user.session_version), secure=settings.https)
     return response
+
+
+def _profile(request: Request, db: Session, status_code: int = 200, error: str | None = None):
+    me = request.state.user
+    activity = list(db.scalars(select(AuditLog).where(AuditLog.user_id == me.id).order_by(AuditLog.id.desc()).limit(15)))
+    perms = [(p, label) for p, label in PERMISSIONS.items() if p in ROLE_PERMISSIONS.get(me.role, ())]
+    return render(request, "profile.html", status_code=status_code, active="profile", error=error, activity=activity,
+                  perms=perms, role_description=ROLE_DESCRIPTIONS.get(me.role, ""))
+
+
+@router.get("/profile")
+def profile_page(request: Request, db: Session = Depends(get_db)):
+    return _profile(request, db)
+
+
+@router.post("/profile", dependencies=[Depends(verify_csrf)])
+def profile_update(request: Request, display_name: str = Form(""), email: str = Form(""), db: Session = Depends(get_db)):
+    from .users import _clean_profile
+    display_name, email, err = _clean_profile(display_name, email)
+    if err:
+        return _profile(request, db, status_code=400, error=err)
+    me = db.get(User, request.state.user.id)
+    changes = {k: f"{getattr(me, k)} -> {v}" for k, v in (("display_name", display_name), ("email", email)) if getattr(me, k) != v}
+    me.display_name, me.email = display_name, email
+    db.commit()
+    if changes:
+        audit(db, request, "profile.updated", target=me.username, user=me, **changes)
+    return RedirectResponse("/profile?msg=Profile+saved", status_code=303)

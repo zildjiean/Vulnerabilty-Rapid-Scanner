@@ -171,6 +171,12 @@
     syncGroupBoxes();
   });
 
+  // ---------- Copy to clipboard: <button data-copy="text"> ----------
+  $$("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied to clipboard"); }
+    catch (e) { toast("Copy failed: select the text and copy it manually", "error"); }
+  }));
+
   // ---------- Live job log (SSE) ----------
   const log = $("#joblog");
   if (log && log.dataset.live === "yes") {

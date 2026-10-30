@@ -22,6 +22,7 @@ ACTION_GROUPS = {
     "rule": "Version rules",
     "template": "Templates",
     "system": "System updates",
+    "audit": "Audit exports",
 }
 
 

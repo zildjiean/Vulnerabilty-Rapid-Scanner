@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set section = "Account" %}
+{% set page_title = "Profile" %}
+{% set page_subtitle = "Your details, what your role allows and your recent activity." %}
+{% block page_actions %}<a class="btn" href="/change-password"><svg class="icon"><use href="#i-key"/></svg>Change password</a>{% endblock %}
+{% block content %}
+<div class="grid grid-2 mb">
+  <form method="post" action="/profile" class="card" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Your details</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label>Username</label><input value="{{ user.username }}" disabled></div>
+      <div class="field"><label for="display_name">Display name</label><input id="display_name" name="display_name" value="{{ user.display_name }}" autocomplete="name"></div>
+      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ user.email }}" autocomplete="email"><span class="hint">Used for notifications in a later release.</span></div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save</button></div>
+    </div>
+  </form>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-shield"/></svg>Role: <span class="badge role-{{ user.role }}">{{ role_labels.get(user.role, user.role) }}</span></h2></div>
+    <div class="card-body stack">
+      <p class="text-2">{{ role_description }}</p>
+      <ul class="perm-list">{% for p, label in perms %}<li><svg class="icon sm"><use href="#i-check"/></svg><span>{{ label }}</span></li>{% endfor %}</ul>
+      <dl class="kv"><dt>Last sign-in</dt><dd class="num">{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') if user.last_login_at else 'now' }}</dd><dt>Member since</dt><dd class="num">{{ user.created_at.strftime('%Y-%m-%d') }}</dd></dl>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-scroll"/></svg>Your recent activity</h2></div>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr><th>When</th><th>Action</th><th>Target</th><th>IP</th></tr></thead>
+    <tbody>
+    {% for a in activity %}
+    <tr><td class="small text-2 num">{{ a.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td><td><code>{{ a.action }}</code></td><td>{{ a.target }}</td><td class="cell-mono small muted">{{ a.ip }}</td></tr>
+    {% else %}<tr data-empty="1"><td colspan="4"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>No activity yet</b></div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}
