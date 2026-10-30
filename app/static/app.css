@@ -373,3 +373,7 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
 .badge.crit-medium{background:var(--sev-medium-bg);color:var(--sev-medium)}
 .badge.crit-low{background:var(--sev-low-bg);color:var(--sev-low)}
 .page-actions .badge{align-self:center}
+
+/* ---------- Integrations ---------- */
+.event-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 12px}
+.event-grid .check{min-height:32px}

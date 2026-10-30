@@ -16,6 +16,24 @@
     <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save SLA</button></div>
   </div>
 </form>
+<form method="post" action="/settings/notifications" class="card" id="notifications" style="max-width:720px;margin-top:16px" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>Notifications</h2></div>
+  <div class="card-body stack">
+    <div class="field"><label for="base_url">Public URL of this scanner</label><input id="base_url" name="base_url" type="url" required value="{{ base_url }}"><span class="hint">Used for links in Slack, Teams, email and tickets.</span></div>
+    <div class="row">
+      <div class="field" style="flex:2"><label for="smtp_host">SMTP host</label><input id="smtp_host" name="smtp_host" value="{{ smtp.get('host', '') }}" placeholder="smtp.example.com"></div>
+      <div class="field w-sm"><label for="smtp_port">Port</label><input id="smtp_port" name="smtp_port" inputmode="numeric" value="{{ smtp.get('port', 587) }}"></div>
+      <div class="field" style="flex:1"><label for="smtp_security">Security</label><select id="smtp_security" name="smtp_security">{% for k, label in [('starttls','STARTTLS'),('ssl','SSL/TLS'),('none','None')] %}<option value="{{ k }}" {{ 'selected' if smtp.get('security', 'starttls') == k }}>{{ label }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1"><label for="smtp_username">Username</label><input id="smtp_username" name="smtp_username" value="{{ smtp.get('username', '') }}" autocomplete="off"></div>
+      <div class="field" style="flex:1"><label for="smtp_password">Password</label><input id="smtp_password" name="smtp_password" type="password" autocomplete="new-password" placeholder="{{ 'stored · leave blank to keep' if smtp_password_set else '' }}"></div>
+    </div>
+    <div class="field"><label for="smtp_from">From address</label><input id="smtp_from" name="smtp_from" type="email" value="{{ smtp.get('from_addr', '') }}" placeholder="scanner@example.com"></div>
+    <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save notification settings</button></div>
+  </div>
+</form>
 <form method="post" action="/settings/timezone" class="card" style="max-width:720px;margin-top:16px" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card-head"><h2><svg class="icon"><use href="#i-clock"/></svg>Timezone</h2></div>

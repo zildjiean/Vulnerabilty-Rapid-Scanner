@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_channel_fields.html" import channel_fields with context %}
+{% set section = "Integrations" %}
+{% set page_title = c.name %}
+{% set page_subtitle = kinds[c.kind] ~ (" · creates tickets for issues" if c.kind in ticket_kinds else " · sends messages") %}
+{% block page_actions %}
+<form method="post" action="/integrations/channels/{{ c.id }}/test"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="primary"><svg class="icon"><use href="#i-play"/></svg>{{ 'Check connection' if c.kind in ticket_kinds else 'Send test' }}</button></form>
+<form method="post" action="/integrations/channels/{{ c.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">{{ 'Pause' if c.enabled else 'Enable' }}</button></form>
+<form method="post" action="/integrations/channels/{{ c.id }}/delete" data-confirm="Delete channel '{{ c.name }}', its rules, queued deliveries and ticket links?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit"><svg class="icon"><use href="#i-trash"/></svg>Delete</button></form>
+{% endblock %}
+{% block content %}
+{% if c.last_test_at %}<div class="alert {{ 'ok' if c.last_test_ok else 'error' }}" role="status"><svg class="icon"><use href="#i-{{ 'check-circle' if c.last_test_ok else 'alert-circle' }}"/></svg><div>Last test {{ c.last_test_at.strftime('%Y-%m-%d %H:%M') }} UTC: {{ c.last_test_message }}</div></div>{% endif %}
+<div class="grid grid-issue">
+  <div class="stack">
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>Rules</h2></div>
+      <div class="card-body stack">
+        {% for r in c.rules %}
+        <div class="row center between list-row" style="{{ '' if r.enabled else 'opacity:.6' }}">
+          <span class="small">{% for e in r.events|fromjson %}<span class="badge neutral">{{ events.get(e, e) }}</span> {% endfor %}
+            · <span class="badge sev-{{ r.min_severity }}">{{ r.min_severity }}+</span>{% if r.scope %} · scope <a href="/scopes/{{ r.scope.id }}">{{ r.scope.name }}</a>{% endif %}</span>
+          <span class="row center" style="gap:4px">
+            <form method="post" action="/integrations/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit">{{ 'Pause' if r.enabled else 'Enable' }}</button></form>
+            <form method="post" action="/integrations/rules/{{ r.id }}/delete"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Delete rule"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>
+          </span>
+        </div>
+        {% else %}<p class="small text-2">No rule yet: this channel receives nothing until you add one.</p>{% endfor %}
+        <form method="post" action="/integrations/channels/{{ c.id }}/rules" class="stack" style="margin-top:6px">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <fieldset class="field"><legend>{{ 'Open a ticket when' if c.kind in ticket_kinds else 'Notify on' }}</legend>
+            <div class="event-grid">{% for k, label in events.items() if c.kind not in ticket_kinds or k in ticket_events %}<label class="check"><input type="checkbox" name="events" value="{{ k }}" {{ 'checked' if k == 'issue.created' }}> {{ label }}</label>{% endfor %}</div>
+          </fieldset>
+          <div class="row">
+            <div class="field" style="flex:1"><label for="min_severity">Minimum severity</label><select id="min_severity" name="min_severity">{% for s in rule_severities %}<option value="{{ s }}" {{ 'selected' if s == 'high' }}>{{ s }}</option>{% endfor %}</select></div>
+            <div class="field" style="flex:1"><label for="scope_id">Scope</label><select id="scope_id" name="scope_id"><option value="">Any scope</option>{% for s in scopes %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></div>
+          </div>
+          <div><button type="submit"><svg class="icon"><use href="#i-plus"/></svg>Add rule</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent deliveries</h2><a class="btn sm ghost" href="/integrations/deliveries">Delivery log<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>When</th><th>Event</th><th>Message</th><th>Status</th></tr></thead>
+        <tbody>{% for d in deliveries %}<tr><td class="small text-2 num">{{ d.created_at.strftime('%m-%d %H:%M') }}</td><td class="small"><code>{{ d.event }}</code></td><td class="small">{{ d.title }}{% if d.last_error %}<div class="text-danger">{{ d.last_error }}</div>{% endif %}</td><td><span class="status {{ {'sent':'st-done','pending':'st-queued','failed':'st-failed'}[d.status] }}">{{ d.status }}</span></td></tr>
+        {% else %}<tr data-empty="1"><td colspan="4"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>Nothing sent yet</b></div></td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </div>
+  <form method="post" action="/integrations/channels/{{ c.id }}" class="card" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-edit"/></svg>Settings</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label for="name">Name</label><input id="name" name="name" required maxlength="128" value="{{ c.name }}"></div>
+      {{ channel_fields(c.kind, config, stored) }}
+      {% if c.kind == 'email' %}<p class="small text-2">Uses the SMTP server under <a href="/settings#notifications">Settings</a>.</p>{% endif %}
+      {% if c.kind == 'jira' %}<p class="small text-2">Create an API token at id.atlassian.com → Security. Closing uses the first transition into a <i>done</i> status.</p>{% endif %}
+      {% if c.kind == 'gitlab' %}<p class="small text-2">Use a project or personal access token with the <code>api</code> scope.</p>{% endif %}
+      {% if c.kind == 'webhook' %}<p class="small text-2">Requests carry <code>X-ZDRS-Event</code> and, with a signing secret, <code>X-ZDRS-Signature: sha256=&lt;HMAC of the body&gt;</code>.</p>{% endif %}
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save</button></div>
+    </div>
+  </form>
+</div>
+{% endblock %}

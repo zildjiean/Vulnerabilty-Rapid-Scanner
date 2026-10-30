@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% set section = "Integrations" %}
+{% set page_title = "Delivery log" %}
+{% set page_subtitle = "Every message and ticket operation, newest first. Failures retry after 1, 5, 15 and 60 minutes." %}
+{% block page_actions %}<a class="btn ghost" href="/integrations">Back to integrations</a>{% endblock %}
+{% block content %}
+<div class="tabs mb" role="tablist">{% for k, label in [('','All'),('pending','Pending'),('failed','Failed'),('sent','Sent')] %}<a role="tab" class="tab {{ 'active' if status == k }}" href="/integrations/deliveries{{ '?status=' ~ k if k }}">{{ label }}</a>{% endfor %}</div>
+<div class="card"><div class="table-wrap"><table class="data">
+  <thead><tr><th>Created</th><th>Channel</th><th>Event</th><th>Message</th><th>Attempts</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for d in rows %}
+  <tr>
+    <td class="small text-2 num">{{ d.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+    <td class="small"><a href="/integrations/channels/{{ d.channel_id }}">{{ d.channel.name }}</a></td>
+    <td class="small"><code>{{ d.event }}</code></td>
+    <td class="small">{% if d.issue_id %}<a href="/issues/{{ d.issue_id }}">{{ d.title }}</a>{% else %}{{ d.title }}{% endif %}{% if d.last_error %}<div class="text-danger">{{ d.last_error }}</div>{% endif %}</td>
+    <td class="num small">{{ d.attempts }}{% if d.status == 'pending' and d.attempts %}<div class="text-2">next {{ d.next_attempt_at.strftime('%H:%M') }}</div>{% endif %}</td>
+    <td><span class="status {{ {'sent':'st-done','pending':'st-queued','failed':'st-failed'}[d.status] }}">{{ d.status }}</span></td>
+    <td class="actions">{% if d.status != 'sent' %}<form method="post" action="/integrations/deliveries/{{ d.id }}/retry"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-refresh"/></svg>Retry now</button></form>{% endif %}</td>
+  </tr>
+  {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>No deliveries</b></div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

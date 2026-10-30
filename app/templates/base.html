@@ -51,6 +51,7 @@
         <div class="nav-group-label">Administration</div>
         {% if can('users.manage') %}<a href="/users" class="{{ 'active' if active == 'users' }}" {% if active == 'users' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-users"/></svg><span>Users</span></a>{% endif %}
         {% if can('settings.manage') %}<a href="/settings" class="{{ 'active' if active == 'settings' }}" {% if active == 'settings' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clock"/></svg><span>Settings</span></a>{% endif %}
+        {% if can('integrations.manage') %}<a href="/integrations" class="{{ 'active' if active == 'integrations' }}" {% if active == 'integrations' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-link"/></svg><span>Integrations</span></a>{% endif %}
         {% if can('audit.view') %}<a href="/audit" class="{{ 'active' if active == 'audit' }}" {% if active == 'audit' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-scroll"/></svg><span>Audit log</span></a>{% endif %}
       </div>
       {% endif %}

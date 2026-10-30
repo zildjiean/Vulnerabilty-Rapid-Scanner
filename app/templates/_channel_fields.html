@@ -1,0 +1,13 @@
+{# usage: channel_fields(kind, config, stored, new=False) — field names are <kind>__<field> #}
+{% macro channel_fields(kind, config, stored, new=False) %}
+{% for name, label, secret in fields[kind] %}
+  {% set fid = kind ~ '__' ~ name %}
+  {% if name == 'to_assignee' %}
+  <label class="check"><input type="checkbox" name="{{ fid }}" value="1" {{ 'checked' if config.get('to_assignee') }}> {{ label }}</label>
+  {% elif secret %}
+  <div class="field"><label for="{{ fid }}">{{ label }}</label><input id="{{ fid }}" name="{{ fid }}" type="password" autocomplete="off" placeholder="{{ 'stored · leave blank to keep' if stored.get(name) else ('optional' if name == 'signing_secret' else '') }}"><span class="hint">Encrypted at rest and never shown again.</span></div>
+  {% else %}
+  <div class="field"><label for="{{ fid }}">{{ label }}</label><input id="{{ fid }}" name="{{ fid }}" value="{{ config.get(name, '') }}" {% if name in ('url', 'base_url') %}type="url" placeholder="https://"{% endif %}{% if name == 'issue_type' %} placeholder="Bug"{% endif %}{% if name == 'recipients' %} placeholder="soc@example.com, it-ops@example.com"{% endif %}></div>
+  {% endif %}
+{% endfor %}
+{% endmacro %}

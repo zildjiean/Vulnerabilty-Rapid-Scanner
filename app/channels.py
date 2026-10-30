@@ -291,3 +291,22 @@ def validate_channel(kind: str, config: dict, secret: dict) -> str | None:
         if not config.get("project"):
             return "GitLab needs the project id or path."
     return None
+
+
+def test_channel(kind: str, http: Http, smtp_send, smtp: dict, config: dict, secret: dict, base_url: str) -> str:
+    """Send a test message, or check ticketing credentials. Returns a human-readable success message."""
+    if kind == "jira":
+        base, auth = _jira(config, secret)
+        me = _check(http("GET", f"{base}/rest/api/2/myself", auth=auth), "Jira login").json()
+        project = config.get("project_key", "")
+        _check(http("GET", f"{base}/rest/api/2/project/{project}", auth=auth), f"Jira project {project}")
+        return f"Signed in to Jira as {me.get('displayName') or me.get('name') or 'the account'}; project {project} is reachable."
+    if kind == "gitlab":
+        api, headers = _gitlab(config, secret)
+        data = _check(http("GET", api, headers=headers), "GitLab project").json()
+        return f"GitLab project {data.get('path_with_namespace') or config.get('project')} is reachable."
+    msg = Message(event="test", title="[TEST] 0-Day Rapid Scanner notification",
+                  text="This is a test message. If you can read it, the channel works.", severity="info",
+                  url=base_url, fields=[("Channel", KINDS.get(kind, kind))], data={"test": True})
+    send_message(kind, http, smtp_send, smtp, config, secret, msg)
+    return "Test message sent."

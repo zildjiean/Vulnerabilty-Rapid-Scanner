@@ -12,7 +12,7 @@ from .. import issues as iss
 from ..audit import audit
 from ..campaigns import campaigns_for_issue
 from ..authz import require
-from ..db import Finding, Issue, Rule, User, utcnow
+from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, User, utcnow
 from ..deps import get_db, verify_csrf
 from ..render import SEVERITY_ORDER, render, templates
 
@@ -106,7 +106,10 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
                   findings=findings, rule=rule, users=assignable_users(db),
                   transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
-                  sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue))
+                  sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue),
+                  tickets=list(db.scalars(select(IssueTicket).where(IssueTicket.issue_id == issue.id))),
+                  ticket_channels=list(db.scalars(select(NotificationChannel).where(
+                      NotificationChannel.kind.in_(("jira", "gitlab")), NotificationChannel.enabled.is_(True)))))
 
 
 def _label(issue: Issue) -> str:
@@ -205,10 +208,30 @@ def issue_comment(request: Request, issue_id: int, body: str = Form(""), db: Ses
 
 # ----------------------------------------------------------------- settings
 def _settings(request: Request, db: Session, status_code: int = 200, error: str | None = None, sla=None, tz=None):
+    from ..notifications import get_base_url, get_smtp
     from ..scheduler import get_timezone
+    smtp = get_smtp(db, request.app.state.secretbox)
     return render(request, "settings.html", status_code=status_code, active="settings", error=error,
                   sla=sla or iss.get_sla(db), defaults=iss.DEFAULT_SLA, timezone=tz or get_timezone(db),
-                  common_timezones=COMMON_TIMEZONES)
+                  common_timezones=COMMON_TIMEZONES, base_url=get_base_url(db),
+                  smtp={k: v for k, v in smtp.items() if k != "password"}, smtp_password_set=bool(smtp.get("password")))
+
+
+@router.post("/settings/notifications", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
+def settings_notifications(request: Request, base_url: str = Form(""), smtp_host: str = Form(""), smtp_port: str = Form("587"),
+                           smtp_security: str = Form("starttls"), smtp_username: str = Form(""),
+                           smtp_password: str = Form(""), smtp_from: str = Form(""), db: Session = Depends(get_db)):
+    from ..notifications import set_base_url, set_smtp
+    try:
+        set_base_url(db, base_url)
+        set_smtp(db, request.app.state.secretbox, smtp_host, smtp_port, smtp_security, smtp_username, smtp_from, smtp_password)
+    except ValueError as e:
+        db.rollback()
+        return _settings(request, db, 400, str(e))
+    db.commit()
+    audit(db, request, "settings.updated", target="notifications", base_url=base_url.strip(), smtp_host=smtp_host.strip(),
+          smtp_password_changed=bool(smtp_password))
+    return RedirectResponse("/settings?msg=Notification+settings+saved#notifications", status_code=303)
 
 
 COMMON_TIMEZONES = ("Asia/Bangkok", "UTC", "Asia/Singapore", "Asia/Tokyo", "Asia/Kolkata", "Europe/London",
