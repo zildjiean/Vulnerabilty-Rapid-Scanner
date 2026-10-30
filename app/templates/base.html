@@ -44,6 +44,7 @@
       <div class="nav-group">
         <div class="nav-group-label">System</div>
         <a href="/updates" class="{{ 'active' if active == 'updates' }}" {% if active == 'updates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-refresh"/></svg><span>Updates</span></a>
+        <a href="/api-keys" class="{{ 'active' if active == 'api' }}" {% if active == 'api' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-key"/></svg><span>API</span></a>
         <a href="/schedules" class="{{ 'active' if active == 'schedules' }}" {% if active == 'schedules' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clock"/></svg><span>Schedules</span></a>
         <a href="/jobs" class="{{ 'active' if active == 'jobs' }}" {% if active == 'jobs' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-activity"/></svg><span>Jobs</span></a>
       </div>

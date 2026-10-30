@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set section = "System" %}
+{% set page_title = "API keys" %}
+{% set page_subtitle = "Keys for the REST API. A key acts with the role you give it, never more than your own. Only a hash is stored." %}
+{% block page_actions %}<a class="btn" href="/api-docs"><svg class="icon"><use href="#i-file"/></svg>API reference</a>{% endblock %}
+{% block content %}
+{% if new_key %}
+<div class="alert ok" role="status"><svg class="icon"><use href="#i-key"/></svg><div class="stack" style="gap:8px">
+  <div>Copy the key now. It is shown <b>only once</b>.</div>
+  <div class="row center"><code class="secret" data-secret="{{ new_key }}">{{ new_key }}</code><button type="button" class="sm" data-copy="{{ new_key }}"><svg class="icon sm"><use href="#i-copy"/></svg>Copy</button></div>
+</div></div>
+{% endif %}
+<div class="grid grid-users">
+  <form method="post" action="/api-keys" class="card" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>New key</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label for="name">Name</label><input id="name" name="name" required maxlength="64" placeholder="ci-pipeline"></div>
+      <div class="field"><label for="role">Role</label><select id="role" name="role">{% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == 'viewer' }}>{{ role_labels[r] }}</option>{% endfor %}</select><span class="hint">Viewer keys are read-only: good for SIEM / BI.</span></div>
+      <div class="field"><label for="expires">Expires</label><select id="expires" name="expires">{% for k, label in expiries.items() %}<option value="{{ k }}" {{ 'selected' if k == '90' }}>{{ label }}</option>{% endfor %}</select></div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-key"/></svg>Create key</button></div>
+    </div>
+  </form>
+  <div class="card"><div class="table-wrap"><table class="data">
+    <thead><tr><th>Key</th>{% if show_all %}<th>Owner</th>{% endif %}<th>Role</th><th>Expires</th><th>Last used</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for k in keys %}
+    {% set expired = k.expires_at and k.expires_at <= now %}
+    <tr style="{{ 'opacity:.6' if k.revoked_at or expired }}">
+      <td><b>{{ k.name }}</b><div class="cell-mono small text-2">{{ k.prefix }}…</div></td>
+      {% if show_all %}<td class="small">{{ k.owner.username }}</td>{% endif %}
+      <td><span class="badge role-{{ k.role }}">{{ role_labels.get(k.role, k.role) }}</span></td>
+      <td class="small num">{{ k.expires_at.strftime('%Y-%m-%d') if k.expires_at else 'never' }}</td>
+      <td class="small num">{{ k.last_used_at.strftime('%Y-%m-%d %H:%M') if k.last_used_at else 'never' }}{% if k.last_used_ip %}<div class="text-2">{{ k.last_used_ip }}</div>{% endif %}</td>
+      <td>{% if k.revoked_at %}<span class="status st-cancelled">revoked</span>{% elif expired %}<span class="status st-warning">expired</span>{% else %}<span class="status st-done">active</span>{% endif %}</td>
+      <td class="actions">{% if not k.revoked_at %}<form method="post" action="/api-keys/{{ k.id }}/revoke" data-confirm="Revoke key '{{ k.name }}'? Anything using it stops working immediately."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm danger" type="submit">Revoke</button></form>{% endif %}</td>
+    </tr>
+    {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-key"/></svg><b>No API keys</b>Create one to automate scans or feed issues into a SIEM.</div></td></tr>{% endfor %}
+    </tbody>
+  </table></div></div>
+</div>
+{% endblock %}

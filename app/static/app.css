@@ -391,3 +391,9 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
   .print-only{display:block}
   a{color:inherit;text-decoration:none}
 }
+
+/* ---------- API ---------- */
+pre.code{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;font-family:var(--font-mono);font-size:12.5px;white-space:pre-wrap;word-break:break-all}
+.badge.method-get{background:var(--sev-info-bg);color:var(--sev-info)}
+.badge.method-post{background:var(--success-soft);color:var(--success)}
+.badge.method-patch{background:var(--warning-soft);color:var(--warning)}

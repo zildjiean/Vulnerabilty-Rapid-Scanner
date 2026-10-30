@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
