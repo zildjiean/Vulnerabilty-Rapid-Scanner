@@ -51,6 +51,8 @@ def evaluate_rules(db: Session) -> int:
                 db.add(RuleMatch(rule_id=rule.id, service_id=svc.id, evaluated_at=now))
                 count += 1
     db.flush()
+    from .issues import sync_rule_issues  # local import: issues imports rule models
+    sync_rule_issues(db)
     return count
 
 

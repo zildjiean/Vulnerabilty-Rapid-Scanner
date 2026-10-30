@@ -11,6 +11,7 @@ from sqlalchemy import select
 from .auth import AuthMiddleware, LoginRateLimiter, SessionStore, seed_admin
 from .config import Settings, settings_from_env
 from .db import TemplateIndex, init_db, make_engine, make_session_factory
+from .issues import backfill_issues
 from .jobs import JobRunner, fail_interrupted_jobs
 from .authz import Forbidden
 from .render import STATIC_DIR, render
@@ -36,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             seed_example_rule(db)
             fail_interrupted_jobs(db)
             backfill_nuclei_warnings(db)
+            backfill_issues(db)
             needs_index = db.scalar(select(TemplateIndex).limit(1)) is None
         app.state.job_runner = JobRunner(SessionLocal)
         app.state.indexing = False

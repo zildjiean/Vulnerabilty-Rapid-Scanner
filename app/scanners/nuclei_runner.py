@@ -140,14 +140,19 @@ def write_targets_file(settings: Settings, job_id: int, targets: list[str]) -> P
     return path
 
 
-def ingest_nuclei_results(db: Session, job: Job, jsonl_text: str) -> int:
+def ingest_nuclei_results(db: Session, job: Job, jsonl_text: str) -> tuple[int, int]:
+    """Store findings and open / update their issues. Returns (findings stored, issues created)."""
     findings = parse_nuclei_jsonl(jsonl_text)
+    rows = []
     for f in findings:
-        db.add(Finding(job_id=job.id, template_id=f["template_id"], template_name=f["template_name"], severity=f["severity"],
-                       host=f["host"], matched_at=f["matched_at"], type=f["type"], extracted=f["extracted"],
-                       raw_json=json.dumps(f["raw"])))
+        row = Finding(job_id=job.id, template_id=f["template_id"], template_name=f["template_name"], severity=f["severity"],
+                      host=f["host"], matched_at=f["matched_at"], type=f["type"], extracted=f["extracted"],
+                      raw_json=json.dumps(f["raw"]))
+        db.add(row)
+        rows.append(row)
     db.flush()
-    return len(findings)
+    from ..issues import issues_from_findings  # local import keeps the parser module light
+    return len(findings), issues_from_findings(db, rows, job)
 
 
 _SKIPPED_RE = re.compile(r"Skipped (\S+) from target list as found unresponsive permanently(?::\s*cause=\"([^\"]+)\")?")
@@ -196,23 +201,24 @@ def analyze_nuclei_log(log_text: str) -> list[str]:
 
 
 def on_nuclei_complete(db: Session, job: Job, output: str) -> str:
-    n = ingest_nuclei_results(db, job, output)
+    n, new_issues = ingest_nuclei_results(db, job, output)
     try:
         params = json.loads(job.params_json or "{}")
     except json.JSONDecodeError:
         params = {}
-    params["result"] = {"findings": n}
+    params["result"] = {"findings": n, "new_issues": new_issues}
     warnings = analyze_nuclei_log(job.log or "")
     if warnings:
         params["warnings"] = warnings
     params["analyzed"] = ANALYSIS_VERSION
     job.params_json = json.dumps(params)
+    issues_note = f" {new_issues} new issue(s) opened." if new_issues else ""
     if warnings:
-        return (f"[nuclei] WARNING: coverage is incomplete, {n} finding(s) stored. " + " | ".join(warnings[:3]))
+        return (f"[nuclei] WARNING: coverage is incomplete, {n} finding(s) stored.{issues_note} " + " | ".join(warnings[:3]))
     if n == 0:
         return ("[nuclei] 0 findings stored. Check the INF lines above: 'Templates loaded' and 'Targets loaded' show what "
                 "actually ran; 'Found N URL from httpx' confirms the target answered over HTTP(S).")
-    return f"[nuclei] {n} finding(s) stored; open the Findings page for details."
+    return f"[nuclei] {n} finding(s) stored;{issues_note} open the Issues page to triage them."
 
 
 def backfill_nuclei_warnings(db: Session) -> int:
