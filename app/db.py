@@ -196,6 +196,8 @@ class Issue(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     scope_id: Mapped[int | None] = mapped_column(ForeignKey("scopes.id", ondelete="SET NULL"), nullable=True, index=True)
     overdue_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reverify_requested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    reverify_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     assignee: Mapped["User | None"] = relationship()
     scope: Mapped["Scope | None"] = relationship()
     events: Mapped[list["IssueEvent"]] = relationship(back_populates="issue", cascade="all, delete-orphan",
@@ -382,6 +384,8 @@ _ADDED_COLUMNS = [
     ("issues", "scope_id", "INTEGER"),
     ("jobs", "schedule_id", "INTEGER"),
     ("issues", "overdue_notified_at", "DATETIME"),
+    ("issues", "reverify_requested_at", "DATETIME"),
+    ("issues", "reverify_job_id", "INTEGER"),
 ]
 
 

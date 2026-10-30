@@ -236,3 +236,8 @@ async def scheduler_loop(app, interval: int = LOOP_SECONDS) -> None:
             await run_due(app)
         except Exception:  # noqa: BLE001 - the loop must survive a bad schedule
             log.exception("scheduler iteration failed")
+        try:
+            from .reverify import run_reverify
+            await run_reverify(app)
+        except Exception:  # noqa: BLE001
+            log.exception("re-verify iteration failed")

@@ -9,6 +9,8 @@
 <div class="issue-head card mb"><div class="card-body row center" style="gap:10px">
   <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="Changed manually; scans no longer raise it">(manual)</span>{% endif %}
   {{ status_badge(issue.status) }} {{ confidence_badge(issue.confidence) }}
+  {% if issue.status == 'fixed' and issue.reverify_job_id %}<span class="status st-running" title="Re-verification scan"><a href="/jobs/{{ issue.reverify_job_id }}">re-verifying (job #{{ issue.reverify_job_id }})</a></span>
+  {% elif issue.status == 'fixed' and issue.reverify_requested_at %}<span class="status st-queued">{% if reverify.enabled %}re-verify queued{% else %}re-verify paused (Settings){% endif %}</span>{% endif %}
   {% if issue_is_overdue(issue) %}<span class="due overdue"><svg class="icon sm"><use href="#i-clock"/></svg>Overdue since {{ issue.due_at.strftime('%Y-%m-%d') }}</span>{% endif %}
   <span class="spacer"></span>
   <span class="small text-2">Owner: <b>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else 'unassigned' }}</b></span>
@@ -60,7 +62,7 @@
               {% elif e.kind == 'assigned' %}{% if e.to_value %}Assigned to {{ e.to_value }}{% else %}Unassigned{% endif %}{% if e.from_value %} <span class="text-2">(was {{ e.from_value }})</span>{% endif %}
               {% elif e.kind == 'severity' %}Severity {{ e.from_value }} → {{ e.to_value }}{% if e.body %} <span class="text-2 small">({{ e.body }})</span>{% endif %}
               {% elif e.kind == 'comment' %}<div class="comment">{{ e.body }}</div>
-              {% elif e.kind == 'ticket' %}{{ e.body }}
+              {% elif e.kind in ('ticket', 'reverify') %}{{ e.body }}
               {% else %}{{ e.kind }} {{ e.body }}{% endif %}
             </div>
           </li>
