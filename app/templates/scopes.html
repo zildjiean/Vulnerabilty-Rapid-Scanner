@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% set section = "Discovery" %}
+{% set page_title = "Scopes" %}
+{% set page_subtitle = "Asset groups with an owner and a business criticality. New issues inside a scope go to its owner; schedules keep each scope scanned." %}
+{% block page_actions %}{% if can('scopes.manage') %}<a class="btn primary" href="/scopes/new"><svg class="icon"><use href="#i-plus"/></svg>New scope</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th data-sort="text">Scope</th><th data-sort="text">Criticality</th><th data-sort="text">Owner</th><th>Targets</th><th data-sort="num">Assets</th><th data-sort="num">Active issues</th><th data-sort="num">Schedules</th></tr></thead>
+    <tbody>
+    {% for s, hosts, open_issues, schedules in rows %}
+    {% set t = split(s.targets) %}
+    <tr>
+      <td><a class="issue-title" href="/scopes/{{ s.id }}">{{ s.name }}</a>{% if s.description %}<div class="small text-2">{{ s.description }}</div>{% endif %}</td>
+      <td data-value="{{ s.criticality }}"><span class="badge crit-{{ s.criticality }}">{{ s.criticality }}</span></td>
+      <td class="small">{{ (s.owner.display_name or s.owner.username) if s.owner else '—' }}</td>
+      <td class="cell-mono small">{{ t[:3]|join(', ') }}{% if t|length > 3 %} <span class="text-2">+{{ t|length - 3 }}</span>{% endif %}</td>
+      <td class="num">{{ hosts }}</td>
+      <td class="num"><a href="/issues?scope={{ s.id }}">{{ open_issues }}</a></td>
+      <td class="num">{{ schedules }}</td>
+    </tr>
+    {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-layers"/></svg><b>No scopes yet</b>{% if can('scopes.manage') %}<a href="/scopes/new">Create one</a> for each environment, e.g. production web, office LAN, partners.{% endif %}</div></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

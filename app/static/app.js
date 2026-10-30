@@ -177,6 +177,19 @@
     catch (e) { toast("Copy failed: select the text and copy it manually", "error"); }
   }));
 
+  // ---------- Schedule form: show the fields that apply to the chosen kind / frequency ----------
+  $$(".schedule-form").forEach((form) => {
+    const kind = $("[data-schedule-kind]", form);
+    const freq = $("[data-schedule-frequency]", form);
+    const sync = () => {
+      $$("[data-show-kind]", form).forEach((el) => { el.hidden = !el.dataset.showKind.split(" ").includes(kind.value); });
+      $$("[data-show-frequency]", form).forEach((el) => { el.hidden = !el.dataset.showFrequency.split(" ").includes(freq.value); });
+    };
+    kind?.addEventListener("change", sync);
+    freq?.addEventListener("change", sync);
+    sync();
+  });
+
   // ---------- Live job log (SSE) ----------
   const log = $("#joblog");
   if (log && log.dataset.live === "yes") {

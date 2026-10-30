@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_schedule_parts.html" import schedules_table, schedule_form with context %}
+{% from "_issue_macros.html" import status_badge, due_cell %}
+{% set section = "Scopes" %}
+{% set page_title = scope.name %}
+{% set page_subtitle = scope.description %}
+{% set manage = can('scopes.manage') %}
+{% block page_actions %}
+<span class="badge crit-{{ scope.criticality }}">{{ scope.criticality }} criticality</span>
+{% if manage %}<form method="post" action="/scopes/{{ scope.id }}/delete" data-confirm="Delete scope '{{ scope.name }}' and its schedules? Issues stay; they just lose the scope."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit"><svg class="icon"><use href="#i-trash"/></svg>Delete scope</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="grid grid-issue mb">
+  <div class="stack">
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-server"/></svg>Assets in inventory <span class="chip num">{{ hosts|length }}</span></h2><a class="btn sm ghost" href="/inventory?group=scope">Inventory<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Address</th><th>Hostname</th><th>Services</th><th>Last seen</th></tr></thead>
+        <tbody>{% for h, n in hosts %}<tr><td class="cell-mono">{{ h.address }}</td><td class="small text-2">{{ h.hostname or '—' }}</td><td class="num">{{ n }}</td><td class="small text-2 num">{{ h.last_seen.strftime('%Y-%m-%d %H:%M') }}</td></tr>
+        {% else %}<tr data-empty="1"><td colspan="4"><div class="empty"><svg class="icon"><use href="#i-radar"/></svg><b>Nothing discovered yet</b>Add an nmap schedule below or run a scan of the targets.</div></td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Active issues <span class="chip num">{{ issues|length }}</span></h2><a class="btn sm ghost" href="/issues?scope={{ scope.id }}">All issues<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Asset</th><th>Status</th><th>Due</th></tr></thead>
+        <tbody>{% for i in issues %}<tr class="{{ 'row-overdue' if issue_is_overdue(i) }}"><td><span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td><td><a href="/issues/{{ i.id }}">{{ i.title or i.vuln_id }}</a></td><td class="cell-mono small">{{ i.asset }}</td><td>{{ status_badge(i.status) }}</td><td class="small">{{ due_cell(i) }}</td></tr>
+        {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No active issues</b></div></td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="card"><div class="card-head"><h2><svg class="icon"><use href="#i-clock"/></svg>Schedules</h2></div>{{ schedules_table(schedules, '/scopes/' ~ scope.id) }}</div>
+  </div>
+  <div class="stack">
+    {% if manage %}
+    <form method="post" action="/scopes/{{ scope.id }}" class="card" data-loading>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-edit"/></svg>Scope settings</h2></div>
+      <div class="card-body stack">{% include "_scope_fields.html" %}<div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save</button></div></div>
+    </form>
+    {{ schedule_form('/scopes/' ~ scope.id, fixed_scope=scope) }}
+    {% else %}
+    <div class="card"><div class="card-body"><dl class="kv"><dt>Owner</dt><dd>{{ (scope.owner.display_name or scope.owner.username) if scope.owner else '—' }}</dd><dt>Targets</dt><dd class="cell-mono small" style="white-space:pre-line">{{ scope.targets }}</dd>{% if scope.exclusions %}<dt>Exclusions</dt><dd class="cell-mono small" style="white-space:pre-line">{{ scope.exclusions }}</dd>{% endif %}</dl></div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

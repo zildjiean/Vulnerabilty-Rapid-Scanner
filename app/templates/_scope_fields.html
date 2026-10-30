@@ -1,0 +1,8 @@
+<div class="field"><label for="name">Name <span class="req" aria-hidden="true">*</span></label><input id="name" name="name" required maxlength="128" value="{{ form.name }}" placeholder="Production web"></div>
+<div class="field"><label for="description">Description</label><input id="description" name="description" value="{{ form.description }}" placeholder="Internet-facing web servers"></div>
+<div class="field"><label for="targets">Targets <span class="req" aria-hidden="true">*</span></label><textarea id="targets" name="targets" rows="4" required placeholder="10.0.1.0/24&#10;10.0.2.10-50&#10;www.example.com" aria-describedby="t-hint">{{ form.targets }}</textarea><span class="hint" id="t-hint">nmap syntax, one per line: IP, CIDR, octet range, IPv6 or host name.</span></div>
+<div class="field"><label for="exclusions">Exclusions</label><textarea id="exclusions" name="exclusions" rows="2" placeholder="10.0.1.1">{{ form.exclusions }}</textarea></div>
+<div class="row">
+  <div class="field" style="flex:1"><label for="criticality">Criticality</label><select id="criticality" name="criticality">{% for c in criticalities %}<option value="{{ c }}" {{ 'selected' if form.criticality == c }}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="field" style="flex:1"><label for="owner_id">Owner</label><select id="owner_id" name="owner_id"><option value="">No owner</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if form.owner_id == u.id|string }}>{{ u.display_name or u.username }}</option>{% endfor %}</select><span class="hint">New issues in this scope are assigned to the owner.</span></div>
+</div>

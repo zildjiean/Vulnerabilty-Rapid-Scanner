@@ -16,4 +16,15 @@
     <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save SLA</button></div>
   </div>
 </form>
+<form method="post" action="/settings/timezone" class="card" style="max-width:720px;margin-top:16px" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-clock"/></svg>Timezone</h2></div>
+  <div class="card-body stack">
+    <p class="text-2">Daily and weekly schedules run at local time in this zone (daylight saving is handled). Saving recalculates their next run.</p>
+    <div class="row" style="align-items:flex-end">
+      <div class="field" style="flex:1"><label for="timezone">IANA timezone</label><input id="timezone" name="timezone" list="tz-list" required value="{{ timezone }}" autocomplete="off"><datalist id="tz-list">{% for t in common_timezones %}<option value="{{ t }}">{% endfor %}</datalist></div>
+      <button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save timezone</button>
+    </div>
+  </div>
+</form>
 {% endblock %}
