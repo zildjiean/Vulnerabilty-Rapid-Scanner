@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Automatic re-verification: confirmed issues marked fixed are re-scanned with their template after a delay
+  (Settings, default 15 minutes; one job per template). Not found → verified, found → reopened, incomplete scan or
+  failed job → stays fixed with a note. Suspected issues are verified by the next nmap scan of the service.
+- Reports: executive summary (open by severity, overdue, MTTR, SLA compliance, weekly new vs resolved, riskiest
+  assets, scopes, campaigns) with a print stylesheet, campaign and scope reports, CSV / JSON issue exports.
+- REST API v1 (`/api/v1`): issues, assets, campaigns, nmap / nuclei scans and jobs. API keys are hashed,
+  role-scoped (never above the owner), expiring and revocable; `/api` accepts only API keys. API keys page and an
+  in-app API reference with curl examples.
 - Notifications and ticketing (Administration → Integrations): Slack, Microsoft Teams (Adaptive Cards), email
   (SMTP with STARTTLS / SSL, optional copy to the assignee), JSON webhooks signed with HMAC-SHA256, Jira and GitLab.
   Rules by event, minimum severity and scope. Two-way tickets: created by rule or from the issue page, commented /
