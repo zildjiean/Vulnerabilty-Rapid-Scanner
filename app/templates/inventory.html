@@ -13,6 +13,8 @@
     <div class="field" style="flex:1;min-width:160px"><label for="product">Product</label>
       <select id="product" name="product"><option value="">All products</option>{% for p in products %}<option value="{{ p }}" {{ 'selected' if p == product }}>{{ p }}</option>{% endfor %}</select></div>
     <div class="field w-sm"><label for="port">Port</label><input id="port" name="port" value="{{ port }}" inputmode="numeric"></div>
+    <div class="field" style="min-width:170px"><label for="group">Group by</label>
+      <select id="group" name="group">{% for k, label in group_labels.items() %}<option value="{{ k }}" {{ 'selected' if k == group_mode }}>{{ label }}</option>{% endfor %}</select></div>
     <label class="check"><input type="checkbox" name="only_matches" value="true" {{ 'checked' if only_matches }}> Only 0-day rule matches</label>
     <button type="submit"><svg class="icon"><use href="#i-filter"/></svg>Filter</button>
     <a class="btn ghost" href="/inventory">Reset</a>
@@ -23,6 +25,7 @@
   <div class="table-toolbar">
     <div class="text-2"><b class="num">{{ rows|length }}</b> service(s) on <b class="num">{{ host_count }}</b> host(s) · <span class="num" data-selected-count>0</span> selected</div>
     <div class="row center">
+      {% if groups %}<button type="button" class="ghost" data-groups-expand>Expand all</button><button type="button" class="ghost" data-groups-collapse>Collapse all</button>{% endif %}
       <button class="danger" type="submit" formaction="/inventory/delete" data-needs-selection data-confirm="Delete the selected services from the inventory? Hosts left without services are removed as well. Rule matches for them are dropped. This does not touch the targets."><svg class="icon"><use href="#i-trash"/></svg>Delete selected</button>
       <button class="primary" type="submit" data-needs-selection><svg class="icon"><use href="#i-bug"/></svg>Scan selected with nuclei</button>
     </div>
@@ -34,8 +37,8 @@
       <th data-sort="text">Host</th><th data-sort="text">Hostname</th><th data-sort="num">Port</th><th data-sort="text">Service</th><th data-sort="text">Product</th><th data-sort="text">Version</th><th>Extra</th><th>CPE</th><th>0-day rule</th><th data-sort="text">Last seen</th>
     </tr></thead>
     <tbody>
-    {% for svc, host in rows %}
-    <tr>
+    {% macro service_row(svc, host, group_key=None) -%}
+    <tr{% if group_key %} data-group="{{ group_key }}"{% endif %}>
       <td><input type="checkbox" name="service_ids" value="{{ svc.id }}" aria-label="Select {{ host.address }} port {{ svc.port }}"></td>
       <td class="cell-mono">{{ host.address }}</td>
       <td class="small text-2">{{ host.hostname or '—' }}</td>
@@ -48,9 +51,29 @@
       <td>{% for m, r in matches.get(svc.id, []) %}<span class="badge sev-{{ r.severity }}" title="{{ r.name }}: {{ r.product_pattern }} {{ r.version_constraint }}">{{ r.cve_id or r.name }}</span>{% else %}<span class="muted">—</span>{% endfor %}</td>
       <td class="small text-2 num">{{ host.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
     </tr>
-    {% else %}
-    <tr data-empty="1"><td colspan="11"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>No services yet</b>Run an <a href="/nmap">nmap scan</a> to populate the inventory.</div></td></tr>
+    {%- endmacro %}
+    {% for g in groups %}
+    <tr class="group-row" data-group="{{ g.key }}">
+      <td><input type="checkbox" data-group-select="{{ g.key }}" aria-label="Select every service in {{ g.label }}"></td>
+      <td colspan="10">
+        <button type="button" class="group-toggle" data-group-toggle="{{ g.key }}" aria-expanded="true">
+          <svg class="icon"><use href="#i-chevron-right"/></svg>
+          <span class="group-label{{ ' cell-mono' if group_mode == 'host' }}">{{ g.label }}</span>
+          {% if g.sublabel %}<span class="group-sub">{{ g.sublabel }}</span>{% endif %}
+        </button>
+        <span class="group-meta">
+          <span class="badge neutral num">{{ g.rows|length }} service{{ 's' if g.rows|length != 1 }}</span>
+          {% if group_mode != 'host' %}<span class="badge neutral num">{{ g.host_count }} host{{ 's' if g.host_count != 1 }}</span>{% endif %}
+          {% if g.match_count %}<span class="badge sev-high num" title="0-day rule matches in this group">{{ g.match_count }} rule match{{ 'es' if g.match_count != 1 }}</span>{% endif %}
+        </span>
+      </td>
+    </tr>
+    {% for svc, host in g.rows %}{{ service_row(svc, host, g.key) }}{% endfor %}
     {% endfor %}
+    {% if not groups %}{% for svc, host in rows %}{{ service_row(svc, host) }}{% endfor %}{% endif %}
+    {% if not rows %}
+    <tr data-empty="1"><td colspan="11"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>No services yet</b>Run an <a href="/nmap">nmap scan</a> to populate the inventory.</div></td></tr>
+    {% endif %}
     </tbody>
   </table>
   </div>
