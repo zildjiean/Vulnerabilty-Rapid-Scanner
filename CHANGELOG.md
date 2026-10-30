@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- AI assistant with your own provider and key (Administration → AI): Anthropic Claude (official SDK, default
+  `claude-opus-5-5`, structured outputs, refusal handling and server-side fallback), OpenAI, Azure OpenAI, Google Gemini
+  and any OpenAI-compatible server (official OpenAI SDK). Features: campaign draft from an advisory, detection-template
+  draft validated with nuclei, issue explanation and remediation, evidence triage, natural-language search, executive
+  report summary and job diagnosis. Suggestions only; redaction of IPs / host names (default on), encrypted keys,
+  usage accounting and audit. New permissions `ai.use` (analyst, admin) and `ai.manage` (admin). New dependencies:
+  `anthropic`, `openai`.
 - Automatic re-verification: confirmed issues marked fixed are re-scanned with their template after a delay
   (Settings, default 15 minutes; one job per template). Not found → verified, found → reopened, incomplete scan or
   failed job → stays fixed with a note. Suspected issues are verified by the next nmap scan of the service.

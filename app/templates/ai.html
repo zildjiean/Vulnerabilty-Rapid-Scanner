@@ -31,7 +31,7 @@
     <div class="card-body stack">
       <div class="field"><label for="kind">Provider</label><select id="kind" name="kind" data-schedule-kind>{% for k, label in kinds.items() %}<option value="{{ k }}" {{ 'selected' if form.kind == k }}>{{ label }}</option>{% endfor %}</select></div>
       <div class="field"><label for="name">Name</label><input id="name" name="name" required maxlength="64" value="{{ form.name or '' }}" placeholder="Claude (team account)"></div>
-      <div class="field"><label for="model">Model</label><input id="model" name="model" value="{{ form.model or '' }}" placeholder="claude-opus-5-5">
+      <div class="field"><label for="model">Model</label><input id="model" name="model" value="{{ form.model or '' }}" placeholder="Model id">
         <span class="hint" data-show-kind="anthropic">Leave empty for {{ default_models.anthropic }}.</span>
         <span class="hint" data-show-kind="azure_openai" hidden>The Azure deployment name.</span>
         <span class="hint" data-show-kind="openai gemini openai_compatible" hidden>The exact model id from the provider (e.g. the name shown by <code>ollama list</code>).</span></div>
