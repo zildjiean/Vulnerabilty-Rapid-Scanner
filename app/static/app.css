@@ -348,3 +348,21 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
 .ev-meta{font-size:13px}
 .ev-body{font-size:13.5px;margin-top:2px}
 .comment{white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-top:4px}
+
+/* ---------- Campaigns ---------- */
+.badge.kev{background:var(--danger);color:#fff;gap:4px}
+.badge.kev .icon{width:12px;height:12px}
+.progress{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--surface-3);margin:6px 0 2px;min-width:80px}
+.progress i{display:block;height:100%}
+.progress i.ok{background:var(--success)}.progress i.ok-soft{background:color-mix(in srgb,var(--success) 55%,transparent)}
+.progress i.muted{background:var(--text-3)}.progress i.primary{background:var(--primary)}
+.progress i.warn{background:var(--warning)}.progress i.danger{background:var(--danger)}
+.intel-desc{margin:0;line-height:1.6}
+.refs{margin:8px 0 0;padding-left:18px;font-size:12.5px;word-break:break-all}
+.list-row{padding:6px 0;border-bottom:1px solid var(--border);gap:8px}
+.list-row:last-of-type{border-bottom:none}
+.target-list{list-style:none;margin:0;padding:8px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;display:grid;gap:2px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border)}
+.tab{padding:8px 14px;color:var(--text-2);border-bottom:2px solid transparent;margin-bottom:-1px;text-decoration:none;font-weight:500}
+.tab:hover{color:var(--text);text-decoration:none}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary)}

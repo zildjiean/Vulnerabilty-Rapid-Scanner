@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import issues as iss
 from ..audit import audit
+from ..campaigns import campaigns_for_issue
 from ..authz import require
 from ..db import Finding, Issue, Rule, User, utcnow
 from ..deps import get_db, verify_csrf
@@ -100,7 +101,7 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
                   findings=findings, rule=rule, users=assignable_users(db),
                   transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
-                  sla=iss.get_sla(db))
+                  sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue))
 
 
 def _label(issue: Issue) -> str:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import (Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event,
+from sqlalchemy import (Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event,
                         inspect, text)
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
@@ -56,6 +56,7 @@ class Job(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    campaign_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     @property
     def duration(self) -> int | None:
@@ -135,6 +136,7 @@ class Rule(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    campaign_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     matches: Mapped[list["RuleMatch"]] = relationship(back_populates="rule", cascade="all, delete-orphan")
 
 
@@ -195,6 +197,48 @@ class IssueEvent(Base):
     issue: Mapped["Issue"] = relationship(back_populates="events")
 
 
+class Campaign(Base):
+    """Response to one vulnerability: intel + version rules + nuclei templates + the issues they produce."""
+    __tablename__ = "campaigns"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    cve_id: Mapped[str] = mapped_column(String(32), default="", index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    severity: Mapped[str] = mapped_column(String(16), default="high")
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # active | closed
+    cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cvss_severity: Mapped[str] = mapped_column(String(16), default="")
+    cvss_vector: Mapped[str] = mapped_column(String(255), default="")
+    cvss_version: Mapped[str] = mapped_column(String(8), default="")
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    references: Mapped[str] = mapped_column(Text, default="[]")  # JSON list of URLs
+    kev: Mapped[bool] = mapped_column(Boolean, default=False)
+    kev_name: Mapped[str] = mapped_column(String(255), default="")
+    kev_date_added: Mapped[str] = mapped_column(String(16), default="")
+    kev_due: Mapped[str] = mapped_column(String(16), default="")
+    kev_ransomware: Mapped[bool] = mapped_column(Boolean, default=False)
+    kev_action: Mapped[str] = mapped_column(Text, default="")
+    intel_error: Mapped[str] = mapped_column(Text, default="")
+    enriched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    templates: Mapped[list["CampaignTemplate"]] = relationship(back_populates="campaign", cascade="all, delete-orphan",
+                                                               order_by="CampaignTemplate.template_id")
+
+
+class CampaignTemplate(Base):
+    __tablename__ = "campaign_templates"
+    __table_args__ = (UniqueConstraint("campaign_id", "path"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    path: Mapped[str] = mapped_column(String(1024))
+    template_id: Mapped[str] = mapped_column(String(255), default="")
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    campaign: Mapped["Campaign"] = relationship(back_populates="templates")
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -229,6 +273,8 @@ _ADDED_COLUMNS = [
     ("users", "last_login_at", "DATETIME"),
     ("users", "session_version", "INTEGER NOT NULL DEFAULT 0"),
     ("findings", "issue_id", "INTEGER"),
+    ("rules", "campaign_id", "INTEGER"),
+    ("jobs", "campaign_id", "INTEGER"),
 ]
 
 

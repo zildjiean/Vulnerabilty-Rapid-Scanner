@@ -21,6 +21,7 @@
         <dl class="kv">
           <dt>Vulnerability</dt><dd class="cell-mono">{{ issue.vuln_id }}{% if issue.cve_id %} · <a href="https://nvd.nist.gov/vuln/detail/{{ issue.cve_id }}" target="_blank" rel="noopener noreferrer">NVD<svg class="icon sm"><use href="#i-external"/></svg></a>{% endif %}</dd>
           <dt>Asset</dt><dd class="cell-mono">{{ issue.asset }}{% if issue.hostname %} · {{ issue.hostname }}{% endif %} · <a href="/inventory?q={{ issue.address }}">inventory</a></dd>
+          {% if campaigns %}<dt>Campaign</dt><dd>{% for cp in campaigns %}<a href="/campaigns/{{ cp.id }}">{{ cp.name }}</a>{{ ', ' if not loop.last }}{% endfor %}</dd>{% endif %}
           {% if issue.template_id %}<dt>Nuclei template</dt><dd class="cell-mono">{{ issue.template_id }}</dd>{% endif %}
           {% if rule %}<dt>Version rule</dt><dd><a href="/rules">{{ rule.name }}</a> <span class="cell-mono small text-2">{{ rule.product_pattern }} {{ rule.version_constraint }}</span>{% if not rule.enabled %} <span class="badge neutral">disabled</span>{% endif %}</dd>{% endif %}
           <dt>First seen</dt><dd class="num">{{ issue.first_seen.strftime('%Y-%m-%d %H:%M') }} UTC</dd>

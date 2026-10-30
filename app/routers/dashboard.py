@@ -25,6 +25,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "rules": db.scalar(select(func.count(Rule.id)).where(Rule.enabled.is_(True))) or 0,
         "templates": db.scalar(select(func.count(TemplateIndex.id))) or 0,
     }
+    from .. import campaigns as camp
+    from ..db import Campaign
     from .issues import issue_kpis
+    active_campaigns = [(c, camp.progress(camp.campaign_issues(db, c)))
+                        for c in db.scalars(select(Campaign).where(Campaign.status == "active")
+                                            .order_by(Campaign.created_at.desc()).limit(5))]
     return render(request, "dashboard.html", active="dashboard", stats=stats, sev_counts=sev_counts, kpis=issue_kpis(db),
+                  active_campaigns=active_campaigns,
                   jobs=recent_jobs(db, limit=10), job_summary=job_summary)

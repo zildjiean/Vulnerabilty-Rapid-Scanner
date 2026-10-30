@@ -18,13 +18,15 @@ PERMISSIONS = {
     "rules.manage": "Create, edit, toggle, delete and evaluate version rules",
     "templates.manage": "Upload, pull, delete and reindex nuclei templates",
     "issues.manage": "Triage issues: change status, assign, change severity, comment",
+    "campaigns.manage": "Create and run 0-day campaigns: intel, version rules, templates",
     "system.update": "Update nmap, nuclei and the nuclei templates",
     "users.manage": "Create, edit, deactivate and delete users",
     "audit.view": "Read and export the audit log",
     "settings.manage": "Change platform settings such as remediation SLAs",
 }
 
-_ANALYST = {"view", "scan.run", "inventory.manage", "rules.manage", "templates.manage", "issues.manage"}
+_ANALYST = {"view", "scan.run", "inventory.manage", "rules.manage", "templates.manage", "issues.manage",
+            "campaigns.manage"}
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "admin": frozenset(PERMISSIONS),
     "analyst": frozenset(_ANALYST),
