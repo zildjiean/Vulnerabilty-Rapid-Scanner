@@ -1,0 +1,6 @@
+{% macro kev_badge(c) -%}{% if c.kev %}<span class="badge kev" title="Listed in the CISA Known Exploited Vulnerabilities catalog{{ ' since ' ~ c.kev_date_added if c.kev_date_added }}"><svg class="icon sm"><use href="#i-alert"/></svg>Known exploited</span>{% endif %}{%- endmacro %}
+{% macro progress_bar(p) -%}
+<div class="progress" role="img" aria-label="{{ p.remediated_pct }}% remediated: {{ p.remediated }} of {{ p.total }} issues">
+  {% if p.total %}{% for s, cls in [('verified','ok'),('fixed','ok-soft'),('false_positive','muted'),('accepted_risk','muted'),('in_progress','primary'),('triaged','warn'),('new','danger')] if p[s] %}<i class="{{ cls }}" style="width:{{ (100 * p[s] / p.total)|round(1) }}%" title="{{ issue_status_labels[s] }}: {{ p[s] }}"></i>{% endfor %}{% endif %}
+</div>
+{%- endmacro %}

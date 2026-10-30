@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_campaign_macros.html" import kev_badge, progress_bar %}
+{% from "_issue_macros.html" import status_badge, confidence_badge, due_cell %}
+{% set section = "Campaigns" %}
+{% set page_title = c.name %}
+{% set page_subtitle = (c.cve_id ~ " · ") if c.cve_id and c.cve_id != c.name else "" %}
+{% set manage = can('campaigns.manage') %}
+{% block page_actions %}
+{% if manage and c.cve_id %}<form method="post" action="/campaigns/{{ c.id }}/refresh"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Refresh intel</button></form>{% endif %}
+{% if manage %}<form method="post" action="/campaigns/{{ c.id }}/status" {% if c.status == 'active' %}data-confirm="Close this campaign? Issues stay as they are; you can reopen it later."{% endif %}><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost">{{ 'Close campaign' if c.status == 'active' else 'Reopen campaign' }}</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="card mb"><div class="card-body row center" style="gap:10px">
+  <span class="badge sev-{{ c.severity }}">{{ c.severity }}</span>{{ kev_badge(c) }}{% if c.kev_ransomware %}<span class="badge sev-critical">Used by ransomware</span>{% endif %}
+  <span class="status {{ 'st-running' if c.status == 'active' else 'st-done' }}">{{ c.status }}</span>
+  <span class="spacer" style="flex:1"></span>
+  <span class="small text-2">Started {{ c.created_at.strftime('%Y-%m-%d %H:%M') }} UTC by {{ c.created_by or 'unknown' }}</span>
+</div></div>
+<div class="grid grid-4 mb">
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">Exposed assets</div><div class="kpi-value">{{ p.total }}</div><div class="kpi-sub">{{ p.confirmed }} confirmed · {{ p.suspected }} suspected</div></div></div>
+  <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-alert"/></svg></div><div><div class="kpi-label">Open</div><div class="kpi-value">{{ p.open }}</div><div class="kpi-sub">new, triaged or in progress</div></div></div>
+  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div style="flex:1"><div class="kpi-label">Remediated</div><div class="kpi-value">{{ p.remediated_pct }}%</div>{{ progress_bar(p) }}</div></div>
+  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">CVSS {{ c.cvss_version }}</div><div class="kpi-value">{{ c.cvss_score if c.cvss_score is not none else '—' }}</div><div class="kpi-sub">{{ c.cvss_severity or 'not scored yet' }}</div></div></div>
+</div>
+<div class="grid grid-issue">
+  <div class="stack">
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>Threat intel</h2>{% if c.enriched_at %}<span class="small text-2">updated {{ c.enriched_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>{% endif %}</div>
+      <div class="card-body stack">
+        {% if c.intel_error %}<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>{{ c.intel_error }}</div></div>{% endif %}
+        {% if c.description %}<p class="intel-desc">{{ c.description }}</p>{% endif %}
+        <dl class="kv">
+          {% if c.cve_id %}<dt>CVE</dt><dd class="cell-mono">{{ c.cve_id }} · <a href="https://nvd.nist.gov/vuln/detail/{{ c.cve_id }}" target="_blank" rel="noopener noreferrer">NVD<svg class="icon sm"><use href="#i-external"/></svg></a></dd>{% endif %}
+          {% if c.published_at %}<dt>Published</dt><dd class="num">{{ c.published_at.strftime('%Y-%m-%d') }}</dd>{% endif %}
+          {% if c.cvss_vector %}<dt>Vector</dt><dd class="cell-mono small">{{ c.cvss_vector }}</dd>{% endif %}
+          {% if c.kev %}<dt>CISA KEV</dt><dd>Added {{ c.kev_date_added }} · federal due date <b>{{ c.kev_due }}</b>{% if c.kev_action %}<div class="small text-2">{{ c.kev_action }}</div>{% endif %}</dd>{% endif %}
+        </dl>
+        {% if refs %}<details><summary class="small">References ({{ refs|length }})</summary><ul class="refs">{% for r in refs %}<li><a href="{{ r }}" target="_blank" rel="noopener noreferrer">{{ r }}</a></li>{% endfor %}</ul></details>{% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-server"/></svg>Exposure <span class="chip num">{{ issues|length }}</span></h2><a class="btn sm ghost" href="/issues?q={{ c.cve_id }}">Open in Issues<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+      <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th data-sort="text">Asset</th><th data-sort="text">Issue</th><th>Confidence</th><th data-sort="text">Status</th><th>Assignee</th><th>Due</th></tr></thead>
+        <tbody>
+        {% for i in issues %}
+        <tr class="{{ 'row-overdue' if issue_is_overdue(i) }}">
+          <td class="cell-mono small">{{ i.asset }}{% if i.hostname and i.hostname != i.address %}<div class="text-2">{{ i.hostname }}</div>{% endif %}</td>
+          <td><a href="/issues/{{ i.id }}">#{{ i.id }}</a> <span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td>
+          <td>{{ confidence_badge(i.confidence) }}</td><td>{{ status_badge(i.status) }}</td>
+          <td class="small">{{ (i.assignee.display_name or i.assignee.username) if i.assignee else '—' }}</td>
+          <td class="small">{{ due_cell(i) }}</td>
+        </tr>
+        {% else %}
+        <tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No exposed assets found</b>{% if not rules %}Add a version rule below to match the inventory, or run Verify against extra targets.{% else %}The inventory has nothing matching the rules. Re-run nmap after adding hosts.{% endif %}</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Verification jobs</h2></div>
+      <div class="card-body tight">
+        {% if jobs %}{% include "_jobs_table.html" %}{% else %}<div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>No verification yet</b></div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="stack">
+    {% if can('scan.run') %}
+    <form method="post" action="/campaigns/{{ c.id }}/verify" class="card" data-loading>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-bug"/></svg>Verify with nuclei</h2></div>
+      <div class="card-body stack">
+        <p class="small text-2">Runs the {{ c.templates|length }} attached template(s) against {{ targets|length }} exposed asset(s) that are not closed{% if targets %}:{% else %}.{% endif %}</p>
+        {% if targets %}<ul class="target-list cell-mono small">{% for t in targets[:8] %}<li>{{ t }}</li>{% endfor %}{% if targets|length > 8 %}<li class="text-2">… {{ targets|length - 8 }} more</li>{% endif %}</ul>{% endif %}
+        <div class="field"><label for="extra_targets">Extra targets</label><textarea id="extra_targets" name="extra_targets" rows="2" placeholder="https://app.example.com&#10;10.0.0.0/30"></textarea></div>
+        <div class="field"><label for="profile">Profile</label><select id="profile" name="profile">{% for k, pr in profiles.items() %}<option value="{{ k }}" {{ 'selected' if k == default_profile }}>{{ pr.label }} ({{ pr.rate_limit }} req/s)</option>{% endfor %}</select></div>
+        <div><button class="primary" type="submit" {{ 'disabled' if not c.templates }}><svg class="icon"><use href="#i-play"/></svg>Verify now</button></div>
+      </div>
+    </form>
+    {% endif %}
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>Version rules</h2></div>
+      <div class="card-body stack">
+        {% for r in rules %}
+        <div class="row center between list-row"><span class="cell-mono small">{{ r.product_pattern }} <b>{{ r.version_constraint }}</b>{% if not r.enabled %} <span class="badge neutral">disabled</span>{% endif %}</span>
+          {% if manage %}<form method="post" action="/campaigns/{{ c.id }}/rules/{{ r.id }}/delete" data-confirm="Remove this rule? Issues it opened stay in place."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Remove rule"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>{% endif %}</div>
+        {% else %}<p class="small text-2">No version rule yet.</p>{% endfor %}
+        {% if manage %}
+        <form method="post" action="/campaigns/{{ c.id }}/rules" class="stack">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="field"><label for="product_pattern">Product pattern</label><input id="product_pattern" name="product_pattern" required placeholder="php"></div>
+          <div class="field"><label for="version_constraint">Vulnerable versions</label><input id="version_constraint" name="version_constraint" required placeholder="< 8.3.15"></div>
+          <div><button type="submit"><svg class="icon"><use href="#i-plus"/></svg>Add rule</button></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-file"/></svg>Nuclei templates</h2></div>
+      <div class="card-body stack">
+        {% for t in c.templates %}
+        <div class="row center between list-row"><span class="cell-mono small" title="{{ t.path }}">{{ t.template_id }} <span class="text-2">{{ t.path.rsplit('/', 1)[-1] }}</span></span>
+          {% if manage %}<form method="post" action="/campaigns/{{ c.id }}/templates/{{ t.id }}/delete"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Detach template"><svg class="icon sm"><use href="#i-x"/></svg></button></form>{% endif %}</div>
+        {% else %}<p class="small text-2">No template attached. {% if c.cve_id %}If none is published yet, <a href="/templates">upload or pull one</a>, then attach it here.{% endif %}</p>{% endfor %}
+        {% if manage and suggestions %}
+        <div class="small text-2" style="margin-top:4px">Suggested from the index</div>
+        {% for t in suggestions %}
+        <form method="post" action="/campaigns/{{ c.id }}/templates" class="row center between list-row"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="path" value="{{ t.path }}"><span class="cell-mono small">{{ t.template_id }} <span class="text-2">{{ t.path.rsplit('/', 1)[-1] }}</span> {% if t.source == 'custom' %}<span class="badge neutral">custom</span>{% endif %}</span><button type="submit" class="sm"><svg class="icon sm"><use href="#i-plus"/></svg>Attach</button></form>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

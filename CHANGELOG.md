@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Threat campaigns: create from a CVE to pull NVD (CVSS, description, references) and CISA KEV (known exploited,
+  ransomware use, due date) intel, add version rules and attach nuclei templates (auto-attached from the index).
+  Campaign pages show exposure, remediation progress, verification jobs, and run Verify against exposed assets
+  plus extra targets. Dashboard lists active campaigns; issues link to their campaign. New permission
+  `campaigns.manage` (analyst, admin).
 - Issues: findings (low and above) and version-rule matches become deduplicated issues per asset (ip:port) and
   vulnerability (CVE, else template or rule). Rule matches are *suspected*, nuclei results *confirmed*.
   Lifecycle New / Triaged / In progress / Fixed / Verified / False positive / Accepted risk with transition rules

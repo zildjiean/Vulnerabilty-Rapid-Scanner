@@ -24,6 +24,18 @@
     {% else %}<div class="kpi-sub">no findings yet</div>{% endif %}</div></div>
   <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Potential 0-day</div><div class="kpi-value" data-stat="rule_matches">{{ stats.rule_matches }}</div><div class="kpi-sub">{{ stats.rules }} rule(s) enabled · {{ stats.templates }} templates indexed</div></div></div>
 </div>
+{% from "_campaign_macros.html" import kev_badge, progress_bar %}
+{% if active_campaigns %}
+<div class="card mb">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-flag"/></svg>Active campaigns</h2><a class="btn sm ghost" href="/campaigns">All campaigns<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Campaign</th><th>Exposed</th><th>Open</th><th>Remediation</th></tr></thead>
+    <tbody>{% for c, p in active_campaigns %}
+    <tr><td><a class="issue-title" href="/campaigns/{{ c.id }}">{{ c.name }}</a> <span class="badge sev-{{ c.severity }}">{{ c.severity }}</span> {{ kev_badge(c) }}</td><td class="num">{{ p.total }}</td><td class="num">{{ p.open }}</td><td style="min-width:200px">{{ progress_bar(p) }}<div class="small text-2 num">{{ p.remediated_pct }}% remediated</div></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}
 <div class="grid grid-2">
   <div class="card">
     <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Quick start</h2></div>
@@ -33,7 +45,7 @@
         <li><div><b><a href="/nmap">Run an nmap scan</a></b><span>Top 1000 ports, all ports or a custom range. Results land in the inventory.</span></div></li>
         <li><div><b><a href="/inventory">Review the inventory</a></b><span>Filter by product and version, select hosts, then hand them to nuclei.</span></div></li>
         <li><div><b><a href="/nuclei">Run nuclei</a></b><span>Search templates by id, tag or CVE (for example <code>CVE-2026-109619</code>), pick one or many.</span></div></li>
-        <li><div><b>React to a new 0-day</b><span>Add a <a href="/rules">version rule</a> or <a href="/templates">upload / pull a custom template</a>.</span></div></li>
+        <li><div><b><a href="/campaigns/new">React to a new 0-day</a></b><span>Start a campaign from the CVE: intel, a version rule and templates in one step.</span></div></li>
         <li><div><b><a href="/issues">Triage issues</a></b><span>Assign owners, track SLAs and verify fixes with a re-scan.</span></div></li>
       </ol>
     </div>

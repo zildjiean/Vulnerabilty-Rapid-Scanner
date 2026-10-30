@@ -27,6 +27,10 @@ Everything runs in one container. No external services, no accounts, works offli
   SLA due dates (critical 3, high 7, medium 30, low 90 days by default), timeline and comments, bulk triage.
   Fixed issues reopen when seen again; suspected issues close themselves when a re-scan shows a patched version.
 - **Findings** view across jobs with severity ordering and search; every finding links to its issue.
+- **Threat campaigns** for every new CVE: NVD details (CVSS, description, references) and CISA KEV status
+  (known exploited, ransomware use, federal due date) pulled automatically; a version rule and the matching
+  nuclei templates in the same form; live exposure, remediation progress and one-click **Verify** that scans only
+  the exposed assets.
 - **0-day response** without waiting for upstream:
   - upload custom nuclei templates or pull them from a raw URL (validated with `nuclei -validate`);
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
@@ -60,8 +64,9 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 2. **Inventory** – review hosts and services grouped by host, product or service type, filter by product or
    version, select rows or whole groups and hand them to nuclei.
 3. **Nuclei** – pick templates, groups or everything, optionally narrow by tags / severity, start. Results land in *Findings*.
-4. **0-day drops** – go to *Templates* to upload or pull a template, or to *Version rules* to flag vulnerable
-   versions immediately.
+4. **0-day drops** – open *Campaigns → New campaign*, enter the CVE and the vulnerable versions. Exposed assets
+   appear at once as suspected issues; press *Verify* to confirm them with nuclei. If no public template exists
+   yet, upload or pull one under *Templates* and attach it to the campaign.
 5. **Issues** – triage what was found: assign an owner, move it through the lifecycle, watch the SLA, and
    re-scan to verify the fix.
 6. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
@@ -76,6 +81,7 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 | Delete inventory services, clear the inventory | ✓ | ✓ | |
 | Manage version rules and custom templates | ✓ | ✓ | |
 | Triage issues (status, owner, severity, comments) | ✓ | ✓ | |
+| Create and run campaigns (verify also needs scan rights) | ✓ | ✓ | |
 | Update nmap, nuclei and the templates | ✓ | | |
 | Manage users, SLA settings, read and export the audit log | ✓ | | |
 
@@ -86,6 +92,12 @@ Users who existed before roles were introduced are upgraded to admin automatical
 
 Everything that changes state is written to *Administration → Audit log* (who, what, target, details, source IP),
 including failed sign-ins and denied attempts. Filter by user, action group and date range, or export to CSV.
+
+## Network access
+
+Besides the targets, the scanner contacts GitHub (template and nuclei updates), `services.nvd.nist.gov` and
+`www.cisa.gov` (campaign intel; the KEV feed is cached in `/data/kev.json` for 24 hours). Without internet
+access campaigns still work: intel shows an error and can be refreshed later.
 
 ## Configuration
 

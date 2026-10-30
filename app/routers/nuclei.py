@@ -48,6 +48,22 @@ def nuclei_page_context(db: Session, targets: str = "", selected=None, error: st
             "groups": groups, "profiles": PROFILES}
 
 
+def launch_nuclei(db: Session, settings, runner, target_list: list[str], paths: list[str], params: dict, *,
+                  rate_limit: int, timeout: int, extra_flags: list[str], tags: list[str] | None = None,
+                  severities: list[str] | None = None, campaign_id: int | None = None) -> Job:
+    """Create and start a nuclei job. Inputs must already be validated."""
+    job = runner.create_job(db, "nuclei", [settings.nuclei_bin], params=params)
+    job.campaign_id = campaign_id
+    targets_file = write_targets_file(settings, job.id, target_list)
+    argv = build_nuclei_argv(settings.nuclei_bin, paths, str(targets_file), str(settings.nuclei_templates_dir),
+                             rate_limit=max(1, min(rate_limit, 1000)), timeout=max(1, min(timeout, 120)),
+                             tags=tags or [], severities=severities or [], extra=extra_flags)
+    job.command = quote_argv(argv)
+    db.commit()
+    runner.start(job.id, argv, on_complete=on_nuclei_complete, stdout_to_log=True)
+    return job
+
+
 @router.get("/nuclei")
 def nuclei_page(request: Request, targets: str = "", db: Session = Depends(get_db), settings=Depends(get_settings)):
     return render(request, "nuclei.html", **nuclei_page_context(db, targets=targets, settings=settings))
@@ -82,20 +98,13 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
         target_list = parse_nuclei_targets(targets)
     except ValueError as e:
         return fail(str(e))
-    rate_limit = max(1, min(rate_limit, 1000))
-    timeout = max(1, min(timeout, 120))
     template_ids = [s["template_id"] for s in selected] if mode == "selected" else []
     params = {"targets": target_list, "template_ids": template_ids, "mode": mode, "tags": tag_list, "severities": severities,
               "profile": profile, "no_mhe": no_mhe}
     if mode == "groups":
         params["groups"] = [g.strip().strip("/") for g in groups]
-    job = runner.create_job(db, "nuclei", [settings.nuclei_bin], params=params)
-    targets_file = write_targets_file(settings, job.id, target_list)
-    argv = build_nuclei_argv(settings.nuclei_bin, paths, str(targets_file), str(settings.nuclei_templates_dir),
-                             rate_limit=rate_limit, timeout=timeout, tags=tag_list, severities=severities, extra=extra_flags)
-    job.command = quote_argv(argv)
-    db.commit()
-    runner.start(job.id, argv, on_complete=on_nuclei_complete, stdout_to_log=True)
+    job = launch_nuclei(db, settings, runner, target_list, paths, params, rate_limit=rate_limit, timeout=timeout,
+                        extra_flags=extra_flags, tags=tag_list, severities=severities)
     audit(db, request, "scan.nuclei", target=", ".join(target_list), job_id=job.id, mode=mode, profile=profile,
           templates=len(paths), severities=",".join(severities))
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)

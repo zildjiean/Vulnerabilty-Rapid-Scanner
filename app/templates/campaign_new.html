@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set section = "Campaigns" %}
+{% set page_title = "New campaign" %}
+{% set page_subtitle = "Start the response to a new vulnerability. Everything except a name or CVE is optional and can be added later." %}
+{% block page_actions %}<a class="btn ghost" href="/campaigns">Cancel</a>{% endblock %}
+{% block content %}
+<form method="post" action="/campaigns" class="grid grid-2" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>Vulnerability</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label for="cve_id">CVE id</label><input id="cve_id" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-12345" autocomplete="off" pattern="[Cc][Vv][Ee]-\d{4}-\d{4,7}" aria-describedby="cve-hint"><span class="hint" id="cve-hint">Used to pull NVD details and CISA KEV status, and to find matching nuclei templates.</span></div>
+      <div class="field"><label for="name">Name</label><input id="name" name="name" value="{{ form.name }}" placeholder="Defaults to the CVE id (and the KEV name when listed)"></div>
+      <div class="field"><label for="severity">Severity</label><select id="severity" name="severity"><option value="auto" {{ 'selected' if form.severity == 'auto' }}>Auto (from CVSS, else high)</option>{% for s in severities %}<option value="{{ s }}" {{ 'selected' if form.severity == s }}>{{ s }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="description">Notes</label><textarea id="description" name="description" rows="3" placeholder="Leave empty to use the NVD description">{{ form.description }}</textarea></div>
+      <label class="check"><input type="checkbox" name="fetch_intel" value="true" {{ 'checked' if form.fetch_intel }}> Fetch NVD and CISA KEV intel</label>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>Detection</h2></div>
+    <div class="card-body stack">
+      <p class="text-2 small">A version rule matches the inventory immediately and opens <b>suspected</b> issues without sending traffic. Nuclei templates confirm them during <b>Verify</b>.</p>
+      <div class="field"><label for="product_pattern">Product pattern (regex)</label><input id="product_pattern" name="product_pattern" value="{{ form.product_pattern }}" placeholder="apache|httpd"></div>
+      <div class="field"><label for="version_constraint">Vulnerable versions</label><input id="version_constraint" name="version_constraint" value="{{ form.version_constraint }}" placeholder=">= 2.4.49, < 2.4.51"><span class="hint">Comparators &lt; &lt;= &gt; &gt;= == != separated by commas.</span></div>
+      <label class="check"><input type="checkbox" name="attach_templates" value="true" {{ 'checked' if form.attach_templates }}> Attach every indexed nuclei template that references this CVE</label>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>Create campaign</button></div>
+    </div>
+  </div>
+</form>
+{% endblock %}

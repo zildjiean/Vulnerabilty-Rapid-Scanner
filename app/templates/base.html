@@ -35,6 +35,7 @@
       </div>
       <div class="nav-group">
         <div class="nav-group-label">0-Day intelligence</div>
+        <a href="/campaigns" class="{{ 'active' if active == 'campaigns' }}" {% if active == 'campaigns' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-flag"/></svg><span>Campaigns</span></a>
         <a href="/templates" class="{{ 'active' if active == 'templates' }}" {% if active == 'templates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-file"/></svg><span>Templates</span></a>
         <a href="/rules" class="{{ 'active' if active == 'rules' }}" {% if active == 'rules' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-rule"/></svg><span>Version rules</span></a>
       </div>

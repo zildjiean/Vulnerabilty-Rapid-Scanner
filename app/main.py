@@ -15,7 +15,7 @@ from .issues import backfill_issues
 from .jobs import JobRunner, fail_interrupted_jobs
 from .authz import Forbidden
 from .render import STATIC_DIR, render
-from .routers import (audit as audit_router, auth as auth_router, issues as issues_router, dashboard as dashboard_router, inventory as inventory_router, jobs as jobs_router,
+from .routers import (audit as audit_router, auth as auth_router, campaigns as campaigns_router, issues as issues_router, dashboard as dashboard_router, inventory as inventory_router, jobs as jobs_router,
                       nmap as nmap_router, nuclei as nuclei_router, rules as rules_router, templates as templates_router,
                       updates as updates_router, users as users_router)
 from .routers.templates import reindex_in_background
@@ -57,7 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.add_middleware(AuthMiddleware)
     for r in (auth_router, dashboard_router, jobs_router, nmap_router, inventory_router, nuclei_router,
-              templates_router, rules_router, updates_router, users_router, audit_router, issues_router):
+              templates_router, rules_router, updates_router, users_router, audit_router, issues_router, campaigns_router):
         app.include_router(r.router)
 
     @app.exception_handler(StarletteHTTPException)
