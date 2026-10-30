@@ -7,7 +7,7 @@ ROLES = ("admin", "analyst", "viewer")
 ROLE_LABELS = {"admin": "Admin", "analyst": "Analyst", "viewer": "Viewer"}
 ROLE_DESCRIPTIONS = {
     "admin": "Everything, including updates, user management and the audit log.",
-    "analyst": "Run scans, manage inventory, version rules and templates.",
+    "analyst": "Run scans, triage issues, manage inventory, version rules and templates.",
     "viewer": "Read-only access to every page.",
 }
 
@@ -17,12 +17,14 @@ PERMISSIONS = {
     "inventory.manage": "Delete inventory services or clear the inventory",
     "rules.manage": "Create, edit, toggle, delete and evaluate version rules",
     "templates.manage": "Upload, pull, delete and reindex nuclei templates",
+    "issues.manage": "Triage issues: change status, assign, change severity, comment",
     "system.update": "Update nmap, nuclei and the nuclei templates",
     "users.manage": "Create, edit, deactivate and delete users",
     "audit.view": "Read and export the audit log",
+    "settings.manage": "Change platform settings such as remediation SLAs",
 }
 
-_ANALYST = {"view", "scan.run", "inventory.manage", "rules.manage", "templates.manage"}
+_ANALYST = {"view", "scan.run", "inventory.manage", "rules.manage", "templates.manage", "issues.manage"}
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "admin": frozenset(PERMISSIONS),
     "analyst": frozenset(_ANALYST),

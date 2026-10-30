@@ -9,6 +9,12 @@
 {% block content %}
 {% set sev_total = sev_counts.critical + sev_counts.high + sev_counts.medium + sev_counts.low + sev_counts.info %}
 <div class="grid grid-4 mb">
+  <a class="card kpi kpi-link" href="/issues"><div class="kpi-icon"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Active issues</div><div class="kpi-value" data-stat="issues_active">{{ kpis.active }}</div><div class="kpi-sub">{{ kpis.critical }} critical open · {{ kpis.suspected }} suspected</div></div></a>
+  <a class="card kpi kpi-link" href="/issues?overdue=1"><div class="kpi-icon danger"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">Overdue</div><div class="kpi-value" data-stat="issues_overdue">{{ kpis.overdue }}</div><div class="kpi-sub">{{ kpis.due_soon }} due within 7 days</div></div></a>
+  <a class="card kpi kpi-link" href="/issues?assignee=none"><div class="kpi-icon warn"><svg class="icon"><use href="#i-user"/></svg></div><div><div class="kpi-label">Unassigned</div><div class="kpi-value">{{ kpis.unassigned }}</div><div class="kpi-sub">open work without an owner</div></div></a>
+  <a class="card kpi kpi-link" href="/issues?status=fixed"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div><div class="kpi-label">Awaiting verification</div><div class="kpi-value">{{ kpis.awaiting_verification }}</div><div class="kpi-sub">re-scan to verify the fix</div></div></a>
+</div>
+<div class="grid grid-4 mb">
   <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">Hosts</div><div class="kpi-value" data-stat="hosts">{{ stats.hosts }}</div><div class="kpi-sub">discovered by nmap</div></div></div>
   <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-layers"/></svg></div><div><div class="kpi-label">Open services</div><div class="kpi-value" data-stat="services">{{ stats.services }}</div><div class="kpi-sub">with product / version</div></div></div>
   <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-alert"/></svg></div><div style="flex:1"><div class="kpi-label">Nuclei findings</div><div class="kpi-value" data-stat="findings">{{ stats.findings }}</div>
@@ -28,6 +34,7 @@
         <li><div><b><a href="/inventory">Review the inventory</a></b><span>Filter by product and version, select hosts, then hand them to nuclei.</span></div></li>
         <li><div><b><a href="/nuclei">Run nuclei</a></b><span>Search templates by id, tag or CVE (for example <code>CVE-2026-109619</code>), pick one or many.</span></div></li>
         <li><div><b>React to a new 0-day</b><span>Add a <a href="/rules">version rule</a> or <a href="/templates">upload / pull a custom template</a>.</span></div></li>
+        <li><div><b><a href="/issues">Triage issues</a></b><span>Assign owners, track SLAs and verify fixes with a re-scan.</span></div></li>
       </ol>
     </div>
   </div>

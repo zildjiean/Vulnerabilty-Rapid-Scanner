@@ -121,6 +121,7 @@ class Finding(Base):
     extracted: Mapped[str] = mapped_column(Text, default="")
     raw_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    issue_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
 
 class Rule(Base):
@@ -146,6 +147,58 @@ class RuleMatch(Base):
     evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     rule: Mapped["Rule"] = relationship(back_populates="matches")
     service: Mapped["Service"] = relationship(back_populates="rule_matches")
+
+
+class Issue(Base):
+    """One vulnerability on one asset (address:port), deduplicated across scans and rule evaluations."""
+    __tablename__ = "issues"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(600), unique=True)  # "<asset>|<vuln_id>"
+    asset: Mapped[str] = mapped_column(String(300), index=True)
+    address: Mapped[str] = mapped_column(String(255), default="")
+    port: Mapped[str] = mapped_column(String(8), default="")
+    hostname: Mapped[str] = mapped_column(String(255), default="")
+    vuln_id: Mapped[str] = mapped_column(String(255), default="")
+    cve_id: Mapped[str] = mapped_column(String(64), default="")
+    template_id: Mapped[str] = mapped_column(String(255), default="")
+    rule_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    title: Mapped[str] = mapped_column(String(512), default="")
+    severity: Mapped[str] = mapped_column(String(16), default="unknown")
+    severity_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
+    confidence: Mapped[str] = mapped_column(String(16), default="suspected")  # suspected | confirmed
+    status: Mapped[str] = mapped_column(String(24), default="new", index=True)
+    assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    status_changed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    occurrences: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    assignee: Mapped["User | None"] = relationship()
+    events: Mapped[list["IssueEvent"]] = relationship(back_populates="issue", cascade="all, delete-orphan",
+                                                      order_by="IssueEvent.id")
+
+
+class IssueEvent(Base):
+    __tablename__ = "issue_events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    username: Mapped[str] = mapped_column(String(64), default="system")
+    kind: Mapped[str] = mapped_column(String(24))
+    from_value: Mapped[str] = mapped_column(String(255), default="")
+    to_value: Mapped[str] = mapped_column(String(255), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    issue: Mapped["Issue"] = relationship(back_populates="events")
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
 
 
 def make_engine(url: str) -> Engine:
@@ -175,6 +228,7 @@ _ADDED_COLUMNS = [
     ("users", "is_active", "BOOLEAN NOT NULL DEFAULT 1"),
     ("users", "last_login_at", "DATETIME"),
     ("users", "session_version", "INTEGER NOT NULL DEFAULT 0"),
+    ("findings", "issue_id", "INTEGER"),
 ]
 
 

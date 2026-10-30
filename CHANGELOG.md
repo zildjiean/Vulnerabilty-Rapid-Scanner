@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Issues: findings (low and above) and version-rule matches become deduplicated issues per asset (ip:port) and
+  vulnerability (CVE, else template or rule). Rule matches are *suspected*, nuclei results *confirmed*.
+  Lifecycle New / Triaged / In progress / Fixed / Verified / False positive / Accepted risk with transition rules
+  and mandatory reasons, assignees, SLA due dates, severity override, comments and a full timeline.
+  Fixed or verified issues reopen when seen again after the change; suspected issues are auto-fixed when a
+  re-scan shows a version the rule no longer matches. Existing findings and rule matches are backfilled.
+- Issues page with KPIs, filters and bulk assign / status; Settings page for SLA days (admin);
+  dashboard issue KPIs; findings link to their issue. New permissions `issues.manage` (analyst, admin) and
+  `settings.manage` (admin).
 - Users and roles: admin, analyst and viewer. Every mutating route checks a permission, and pages hide or disable
   what the role cannot do. Existing users become admins through an automatic schema migration.
 - Administration → Users: create users with a one-time temporary password, edit role and details,

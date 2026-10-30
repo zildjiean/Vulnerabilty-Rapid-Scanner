@@ -1,0 +1,8 @@
+{% macro status_badge(s) -%}<span class="status is-{{ s }}">{{ issue_status_labels.get(s, s) }}</span>{%- endmacro %}
+{% macro confidence_badge(c) -%}<span class="badge conf-{{ c }}" title="{{ 'Seen by nuclei' if c == 'confirmed' else 'Version rule match, not yet verified by a scan' }}">{{ issue_confidence_labels.get(c, c) }}</span>{%- endmacro %}
+{% macro due_cell(i) -%}
+{% if i.due_at and i.status in ('new','triaged','in_progress') %}
+  {% if issue_is_overdue(i) %}<span class="due overdue" title="Due {{ i.due_at.strftime('%Y-%m-%d %H:%M') }} UTC"><svg class="icon sm"><use href="#i-clock"/></svg>Overdue</span>
+  {% else %}<span class="due" title="Due {{ i.due_at.strftime('%Y-%m-%d %H:%M') }} UTC">{{ i.due_at.strftime('%Y-%m-%d') }}</span>{% endif %}
+{% else %}<span class="muted">—</span>{% endif %}
+{%- endmacro %}

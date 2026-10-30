@@ -25,5 +25,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "rules": db.scalar(select(func.count(Rule.id)).where(Rule.enabled.is_(True))) or 0,
         "templates": db.scalar(select(func.count(TemplateIndex.id))) or 0,
     }
-    return render(request, "dashboard.html", active="dashboard", stats=stats, sev_counts=sev_counts,
+    from .issues import issue_kpis
+    return render(request, "dashboard.html", active="dashboard", stats=stats, sev_counts=sev_counts, kpis=issue_kpis(db),
                   jobs=recent_jobs(db, limit=10), job_summary=job_summary)

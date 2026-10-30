@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "_issue_macros.html" import status_badge, confidence_badge, due_cell %}
+{% set section = "Issues" %}
+{% set page_title = issue.title or issue.vuln_id %}
+{% set page_subtitle = issue.vuln_id ~ " on " ~ issue.asset ~ ((" (" ~ issue.hostname ~ ")") if issue.hostname and issue.hostname != issue.address else "") %}
+{% set manage = can('issues.manage') %}
+{% block page_actions %}<a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
+{% block content %}
+<div class="issue-head card mb"><div class="card-body row center" style="gap:10px">
+  <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="Changed manually; scans no longer raise it">(manual)</span>{% endif %}
+  {{ status_badge(issue.status) }} {{ confidence_badge(issue.confidence) }}
+  {% if issue_is_overdue(issue) %}<span class="due overdue"><svg class="icon sm"><use href="#i-clock"/></svg>Overdue since {{ issue.due_at.strftime('%Y-%m-%d') }}</span>{% endif %}
+  <span class="spacer"></span>
+  <span class="small text-2">Owner: <b>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else 'unassigned' }}</b></span>
+</div></div>
+<div class="grid grid-issue">
+  <div class="stack">
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>Details</h2></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>Vulnerability</dt><dd class="cell-mono">{{ issue.vuln_id }}{% if issue.cve_id %} · <a href="https://nvd.nist.gov/vuln/detail/{{ issue.cve_id }}" target="_blank" rel="noopener noreferrer">NVD<svg class="icon sm"><use href="#i-external"/></svg></a>{% endif %}</dd>
+          <dt>Asset</dt><dd class="cell-mono">{{ issue.asset }}{% if issue.hostname %} · {{ issue.hostname }}{% endif %} · <a href="/inventory?q={{ issue.address }}">inventory</a></dd>
+          {% if issue.template_id %}<dt>Nuclei template</dt><dd class="cell-mono">{{ issue.template_id }}</dd>{% endif %}
+          {% if rule %}<dt>Version rule</dt><dd><a href="/rules">{{ rule.name }}</a> <span class="cell-mono small text-2">{{ rule.product_pattern }} {{ rule.version_constraint }}</span>{% if not rule.enabled %} <span class="badge neutral">disabled</span>{% endif %}</dd>{% endif %}
+          <dt>First seen</dt><dd class="num">{{ issue.first_seen.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
+          <dt>Last seen</dt><dd class="num">{{ issue.last_seen.strftime('%Y-%m-%d %H:%M') }} UTC · {{ issue.occurrences }} sighting(s)</dd>
+          <dt>Due (SLA)</dt><dd>{% if issue.due_at %}{{ issue.due_at.strftime('%Y-%m-%d %H:%M') }} UTC <span class="text-2 small">({{ sla.get(issue.severity, '—') }} days for {{ issue.severity }})</span>{% else %}<span class="muted">no SLA</span>{% endif %}</dd>
+          {% if issue.resolved_at %}<dt>Resolved</dt><dd class="num">{{ issue.resolved_at.strftime('%Y-%m-%d %H:%M') }} UTC</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>Evidence <span class="chip num">{{ findings|length }}</span></h2></div>
+      <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Severity</th><th>Matched at</th><th>Job</th><th>Time</th></tr></thead>
+        <tbody>
+        {% for fd in findings %}
+        <tr><td><span class="badge sev-{{ fd.severity }}">{{ fd.severity }}</span></td><td class="cell-mono small"><span class="truncate" title="{{ fd.matched_at }}">{{ fd.matched_at }}</span></td><td><a href="/jobs/{{ fd.job_id }}">Job #{{ fd.job_id }}</a></td><td class="small text-2 num">{{ fd.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>
+        {% else %}<tr data-empty="1"><td colspan="4"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>No scan evidence yet</b>{% if issue.confidence == 'suspected' %}Suspected from the installed version. Run a <a href="/nuclei">nuclei scan</a> against {{ issue.asset }} to confirm.{% endif %}</div></td></tr>{% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div class="card" id="timeline">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Timeline</h2></div>
+      <div class="card-body">
+        <ol class="timeline">
+        {% for e in issue.events|reverse %}
+          <li class="ev-{{ e.kind }}">
+            <div class="ev-meta"><b>{{ e.username }}</b> <span class="text-2 small num">{{ e.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+            <div class="ev-body">
+              {% if e.kind == 'created' %}Created from {{ e.body }}
+              {% elif e.kind == 'seen' %}Seen again: {{ e.body }}
+              {% elif e.kind == 'confirmed' %}Confirmed by a scan: {{ e.body }}
+              {% elif e.kind in ('status', 'reopened', 'auto_fixed') %}{{ {'reopened': 'Reopened', 'auto_fixed': 'Automatically marked fixed'}.get(e.kind, 'Status') }}: {{ issue_status_labels.get(e.from_value, e.from_value) }} → {{ issue_status_labels.get(e.to_value, e.to_value) }}{% if e.body %}<div class="text-2 small">{{ e.body }}</div>{% endif %}
+              {% elif e.kind == 'assigned' %}{% if e.to_value %}Assigned to {{ e.to_value }}{% else %}Unassigned{% endif %}{% if e.from_value %} <span class="text-2">(was {{ e.from_value }})</span>{% endif %}
+              {% elif e.kind == 'severity' %}Severity {{ e.from_value }} → {{ e.to_value }}{% if e.body %} <span class="text-2 small">({{ e.body }})</span>{% endif %}
+              {% elif e.kind == 'comment' %}<div class="comment">{{ e.body }}</div>
+              {% else %}{{ e.kind }} {{ e.body }}{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+        </ol>
+        {% if manage %}
+        <form method="post" action="/issues/{{ issue.id }}/comment" class="stack" style="margin-top:12px">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="field"><label for="body">Add a comment</label><textarea id="body" name="body" rows="3" required maxlength="5000" placeholder="What did you check, who owns the fix, which patch applies…"></textarea></div>
+          <div><button type="submit"><svg class="icon"><use href="#i-plus"/></svg>Comment</button></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="stack">
+    {% if manage %}
+    <form method="post" action="/issues/{{ issue.id }}/status" class="card" data-loading>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>Change status</h2></div>
+      <div class="card-body stack">
+        {% if transitions %}
+        <div class="field"><label for="status">Move to</label><select id="status" name="status">{% for t in transitions %}<option value="{{ t }}">{{ issue_status_labels[t] }}{{ ' (reason required)' if t in needs_reason }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="comment">Comment</label><textarea id="comment" name="comment" rows="3" placeholder="Required for False positive and Accepted risk"></textarea></div>
+        <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Update status</button></div>
+        {% endif %}
+      </div>
+    </form>
+    <form method="post" action="/issues/{{ issue.id }}/assign" class="card">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Assignee</h2></div>
+      <div class="card-body row" style="align-items:flex-end">
+        <div class="field" style="flex:1"><label for="assignee">Owner</label><select id="assignee" name="assignee"><option value="">Unassigned</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if issue.assignee_id == u.id }}>{{ u.display_name or u.username }}{{ ' (you)' if u.id == user.id }}</option>{% endfor %}</select></div>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+    <form method="post" action="/issues/{{ issue.id }}/severity" class="card">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>Severity</h2></div>
+      <div class="card-body row" style="align-items:flex-end">
+        <div class="field" style="flex:1"><label for="severity">Severity</label><select id="severity" name="severity">{% for s in issue_severities %}<option value="{{ s }}" {{ 'selected' if issue.severity == s }}>{{ s }}</option>{% endfor %}</select><span class="hint">A manual change stops scans from raising it and recalculates the due date.</span></div>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="alert info" role="note"><svg class="icon"><use href="#i-info"/></svg><div>Read-only: your <b>{{ role_labels.get(user.role, user.role) }}</b> role cannot triage issues.</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

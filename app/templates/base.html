@@ -29,6 +29,7 @@
       </div>
       <div class="nav-group">
         <div class="nav-group-label">Detection</div>
+        <a href="/issues" class="{{ 'active' if active == 'issues' }}" {% if active == 'issues' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-target"/></svg><span>Issues</span></a>
         <a href="/nuclei" class="{{ 'active' if active == 'nuclei' }}" {% if active == 'nuclei' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-bug"/></svg><span>Nuclei scan</span></a>
         <a href="/findings" class="{{ 'active' if active == 'findings' }}" {% if active == 'findings' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-alert"/></svg><span>Findings</span></a>
       </div>
@@ -42,10 +43,11 @@
         <a href="/updates" class="{{ 'active' if active == 'updates' }}" {% if active == 'updates' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-refresh"/></svg><span>Updates</span></a>
         <a href="/jobs" class="{{ 'active' if active == 'jobs' }}" {% if active == 'jobs' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-activity"/></svg><span>Jobs</span></a>
       </div>
-      {% if can('users.manage') or can('audit.view') %}
+      {% if can('users.manage') or can('audit.view') or can('settings.manage') %}
       <div class="nav-group">
         <div class="nav-group-label">Administration</div>
         {% if can('users.manage') %}<a href="/users" class="{{ 'active' if active == 'users' }}" {% if active == 'users' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-users"/></svg><span>Users</span></a>{% endif %}
+        {% if can('settings.manage') %}<a href="/settings" class="{{ 'active' if active == 'settings' }}" {% if active == 'settings' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clock"/></svg><span>Settings</span></a>{% endif %}
         {% if can('audit.view') %}<a href="/audit" class="{{ 'active' if active == 'audit' }}" {% if active == 'audit' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-scroll"/></svg><span>Audit log</span></a>{% endif %}
       </div>
       {% endif %}
