@@ -60,12 +60,14 @@ Everything runs in one container. No external services, no accounts, works offli
   that ends sessions immediately, and a filterable, CSV-exportable **audit log** of every sign-in and change.
 - **Security basics**: forced password change on first login, CSRF tokens, login rate limiting, HttpOnly session
   cookie, argv-only subprocesses with allow-list validated targets, non-root container.
-- **Enterprise-grade UI**: sidebar navigation, light/dark theme, KPI cards, sortable tables, keyboard and
+- **Enterprise-grade UI**: compact sidebar (daily pages on top, collapsible Scanning / Detection library / System groups), light/dark theme, KPI cards, sortable tables, keyboard and
   screen-reader friendly, no third-party frontend assets.
 
 ![Nuclei scan](docs/screenshots/nuclei.png)
 
 ## Quick start
+
+> 🇹🇭 คู่มือภาษาไทย: [docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md)
 
 ```bash
 git clone https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner.git
@@ -78,6 +80,8 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 `/data` volume; watch it under *Jobs*.
 
 ## Workflow
+
+Step-by-step user guide in Thai: **[docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md)** (คู่มือการใช้งานภาษาไทย).
 
 0. **Scopes** – describe each environment once (targets, exclusions, owner, criticality) and add schedules:
    nightly discovery, weekly nuclei, re-verify campaigns every few hours.
@@ -112,12 +116,12 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 | Update nmap, nuclei and the templates | ✓ | | |
 | Manage users, integrations, AI providers, SLA / timezone / notification settings, read and export the audit log | ✓ | | |
 
-Admins add users under *Administration → Users*. The scanner generates a temporary password that is shown once;
+Admins add users under *System → Users*. The scanner generates a temporary password that is shown once;
 the user must replace it at first sign-in. Deactivating a user, resetting their password or changing their role
 signs them out everywhere. You cannot deactivate, delete or demote yourself, and the last active admin is protected.
 Users who existed before roles were introduced are upgraded to admin automatically.
 
-Everything that changes state is written to *Administration → Audit log* (who, what, target, details, source IP),
+Everything that changes state is written to *System → Audit log* (who, what, target, details, source IP),
 including failed sign-ins and denied attempts. Filter by user, action group and date range, or export to CSV.
 
 ## Network access
