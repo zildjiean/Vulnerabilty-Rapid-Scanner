@@ -60,6 +60,7 @@
               {% elif e.kind == 'assigned' %}{% if e.to_value %}Assigned to {{ e.to_value }}{% else %}Unassigned{% endif %}{% if e.from_value %} <span class="text-2">(was {{ e.from_value }})</span>{% endif %}
               {% elif e.kind == 'severity' %}Severity {{ e.from_value }} → {{ e.to_value }}{% if e.body %} <span class="text-2 small">({{ e.body }})</span>{% endif %}
               {% elif e.kind == 'comment' %}<div class="comment">{{ e.body }}</div>
+              {% elif e.kind == 'ticket' %}{{ e.body }}
               {% else %}{{ e.kind }} {{ e.body }}{% endif %}
             </div>
           </li>
@@ -76,6 +77,17 @@
     </div>
   </div>
   <div class="stack">
+    {% if tickets or (manage and ticket_channels) %}
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>Tickets</h2></div>
+      <div class="card-body stack">
+        {% for t in tickets %}<div class="row center between list-row"><a href="{{ t.url }}" target="_blank" rel="noopener noreferrer" class="cell-mono">{{ t.key }}<svg class="icon sm"><use href="#i-external"/></svg></a><span class="small text-2">{{ t.channel.name }} · <span class="status {{ 'st-running' if t.state == 'open' else 'st-done' }}">{{ t.state }}</span></span></div>{% endfor %}
+        {% if manage %}{% set linked = tickets|map(attribute='channel_id')|list %}{% for c in ticket_channels if c.id not in linked %}
+        <form method="post" action="/issues/{{ issue.id }}/tickets" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="channel_id" value="{{ c.id }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-plus"/></svg>Create ticket in {{ c.name }}</button></form>
+        {% endfor %}{% endif %}
+      </div>
+    </div>
+    {% endif %}
     {% if manage %}
     <form method="post" action="/issues/{{ issue.id }}/status" class="card" data-loading>
       <input type="hidden" name="csrf" value="{{ csrf }}">

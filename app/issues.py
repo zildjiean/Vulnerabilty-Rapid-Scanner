@@ -148,7 +148,8 @@ def _event(db: Session, issue: Issue, kind: str, actor=None, from_value="", to_v
     return ev
 
 
-def _set_status(db: Session, issue: Issue, new: str, actor, kind: str = "status", body: str = "") -> None:
+def _set_status(db: Session, issue: Issue, new: str, actor, kind: str = "status", body: str = "",
+                sync_tickets: bool = True) -> None:
     old = issue.status
     issue.status = new
     issue.status_changed_at = utcnow()
@@ -157,6 +158,8 @@ def _set_status(db: Session, issue: Issue, new: str, actor, kind: str = "status"
     else:
         issue.resolved_at = None
     _event(db, issue, kind, actor, old, new, body)
+    from .notifications import on_status_change
+    on_status_change(db, issue, old, new, kind, actor, sync_tickets)
 
 
 # ----------------------------------------------------------------- upsert
@@ -176,6 +179,8 @@ def upsert_issue(db: Session, *, address: str, port: str, hostname: str, vuln_id
         db.flush()
         _event(db, issue, "created", body=source, at=seen_at)
         _apply_scope(db, issue)
+        from .notifications import notify
+        notify(db, "issue.created", issue=issue, note=f"New {confidence} issue from {source}.")
         return issue, True
 
     if seen_at < issue.first_seen:
@@ -320,6 +325,9 @@ def assign(db: Session, issue: Issue, user, actor) -> None:
     issue.assignee_id = user.id if user else None
     issue.assignee = user
     _event(db, issue, "assigned", actor, old, user.username if user else "")
+    if user is not None:
+        from .notifications import notify
+        notify(db, "issue.assigned", issue=issue, note=f"Assigned to {user.display_name or user.username}.")
     db.flush()
 
 

@@ -195,6 +195,7 @@ class Issue(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     scope_id: Mapped[int | None] = mapped_column(ForeignKey("scopes.id", ondelete="SET NULL"), nullable=True, index=True)
+    overdue_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     assignee: Mapped["User | None"] = relationship()
     scope: Mapped["Scope | None"] = relationship()
     events: Mapped[list["IssueEvent"]] = relationship(back_populates="issue", cascade="all, delete-orphan",
@@ -280,6 +281,68 @@ class Schedule(Base):
     scope: Mapped["Scope | None"] = relationship()
 
 
+class NotificationChannel(Base):
+    __tablename__ = "notification_channels"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    kind: Mapped[str] = mapped_column(String(16))  # webhook | slack | teams | email | jira | gitlab
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    config: Mapped[str] = mapped_column(Text, default="{}")
+    secret: Mapped[str] = mapped_column(Text, default="")  # Fernet token (app/secretbox.py)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_test_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_test_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_test_message: Mapped[str] = mapped_column(Text, default="")
+    rules: Mapped[list["NotificationRule"]] = relationship(back_populates="channel", cascade="all, delete-orphan",
+                                                           order_by="NotificationRule.id")
+
+
+class NotificationRule(Base):
+    __tablename__ = "notification_rules"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("notification_channels.id", ondelete="CASCADE"), index=True)
+    events: Mapped[str] = mapped_column(Text, default="[]")  # JSON list of event names
+    min_severity: Mapped[str] = mapped_column(String(16), default="high")
+    scope_id: Mapped[int | None] = mapped_column(ForeignKey("scopes.id", ondelete="SET NULL"), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    channel: Mapped["NotificationChannel"] = relationship(back_populates="rules")
+    scope: Mapped["Scope | None"] = relationship()
+
+
+class Delivery(Base):
+    """Outbox row: one message or ticket operation for one channel, retried until sent or failed."""
+    __tablename__ = "notification_deliveries"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("notification_channels.id", ondelete="CASCADE"), index=True)
+    event: Mapped[str] = mapped_column(String(48))
+    title: Mapped[str] = mapped_column(String(512), default="")
+    payload: Mapped[str] = mapped_column(Text, default="{}")
+    issue_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending | sent | failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    channel: Mapped["NotificationChannel"] = relationship()
+
+
+class IssueTicket(Base):
+    __tablename__ = "issue_tickets"
+    __table_args__ = (UniqueConstraint("issue_id", "channel_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("notification_channels.id", ondelete="CASCADE"))
+    key: Mapped[str] = mapped_column(String(64), default="")
+    external_id: Mapped[str] = mapped_column(String(64), default="")
+    url: Mapped[str] = mapped_column(String(1024), default="")
+    state: Mapped[str] = mapped_column(String(16), default="open")  # open | closed
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    channel: Mapped["NotificationChannel"] = relationship()
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -318,6 +381,7 @@ _ADDED_COLUMNS = [
     ("jobs", "campaign_id", "INTEGER"),
     ("issues", "scope_id", "INTEGER"),
     ("jobs", "schedule_id", "INTEGER"),
+    ("issues", "overdue_notified_at", "DATETIME"),
 ]
 
 

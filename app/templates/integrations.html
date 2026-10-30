@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_channel_fields.html" import channel_fields with context %}
+{% set section = "Administration" %}
+{% set page_title = "Integrations" %}
+{% set page_subtitle = "Send alerts to chat, email and webhooks, and open tickets in Jira or GitLab. Secrets are encrypted at rest." %}
+{% block page_actions %}<a class="btn" href="/integrations/deliveries"><svg class="icon"><use href="#i-activity"/></svg>Delivery log</a>{% if can('settings.manage') %}<a class="btn ghost" href="/settings#notifications">Public URL &amp; SMTP</a>{% endif %}{% endblock %}
+{% block content %}
+<div class="grid grid-issue">
+  <div class="card">
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Channel</th><th>Type</th><th>Rules</th><th>Last test</th><th>Deliveries</th></tr></thead>
+      <tbody>
+      {% for c in channels %}
+      <tr style="{{ '' if c.enabled else 'opacity:.6' }}">
+        <td><a class="issue-title" href="/integrations/channels/{{ c.id }}">{{ c.name }}</a>{% if not c.enabled %} <span class="badge neutral">paused</span>{% endif %}</td>
+        <td><span class="badge neutral">{{ kinds[c.kind] }}</span></td>
+        <td class="num">{{ c.rules|selectattr('enabled')|list|length }}</td>
+        <td class="small">{% if c.last_test_at %}<span class="status {{ 'st-done' if c.last_test_ok else 'st-failed' }}">{{ 'ok' if c.last_test_ok else 'failed' }}</span>{% else %}<span class="muted">never</span>{% endif %}</td>
+        <td class="small num">{{ counts.get((c.id, 'sent'), 0) }} sent{% if counts.get((c.id, 'pending')) %} · {{ counts[(c.id, 'pending')] }} pending{% endif %}{% if counts.get((c.id, 'failed')) %} · <a class="text-danger" href="/integrations/deliveries?status=failed">{{ counts[(c.id, 'failed')] }} failed</a>{% endif %}</td>
+      </tr>
+      {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-link"/></svg><b>No channels yet</b>Add Slack, Teams, email, a webhook, Jira or GitLab on the right.</div></td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  <form method="post" action="/integrations/channels" class="card schedule-form" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>New channel</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label for="kind">Type</label><select id="kind" name="kind" data-schedule-kind>{% for k, label in kinds.items() %}<option value="{{ k }}" {{ 'selected' if form.kind == k }}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="name">Name</label><input id="name" name="name" required maxlength="128" value="{{ form.name or '' }}" placeholder="SOC alerts"></div>
+      {% for k in kinds %}<div class="stack" data-show-kind="{{ k }}" {{ 'hidden' if k != (form.kind or 'webhook') }}>{{ channel_fields(k, {}, {}, True) }}</div>{% endfor %}
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-plus"/></svg>Add channel</button></div>
+    </div>
+  </form>
+</div>
+{% endblock %}

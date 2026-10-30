@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Notifications and ticketing (Administration → Integrations): Slack, Microsoft Teams (Adaptive Cards), email
+  (SMTP with STARTTLS / SSL, optional copy to the assignee), JSON webhooks signed with HMAC-SHA256, Jira and GitLab.
+  Rules by event, minimum severity and scope. Two-way tickets: created by rule or from the issue page, commented /
+  closed / reopened as the issue changes, polled every 15 minutes so a closed ticket marks the issue fixed.
+  Outbox with retries (1, 5, 15, 60 minutes), delivery log with retry, per-channel test / connection check.
+  Integration secrets and the SMTP password are encrypted at rest (new dependency: `cryptography`).
+  Settings gain the public URL used in links and the SMTP server. New permission `integrations.manage` (admin).
 - Scopes: named asset groups (nmap target syntax with exclusions), owner and criticality. New issues inside a
   scope are auto-assigned to its owner; issues show and filter by scope; inventory can group by scope.
 - Schedules: nmap discovery and nuclei scans per scope and re-verification of active campaigns, every N hours,

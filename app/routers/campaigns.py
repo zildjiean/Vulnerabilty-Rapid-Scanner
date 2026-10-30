@@ -83,6 +83,8 @@ async def campaign_create(request: Request, cve_id: str = Form(""), name: str = 
     except ValueError as e:
         db.rollback()
         return _new_form(request, 400, str(e), form)
+    from ..notifications import campaign_message, notify
+    notify(db, "campaign.created", message=campaign_message(db, c), severity=c.severity)
     db.commit()
     audit(db, request, "campaign.created", target=c.name, campaign_id=c.id, cve=c.cve_id, severity=c.severity,
           kev=c.kev, templates=len(c.templates))

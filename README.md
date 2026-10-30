@@ -39,6 +39,11 @@ Everything runs in one container. No external services, no accounts, works offli
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
 - **Updates** for nuclei templates, the nuclei engine and the nmap script DB, each as a tracked job.
 - **Jobs** with persisted logs, Server-Sent Events streaming, cancel, and automatic cleanup after restarts.
+- **Notifications and ticketing**: Slack, Microsoft Teams, email, signed webhooks, Jira and GitLab. Rules pick
+  events (new / reopened / overdue / assigned issues, status changes, campaigns, failed scans, schedule errors),
+  a minimum severity and a scope. Jira / GitLab tickets stay in sync both ways: closing the issue closes the
+  ticket, closing the ticket marks the issue fixed for verification. Reliable outbox with retries and a delivery
+  log; integration secrets are encrypted at rest.
 - **Team access**: multiple users with **admin / analyst / viewer** roles, one-time temporary passwords, deactivation
   that ends sessions immediately, and a filterable, CSV-exportable **audit log** of every sign-in and change.
 - **Security basics**: forced password change on first login, CSRF tokens, login rate limiting, HttpOnly session
@@ -89,7 +94,7 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 | Create and run campaigns (verify also needs scan rights) | ✓ | ✓ | |
 | Manage scopes and schedules | ✓ | ✓ | |
 | Update nmap, nuclei and the templates | ✓ | | |
-| Manage users, SLA and timezone settings, read and export the audit log | ✓ | | |
+| Manage users, integrations, SLA / timezone / notification settings, read and export the audit log | ✓ | | |
 
 Admins add users under *Administration → Users*. The scanner generates a temporary password that is shown once;
 the user must replace it at first sign-in. Deactivating a user, resetting their password or changing their role
@@ -102,7 +107,8 @@ including failed sign-ins and denied attempts. Filter by user, action group and 
 ## Network access
 
 Besides the targets, the scanner contacts GitHub (template and nuclei updates), `services.nvd.nist.gov` and
-`www.cisa.gov` (campaign intel; the KEV feed is cached in `/data/kev.json` for 24 hours). Without internet
+`www.cisa.gov` (campaign intel; the KEV feed is cached in `/data/kev.json` for 24 hours), and the integrations
+you configure (Slack, Teams, SMTP, Jira, GitLab, webhooks). Without internet
 access campaigns still work: intel shows an error and can be refreshed later.
 
 ## Configuration

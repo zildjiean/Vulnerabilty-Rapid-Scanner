@@ -24,6 +24,7 @@ PERMISSIONS = {
     "users.manage": "Create, edit, deactivate and delete users",
     "audit.view": "Read and export the audit log",
     "settings.manage": "Change platform settings such as remediation SLAs",
+    "integrations.manage": "Configure notification channels, rules and ticketing integrations",
 }
 
 _ANALYST = {"view", "scan.run", "inventory.manage", "rules.manage", "templates.manage", "issues.manage",
