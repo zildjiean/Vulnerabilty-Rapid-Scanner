@@ -397,3 +397,20 @@ pre.code{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid
 .badge.method-get{background:var(--sev-info-bg);color:var(--sev-info)}
 .badge.method-post{background:var(--success-soft);color:var(--success)}
 .badge.method-patch{background:var(--warning-soft);color:var(--warning)}
+
+/* ---------- AI assistant ---------- */
+.badge.ai{background:linear-gradient(90deg,var(--primary-soft),var(--accent-soft,var(--primary-soft)));color:var(--primary);gap:4px}
+.badge.ai .icon{width:12px;height:12px}
+.ai-out{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface-2)}
+.ai-meta{font-size:11.5px;color:var(--text-3);margin-top:8px}
+.md h3{font-size:15px;margin:12px 0 4px}.md h4{font-size:13.5px;margin:12px 0 4px}
+.md p{margin:6px 0;line-height:1.55}.md ul,.md ol{margin:6px 0;padding-left:20px}.md li{margin:2px 0}
+.md pre{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;overflow:auto;font-size:12px}
+.md code{font-family:var(--font-mono);font-size:12.5px}
+.badge.triage-likely_true_positive{background:var(--danger-soft);color:var(--danger)}
+.badge.triage-likely_false_positive{background:var(--success-soft);color:var(--success)}
+.badge.triage-uncertain{background:var(--warning-soft);color:var(--warning)}
+.code-input{font-family:var(--font-mono);font-size:12.5px;line-height:1.5}
+.w-md{width:220px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.ai-ask input{min-height:38px}

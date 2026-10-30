@@ -50,18 +50,39 @@ async def nuclei_validate(settings, path: Path) -> tuple[bool, str]:
     return proc.returncode == 0, last
 
 
-def _page(request: Request, db: Session, settings, q: str = "", severity: str = "", error: str | None = None, status_code: int = 200):
+def _page(request: Request, db: Session, settings, q: str = "", severity: str = "", error: str | None = None, status_code: int = 200,
+          draft: dict | None = None, cve: str = ""):
     custom = list(db.scalars(select(TemplateIndex).where(TemplateIndex.source == "custom").order_by(TemplateIndex.template_id)))
     results = search_templates(db, q, severity=severity) if q else []
     return render(request, "templates.html", status_code=status_code, active="templates", counts=count_templates(db),
                   indexing=getattr(request.app.state, "indexing", False), custom=custom, q=q, severity=severity,
                   results=results, error=error, templates_dir=str(settings.nuclei_templates_dir),
-                  templates_dir_exists=settings.nuclei_templates_dir.is_dir())
+                  templates_dir_exists=settings.nuclei_templates_dir.is_dir(), draft=draft, draft_cve=cve)
 
 
 @router.get("/templates")
-def templates_page(request: Request, q: str = "", severity: str = "", db: Session = Depends(get_db), settings=Depends(get_settings)):
-    return _page(request, db, settings, q=q, severity=severity)
+def templates_page(request: Request, q: str = "", severity: str = "", cve: str = "", db: Session = Depends(get_db),
+                   settings=Depends(get_settings)):
+    return _page(request, db, settings, q=q, severity=severity, cve=cve)
+
+
+@router.post("/templates/save-text", dependencies=[Depends(require("templates.manage")), Depends(verify_csrf)])
+async def templates_save_text(request: Request, yaml: str = Form(""), db: Session = Depends(get_db),
+                              settings=Depends(get_settings)):
+    """Save a reviewed template (e.g. an AI draft) after the same checks as an upload."""
+    try:
+        path = save_custom_template(settings, yaml)
+    except ValueError as e:
+        return _page(request, db, settings, error=str(e), status_code=400,
+                     draft={"yaml": yaml, "ok": False, "message": f"Validation failed: {e}"})
+    ok, line = await nuclei_validate(settings, path)
+    if not ok:
+        path.unlink(missing_ok=True)
+        return _page(request, db, settings, error=f"nuclei validation failed: {line}", status_code=400,
+                     draft={"yaml": yaml, "ok": False, "message": f"Validation failed: {line}"})
+    index_single(db, path, "custom")
+    audit(db, request, "template.uploaded", target=path.name, files=1, source="editor")
+    return RedirectResponse(f"/templates?msg=Saved+{path.name}", status_code=303)
 
 
 @router.get("/templates/search")

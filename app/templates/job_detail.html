@@ -9,6 +9,14 @@
 {% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn primary" href="/findings?job={{ job.id }}"><svg class="icon"><use href="#i-alert"/></svg>View findings</a>{% endif %}
 {% endblock %}
 {% block content %}
+{% from "_ai.html" import ai_meta, ai_badge %}
+{% if ai_diagnosis or (ai_ready and (job.status == 'failed' or job_warnings(job))) %}
+<div class="card mb" id="ai">
+  <div class="card-head"><h2>{{ ai_badge() }} Diagnosis</h2>
+    {% if ai_ready and (job.status == 'failed' or job_warnings(job)) %}<form method="post" action="/ai/jobs/{{ job.id }}/diagnose" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>Diagnose with AI</button></form>{% endif %}</div>
+  {% if ai_diagnosis %}<div class="card-body md">{{ ai_diagnosis.content|mdlite }}{{ ai_meta(ai_diagnosis) }}</div>{% endif %}
+</div>
+{% endif %}
 {% set warnings = job_warnings(job) %}
 {% if job.status == 'done' and warnings %}
 <div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Done with warnings — coverage is incomplete.</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul><p class="small" style="margin:8px 0 0">Re-run with the <a href="/nuclei">Gentle profile</a>, a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.</p></div></div>

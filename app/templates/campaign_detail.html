@@ -104,7 +104,7 @@
         {% for t in c.templates %}
         <div class="row center between list-row"><span class="cell-mono small" title="{{ t.path }}">{{ t.template_id }} <span class="text-2">{{ t.path.rsplit('/', 1)[-1] }}</span></span>
           {% if manage %}<form method="post" action="/campaigns/{{ c.id }}/templates/{{ t.id }}/delete"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Detach template"><svg class="icon sm"><use href="#i-x"/></svg></button></form>{% endif %}</div>
-        {% else %}<p class="small text-2">No template attached. {% if c.cve_id %}If none is published yet, <a href="/templates">upload or pull one</a>, then attach it here.{% endif %}</p>{% endfor %}
+        {% else %}<p class="small text-2">No template attached. {% if c.cve_id %}If none is published yet, <a href="/templates">upload or pull one</a>{% if ai_ready %} or <a href="/templates?cve={{ c.cve_id }}#ai-draft">draft one with AI</a>{% endif %}, then attach it here.{% endif %}</p>{% endfor %}
         {% if manage and suggestions %}
         <div class="small text-2" style="margin-top:4px">Suggested from the index</div>
         {% for t in suggestions %}

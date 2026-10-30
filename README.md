@@ -39,6 +39,12 @@ Everything runs in one container. No external services, no accounts, works offli
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
 - **Updates** for nuclei templates, the nuclei engine and the nmap script DB, each as a tracked job.
 - **Jobs** with persisted logs, Server-Sent Events streaming, cancel, and automatic cleanup after restarts.
+- **AI assistant (bring your own model)**: Anthropic Claude, OpenAI, Azure OpenAI, Google Gemini or any
+  OpenAI-compatible server (Ollama, vLLM, LM Studio, OpenRouter, Groq …) with your own API key. It drafts campaigns
+  from advisories, drafts detection-only nuclei templates (validated before you save), explains issues with
+  remediation steps, triages scan evidence, turns plain-language questions into filters, writes report summaries and
+  diagnoses failed scans. It only suggests: people decide. IPs and host names are replaced by `HOST-n` tokens before
+  leaving the scanner (per-provider switch), keys are encrypted, and every call is audited with token usage.
 - **Automatic re-verification**: when a confirmed issue is marked fixed, its template is re-run against the asset
   after a short delay; not found → verified, found → reopened, incomplete scan → stays fixed with a note.
 - **Reports**: printable executive summary (open exposure, overdue, MTTR, SLA compliance, weekly trend, riskiest
@@ -101,9 +107,10 @@ Open <http://localhost:8000> and sign in with **admin / changeme**. You must set
 | Manage version rules and custom templates | ✓ | ✓ | |
 | Triage issues (status, owner, severity, comments) | ✓ | ✓ | |
 | Create and run campaigns (verify also needs scan rights) | ✓ | ✓ | |
+| Use the AI assistant (results are readable by everyone) | ✓ | ✓ | |
 | Manage scopes and schedules | ✓ | ✓ | |
 | Update nmap, nuclei and the templates | ✓ | | |
-| Manage users, integrations, SLA / timezone / notification settings, read and export the audit log | ✓ | | |
+| Manage users, integrations, AI providers, SLA / timezone / notification settings, read and export the audit log | ✓ | | |
 
 Admins add users under *Administration → Users*. The scanner generates a temporary password that is shown once;
 the user must replace it at first sign-in. Deactivating a user, resetting their password or changing their role
@@ -117,7 +124,8 @@ including failed sign-ins and denied attempts. Filter by user, action group and 
 
 Besides the targets, the scanner contacts GitHub (template and nuclei updates), `services.nvd.nist.gov` and
 `www.cisa.gov` (campaign intel; the KEV feed is cached in `/data/kev.json` for 24 hours), and the integrations
-you configure (Slack, Teams, SMTP, Jira, GitLab, webhooks). Without internet
+you configure (Slack, Teams, SMTP, Jira, GitLab, webhooks) and the AI provider you add (with redaction on, scan
+data leaves only as `HOST-n` placeholders; a local Ollama keeps everything on your network). Without internet
 access campaigns still work: intel shows an error and can be refreshed later.
 
 ## Configuration

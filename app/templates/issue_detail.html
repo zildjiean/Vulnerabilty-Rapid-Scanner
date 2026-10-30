@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_issue_macros.html" import status_badge, confidence_badge, due_cell %}
+{% from "_ai.html" import ai_meta, ai_badge %}
 {% set section = "Issues" %}
 {% set page_title = issue.title or issue.vuln_id %}
 {% set page_subtitle = issue.vuln_id ~ " on " ~ issue.asset ~ ((" (" ~ issue.hostname ~ ")") if issue.hostname and issue.hostname != issue.address else "") %}
@@ -79,6 +80,32 @@
     </div>
   </div>
   <div class="stack">
+    {% if ai_ready or ai_explain or ai_triage %}
+    <div class="card" id="ai">
+      <div class="card-head"><h2>{{ ai_badge() }} AI assistant</h2></div>
+      <div class="card-body stack">
+        {% if ai_ready %}
+        <div class="row">
+          <form method="post" action="/ai/issues/{{ issue.id }}/explain" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>Explain &amp; remediate</button></form>
+          {% if has_evidence %}<form method="post" action="/ai/issues/{{ issue.id }}/triage" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-search"/></svg>Triage evidence</button></form>{% endif %}
+        </div>
+        {% endif %}
+        {% if ai_triage %}{% set t = ai_triage.data|fromjson %}
+        <div class="ai-out">
+          <div class="row center" style="gap:8px"><span class="badge triage-{{ t.verdict }}">{{ triage_labels.get(t.verdict, t.verdict) }}</span><span class="small text-2">confidence {{ t.confidence }}%</span></div>
+          <p class="small" style="margin:6px 0">{{ t.reasoning }}</p>
+          {% if t.checks %}<ul class="small">{% for c in t.checks %}<li>{{ c }}</li>{% endfor %}</ul>{% endif %}
+          {{ ai_meta(ai_triage) }}
+        </div>
+        {% endif %}
+        {% if ai_explain %}
+        <div class="ai-out md">{{ ai_explain.content|mdlite }}{{ ai_meta(ai_explain) }}
+          {% if can('issues.manage') %}<form method="post" action="/ai/issues/{{ issue.id }}/explain/comment"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost sm"><svg class="icon sm"><use href="#i-plus"/></svg>Add to timeline</button></form>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     {% if tickets or (manage and ticket_channels) %}
     <div class="card">
       <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>Tickets</h2></div>

@@ -1,0 +1,15 @@
+{% macro ai_meta(note) -%}<div class="ai-meta">AI draft by {{ note.provider_name }} · <span class="cell-mono">{{ note.model }}</span> · {{ note.created_by }} · {{ note.created_at.strftime('%Y-%m-%d %H:%M') }} UTC. Check before acting.</div>{%- endmacro %}
+{% macro ai_badge() -%}<span class="badge ai"><svg class="icon sm"><use href="#i-spark"/></svg>AI</span>{%- endmacro %}
+{% macro ask_bar(back, placeholder) %}
+{% if ai_ready %}
+<form method="post" action="/ai/search" class="card mb ai-ask" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}">
+  <div class="card-body row center">
+    <svg class="icon" style="color:var(--accent,var(--primary))"><use href="#i-spark"/></svg>
+    <label class="sr-only" for="ai-question">Ask the AI assistant</label>
+    <input id="ai-question" name="question" required maxlength="2000" placeholder="{{ placeholder }}" style="flex:1">
+    <button type="submit">Ask AI</button>
+  </div>
+</form>
+{% endif %}
+{% endmacro %}

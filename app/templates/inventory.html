@@ -7,6 +7,8 @@
 {% if can('scan.run') %}<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New scan</a>{% endif %}
 {% endblock %}
 {% block content %}
+{% from "_ai.html" import ask_bar with context %}
+{{ ask_bar('/inventory', 'Ask in plain language, e.g. "which hosts run OpenSSH 8?"') }}
 <form method="get" action="/inventory" class="card mb">
   <div class="card-body row" style="align-items:flex-end">
     <div class="field" style="flex:2;min-width:220px"><label for="q">Search</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="q" name="q" placeholder="address, hostname, product, version, cpe" value="{{ q }}"></div></div>

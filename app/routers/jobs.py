@@ -77,7 +77,9 @@ def job_detail(request: Request, job_id: int, db: Session = Depends(get_db), run
         params = json.loads(job.params_json or "{}")
     except json.JSONDecodeError:
         params = {}
-    return render(request, "job_detail.html", active="jobs", job=job, log=log, live=live, params=params, summary=job_summary(job))
+    from ..ai import latest_note
+    return render(request, "job_detail.html", active="jobs", job=job, log=log, live=live, params=params, summary=job_summary(job),
+                  ai_diagnosis=latest_note(db, "diagnose", "job", job.id))
 
 
 @router.get("/jobs/{job_id}/status")

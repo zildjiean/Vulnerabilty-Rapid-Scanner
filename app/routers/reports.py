@@ -32,8 +32,9 @@ def executive_report(request: Request, days: str = str(rep.DEFAULT_DAYS), db: Se
     d = _days(days)
     campaigns = [(c, camp.progress(camp.campaign_issues(db, c)))
                  for c in db.scalars(select(Campaign).where(Campaign.status == "active").order_by(Campaign.created_at.desc()))]
+    from ..ai import latest_note
     return render(request, "report_executive.html", active="reports", r=rep.executive(db, d), periods=rep.PERIODS,
-                  campaigns=campaigns)
+                  campaigns=campaigns, ai_summary=latest_note(db, "summary", "report", d))
 
 
 @router.get("/reports/campaigns/{cid}")

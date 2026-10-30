@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session, selectinload
 from .. import issues as iss
 from ..audit import audit
 from ..campaigns import campaigns_for_issue
+from ..ai import latest_note
+from ..ai_features import TRIAGE_LABELS
 from ..reverify import get_reverify_settings
 from ..authz import require
 from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, User, utcnow
@@ -109,6 +111,8 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
                   findings=findings, rule=rule, users=assignable_users(db),
                   transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
                   sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue), reverify=get_reverify_settings(db),
+                  ai_explain=latest_note(db, "explain", "issue", issue.id), ai_triage=latest_note(db, "triage", "issue", issue.id),
+                  triage_labels=TRIAGE_LABELS, has_evidence=bool(findings),
                   tickets=list(db.scalars(select(IssueTicket).where(IssueTicket.issue_id == issue.id))),
                   ticket_channels=list(db.scalars(select(NotificationChannel).where(
                       NotificationChannel.kind.in_(("jira", "gitlab")), NotificationChannel.enabled.is_(True)))))
