@@ -26,6 +26,8 @@ def static_version() -> str:
 
 
 templates.env.globals["static_v"] = static_version()
+from .mdlite import render_markdown  # noqa: E402
+templates.env.filters["mdlite"] = render_markdown
 
 SEVERITIES = ["critical", "high", "medium", "low", "info", "unknown"]
 SEVERITY_ORDER = {s: i for i, s in enumerate(SEVERITIES)}
@@ -42,6 +44,7 @@ def render(request: Request, name: str, status_code: int = 200, **ctx):
     user = ctx["user"]
     ctx.setdefault("can", lambda perm: has_perm(user, perm))
     ctx.setdefault("role_labels", ROLE_LABELS)
+    ctx.setdefault("ai_ready", bool(getattr(request.app.state, "ai_ready", False)) and has_perm(user, "ai.use"))
     ctx.setdefault("csrf", getattr(request.state, "csrf", "") or "")
     ctx.setdefault("msg", request.query_params.get("msg"))
     ctx.setdefault("error", None)

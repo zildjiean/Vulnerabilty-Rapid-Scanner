@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set section = "Administration" %}
+{% set page_title = "AI assistant" %}
+{% set page_subtitle = "Bring your own LLM. The assistant drafts and explains; people decide. Keys are encrypted; with redaction on, IPs and host names leave the scanner as HOST-n tokens." %}
+{% block content %}
+<div class="grid grid-issue mb">
+  <div class="card">
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Provider</th><th>Model</th><th>Redaction</th><th>Last test</th><th></th></tr></thead>
+      <tbody>
+      {% for p in providers %}{% set c = config_of(p) %}
+      <tr id="p{{ p.id }}" style="{{ '' if p.enabled else 'opacity:.6' }}">
+        <td><a class="issue-title" href="/ai/providers/{{ p.id }}">{{ p.name }}</a> {% if p.is_default %}<span class="badge sev-info">default</span>{% endif %}{% if not p.enabled %} <span class="badge neutral">disabled</span>{% endif %}<div class="small text-2">{{ kinds[p.kind] }}</div></td>
+        <td class="cell-mono small">{{ c.model }}{% if c.base_url %}<div class="text-2">{{ c.base_url }}</div>{% endif %}</td>
+        <td>{% if p.redact %}<span class="status st-done">on</span>{% else %}<span class="status st-warning">off</span>{% endif %}</td>
+        <td class="small">{% if p.last_test_at %}<span class="status {{ 'st-done' if p.last_test_ok else 'st-failed' }}">{{ 'ok' if p.last_test_ok else 'failed' }}</span><div class="text-2">{{ p.last_test_message }}</div>{% else %}<span class="muted">never</span>{% endif %}</td>
+        <td class="actions">
+          <form method="post" action="/ai/providers/{{ p.id }}/test" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-play"/></svg>Test</button></form>
+          {% if not p.is_default %}<form method="post" action="/ai/providers/{{ p.id }}/default"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit">Make default</button></form>{% endif %}
+          <form method="post" action="/ai/providers/{{ p.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit">{{ 'Disable' if p.enabled else 'Enable' }}</button></form>
+          <form method="post" action="/ai/providers/{{ p.id }}/delete" data-confirm="Delete provider '{{ p.name }}' and its key?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Delete provider"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>
+        </td>
+      </tr>
+      {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-key"/></svg><b>No AI provider yet</b>Add one on the right to enable drafting, explanations, triage, search and summaries.</div></td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  <form method="post" action="/ai/providers" class="card schedule-form" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>Add provider</h2></div>
+    <div class="card-body stack">
+      <div class="field"><label for="kind">Provider</label><select id="kind" name="kind" data-schedule-kind>{% for k, label in kinds.items() %}<option value="{{ k }}" {{ 'selected' if form.kind == k }}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="name">Name</label><input id="name" name="name" required maxlength="64" value="{{ form.name or '' }}" placeholder="Claude (team account)"></div>
+      <div class="field"><label for="model">Model</label><input id="model" name="model" value="{{ form.model or '' }}" placeholder="claude-opus-5-5">
+        <span class="hint" data-show-kind="anthropic">Leave empty for {{ default_models.anthropic }}.</span>
+        <span class="hint" data-show-kind="azure_openai" hidden>The Azure deployment name.</span>
+        <span class="hint" data-show-kind="openai gemini openai_compatible" hidden>The exact model id from the provider (e.g. the name shown by <code>ollama list</code>).</span></div>
+      <div class="field" data-show-kind="anthropic azure_openai gemini openai_compatible"><label for="base_url">Base URL / endpoint</label><input id="base_url" name="base_url" value="{{ form.base_url or '' }}" placeholder="https://">
+        <span class="hint" data-show-kind="anthropic">Optional (proxy or gateway).</span>
+        <span class="hint" data-show-kind="azure_openai" hidden>https://&lt;resource&gt;.openai.azure.com</span>
+        <span class="hint" data-show-kind="gemini" hidden>Optional: defaults to {{ gemini_base }}</span>
+        <span class="hint" data-show-kind="openai_compatible" hidden>Ollama in Docker Desktop: http://host.docker.internal:11434/v1</span></div>
+      <div class="field" data-show-kind="azure_openai" hidden><label for="api_version">API version</label><input id="api_version" name="api_version" value="{{ form.api_version or '' }}" placeholder="2024-10-21"></div>
+      <div class="field"><label for="api_key">API key</label><input id="api_key" name="api_key" type="password" autocomplete="off"><span class="hint">Encrypted at rest, never shown again. Optional for local servers.</span></div>
+      <div class="row">
+        <div class="field w-sm"><label for="max_tokens">Max output tokens</label><input id="max_tokens" name="max_tokens" type="number" min="256" max="128000" value="{{ form.max_tokens or 8000 }}"></div>
+        <label class="check"><input type="checkbox" name="redact" value="true" {{ 'checked' if not form or form.redact }}> Redact IPs and host names</label>
+      </div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-plus"/></svg>Add provider</button></div>
+    </div>
+  </form>
+</div>
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Usage, last 30 days</h2></div>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>Provider</th><th>Feature</th><th>Calls</th><th>Input tokens</th><th>Output tokens</th><th>Errors</th></tr></thead>
+      <tbody>{% for prov, feat, n, tin, tout, errs in summary %}<tr><td class="small">{{ prov }}</td><td><code>{{ feat }}</code></td><td class="num">{{ n }}</td><td class="num">{{ '{:,}'.format(tin or 0) }}</td><td class="num">{{ '{:,}'.format(tout or 0) }}</td><td class="num {{ 'text-danger' if errs }}">{{ errs or 0 }}</td></tr>
+      {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>No AI calls yet</b></div></td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if by_user %}<div class="card-body small text-2">By user: {% for u, n, t in by_user %}<b>{{ u }}</b> {{ n }} call(s), {{ '{:,}'.format(t or 0) }} tokens{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-scroll"/></svg>Recent calls</h2></div>
+    <div class="table-wrap"><table class="data">
+      <thead><tr><th>When</th><th>User</th><th>Feature</th><th>Model</th><th>Tokens</th><th>Result</th></tr></thead>
+      <tbody>{% for u in recent %}<tr><td class="small text-2 num">{{ u.created_at.strftime('%m-%d %H:%M') }}</td><td class="small">{{ u.username }}</td><td><code>{{ u.feature }}</code></td><td class="small cell-mono">{{ u.model }}</td><td class="num small">{{ u.input_tokens }} / {{ u.output_tokens }}</td><td class="small">{% if u.ok %}<span class="status st-done">ok</span> {{ (u.duration_ms / 1000)|round(1) }}s{% else %}<span class="status st-failed">error</span><div class="text-danger">{{ u.error }}</div>{% endif %}</td></tr>
+      {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>No calls</b></div></td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+</div>
+{% endblock %}

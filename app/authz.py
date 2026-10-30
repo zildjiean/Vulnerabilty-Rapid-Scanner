@@ -25,10 +25,12 @@ PERMISSIONS = {
     "audit.view": "Read and export the audit log",
     "settings.manage": "Change platform settings such as remediation SLAs",
     "integrations.manage": "Configure notification channels, rules and ticketing integrations",
+    "ai.use": "Ask the AI assistant: drafts, explanations, triage, search, summaries",
+    "ai.manage": "Configure AI providers and API keys, see AI usage",
 }
 
 _ANALYST = {"view", "scan.run", "inventory.manage", "rules.manage", "templates.manage", "issues.manage",
-            "campaigns.manage", "scopes.manage"}
+            "campaigns.manage", "scopes.manage", "ai.use"}
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "admin": frozenset(PERMISSIONS),
     "analyst": frozenset(_ANALYST),
