@@ -63,7 +63,13 @@ Everything runs in one container. No external services, no accounts, works offli
 - **Enterprise-grade UI**: compact sidebar (daily pages on top, collapsible Scanning / Detection library / System groups), light/dark theme, KPI cards, sortable tables, keyboard and
   screen-reader friendly, no third-party frontend assets.
 
-![Nuclei scan](docs/screenshots/nuclei.png)
+| Issues | Threat campaign |
+|---|---|
+| ![Issues](docs/screenshots/issues.png) | ![Campaign](docs/screenshots/campaign.png) |
+| **Inventory grouped by product** | **Nuclei scan** |
+| ![Inventory](docs/screenshots/inventory.png) | ![Nuclei scan](docs/screenshots/nuclei.png) |
+
+<sub>Screenshots use fictional demo data (RFC 5737 documentation addresses, example.com hosts, made-up CVE ids).</sub>
 
 ## Quick start
 
