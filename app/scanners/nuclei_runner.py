@@ -154,8 +154,9 @@ _SKIPPED_RE = re.compile(r"Skipped (\S+) from target list as found unresponsive 
 _STATS_RE = re.compile(r'^\{"duration".*"errors":"(\d+)".*"requests":"(\d+)".*\}$')
 _HTTPX_RE = re.compile(r"Found (\d+) URL from httpx")
 _TARGETS_RE = re.compile(r"Targets loaded for current scan: (\d+)")
-ERROR_RATIO_WARN = 0.02  # 2 % of requests failing is suspicious
-ERROR_COUNT_WARN = 20    # ... and so are 20+ failed requests regardless of ratio
+ERROR_RATIO_WARN = 0.02  # 2 % of requests failing is suspicious ...
+ERROR_COUNT_MIN = 5      # ... but only once at least this many requests failed (tiny scans are noisy)
+ANALYSIS_VERSION = 2     # bump when the rules change so backfill_nuclei_warnings re-analyzes finished jobs
 
 
 def analyze_nuclei_log(log_text: str) -> list[str]:
@@ -185,7 +186,7 @@ def analyze_nuclei_log(log_text: str) -> list[str]:
             err_lines.append(line)
     if targets and httpx_urls == 0:
         warnings.append(f"{targets} target(s) loaded but they did not answer over HTTP(S) (httpx found 0 URLs); HTTP templates had nothing to test.")
-    if errors and requests and (errors >= ERROR_COUNT_WARN or errors / max(requests, 1) >= ERROR_RATIO_WARN):
+    if errors and requests and errors >= ERROR_COUNT_MIN and errors / requests >= ERROR_RATIO_WARN:
         warnings.append(f"{errors} request errors out of {requests} ({errors * 100 / requests:.1f}%): timeouts or blocks, likely a WAF / rate limit. Try the Gentle profile.")
     for line in err_lines[:5]:
         warnings.append(line)
@@ -204,7 +205,7 @@ def on_nuclei_complete(db: Session, job: Job, output: str) -> str:
     warnings = analyze_nuclei_log(job.log or "")
     if warnings:
         params["warnings"] = warnings
-    params["analyzed"] = True
+    params["analyzed"] = ANALYSIS_VERSION
     job.params_json = json.dumps(params)
     if warnings:
         return (f"[nuclei] WARNING: coverage is incomplete, {n} finding(s) stored. " + " | ".join(warnings[:3]))
@@ -215,7 +216,7 @@ def on_nuclei_complete(db: Session, job: Job, output: str) -> str:
 
 
 def backfill_nuclei_warnings(db: Session) -> int:
-    """Analyze logs of finished nuclei jobs created before warning analysis existed. Runs once per job."""
+    """(Re-)analyze logs of finished nuclei jobs whose stored analysis predates ANALYSIS_VERSION. Runs once per job and version."""
     from sqlalchemy import select
     changed = 0
     for job in db.scalars(select(Job).where(Job.kind == "nuclei", Job.status == "done")):
@@ -223,12 +224,14 @@ def backfill_nuclei_warnings(db: Session) -> int:
             params = json.loads(job.params_json or "{}")
         except json.JSONDecodeError:
             params = {}
-        if not isinstance(params, dict) or params.get("analyzed"):
+        if not isinstance(params, dict) or params.get("analyzed") == ANALYSIS_VERSION:
             continue
         warnings = analyze_nuclei_log(job.log or "")
         if warnings:
             params["warnings"] = warnings
-        params["analyzed"] = True
+        else:
+            params.pop("warnings", None)
+        params["analyzed"] = ANALYSIS_VERSION
         job.params_json = json.dumps(params)
         changed += 1
     if changed:

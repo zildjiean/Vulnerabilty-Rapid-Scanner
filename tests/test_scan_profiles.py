@@ -40,8 +40,47 @@ def test_build_argv_appends_extra_flags():
 def test_analyze_nuclei_log_detects_skipped_host_and_errors():
     w = analyze_nuclei_log(USER_LOG)
     assert any("unresponsive" in x and "27.254.134.126:443" in x for x in w)
-    assert any("88 request errors" in x for x in w)
+    # 88 / 10694 = 0.8 % on a large scan is normal noise: the dropped target is the real warning
+    assert not any("request errors" in x for x in w)
     assert analyze_nuclei_log("[INF] Targets loaded for current scan: 1\n[INF] Found 1 URL from httpx\n[INF] Scan completed in 1s. 2 matches found.\n") == []
+
+
+def _stats(errors, requests):
+    return ('{"duration":"0:01:00","errors":"%d","hosts":"1","matched":"0","percent":"100","requests":"%d","rps":"100",'
+            '"templates":"10","total":"%d"}\n' % (errors, requests, requests))
+
+
+def test_error_warning_uses_ratio_with_a_minimum_count():
+    # large scan: 47 / 10489 = 0.4 % -> fine (this was honey.scanme.sh job #15)
+    assert analyze_nuclei_log(_stats(47, 10489)) == []
+    # large scan: 2.1 % -> warn
+    w = analyze_nuclei_log(_stats(220, 10489))
+    assert len(w) == 1 and "220 request errors" in w[0] and "2.1%" in w[0]
+    # the 2 % boundary
+    assert analyze_nuclei_log(_stats(19, 999)) == []
+    assert "20 request errors" in analyze_nuclei_log(_stats(20, 999))[0]
+    # tiny scans: 5 / 100 = 5 % warns, but 2 / 50 = 4 % is below the minimum error count and stays quiet
+    assert "5 request errors" in analyze_nuclei_log(_stats(5, 100))[0]
+    assert analyze_nuclei_log(_stats(2, 50)) == []
+    assert analyze_nuclei_log(_stats(3, 300)) == []
+
+
+def test_backfill_reanalyzes_jobs_from_older_analysis_versions(settings):
+    from app.db import init_db, make_engine, make_session_factory
+    from app.scanners.nuclei_runner import ANALYSIS_VERSION, backfill_nuclei_warnings
+    engine = make_engine(settings.db_url)
+    init_db(engine)
+    SessionLocal = make_session_factory(engine)
+    with SessionLocal() as db:
+        # analyzed by the first version with the old count rule: should be re-analyzed and the warning dropped
+        db.add(Job(kind="nuclei", status="done", log=_stats(47, 10489),
+                   params_json=json.dumps({"analyzed": True, "warnings": ["47 request errors ..."]})))
+        db.commit()
+        assert backfill_nuclei_warnings(db) == 1
+        job = db.scalars(select(Job)).one()
+        assert job_warnings(job) == []
+        assert json.loads(job.params_json)["analyzed"] == ANALYSIS_VERSION
+        assert backfill_nuclei_warnings(db) == 0
 
 
 def test_analyze_nuclei_log_no_targets_and_errors():
@@ -108,7 +147,7 @@ def test_hook_records_warnings_from_log(settings):
         db.commit()
         assert "WARNING" in note and "incomplete" in note.lower()
         w = job_warnings(job)
-        assert len(w) >= 2 and any("unresponsive" in x for x in w)
+        assert len(w) == 1 and "unresponsive" in w[0]  # 0.8 % errors on a 10k-request scan is not a second warning
 
 
 def test_backfill_marks_old_jobs(settings):
