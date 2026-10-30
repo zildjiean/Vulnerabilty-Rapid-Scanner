@@ -9,7 +9,8 @@ _PORT_SPEC_RE = re.compile(r"^[0-9][0-9,\-]*$")
 
 
 def build_nmap_argv(nmap_bin: str, targets: list[str], port_mode: str = "top", custom_ports: str = "",
-                    timing: str = "T3", skip_ping: bool = False, scan_type: str = "syn") -> list[str]:
+                    timing: str = "T3", skip_ping: bool = False, scan_type: str = "syn",
+                    exclude: list[str] | None = None) -> list[str]:
     if not targets:
         raise ValueError("No targets.")
     if timing not in TIMINGS:
@@ -28,6 +29,8 @@ def build_nmap_argv(nmap_bin: str, targets: list[str], port_mode: str = "top", c
         argv += ["-p", spec]
     if skip_ping:
         argv.append("-Pn")
+    if exclude:
+        argv += ["--exclude", ",".join(exclude)]
     argv += ["-oX", "-"]
     argv += targets
     return argv

@@ -47,7 +47,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 start_update_job(app, db, "nuclei-templates")
         elif needs_index:
             asyncio.get_running_loop().create_task(reindex_in_background(app))
+        from .scheduler import scheduler_loop
+        app.state.scheduler_task = asyncio.get_running_loop().create_task(scheduler_loop(app))
         yield
+        app.state.scheduler_task.cancel()
 
     app = FastAPI(title="0-Day Rapid Scanner", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.settings = settings

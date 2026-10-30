@@ -57,6 +57,7 @@ class Job(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     campaign_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    schedule_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     @property
     def duration(self) -> int | None:
@@ -151,6 +152,21 @@ class RuleMatch(Base):
     service: Mapped["Service"] = relationship(back_populates="rule_matches")
 
 
+class Scope(Base):
+    """A named group of assets (nmap target syntax) with an owner and a business criticality."""
+    __tablename__ = "scopes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), unique=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    targets: Mapped[str] = mapped_column(Text, default="")
+    exclusions: Mapped[str] = mapped_column(Text, default="")
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    criticality: Mapped[str] = mapped_column(String(16), default="medium")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    owner: Mapped["User | None"] = relationship()
+
+
 class Issue(Base):
     """One vulnerability on one asset (address:port), deduplicated across scans and rule evaluations."""
     __tablename__ = "issues"
@@ -178,7 +194,9 @@ class Issue(Base):
     occurrences: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    scope_id: Mapped[int | None] = mapped_column(ForeignKey("scopes.id", ondelete="SET NULL"), nullable=True, index=True)
     assignee: Mapped["User | None"] = relationship()
+    scope: Mapped["Scope | None"] = relationship()
     events: Mapped[list["IssueEvent"]] = relationship(back_populates="issue", cascade="all, delete-orphan",
                                                       order_by="IssueEvent.id")
 
@@ -239,6 +257,29 @@ class CampaignTemplate(Base):
     campaign: Mapped["Campaign"] = relationship(back_populates="templates")
 
 
+class Schedule(Base):
+    """A recurring job: nmap discovery or nuclei scan of a scope, or verification of active campaigns."""
+    __tablename__ = "schedules"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    kind: Mapped[str] = mapped_column(String(24))  # nmap | nuclei | campaign_verify
+    scope_id: Mapped[int | None] = mapped_column(ForeignKey("scopes.id", ondelete="CASCADE"), nullable=True, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    frequency: Mapped[str] = mapped_column(String(16), default="daily")  # interval | daily | weekly
+    interval_hours: Mapped[int] = mapped_column(Integer, default=24)
+    time_of_day: Mapped[str] = mapped_column(String(5), default="02:00")
+    weekday: Mapped[int] = mapped_column(Integer, default=0)  # 0 = Monday
+    config: Mapped[str] = mapped_column(Text, default="{}")
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_status: Mapped[str] = mapped_column(String(16), default="")  # started | skipped | error
+    last_message: Mapped[str] = mapped_column(Text, default="")
+    last_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    scope: Mapped["Scope | None"] = relationship()
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -275,6 +316,8 @@ _ADDED_COLUMNS = [
     ("findings", "issue_id", "INTEGER"),
     ("rules", "campaign_id", "INTEGER"),
     ("jobs", "campaign_id", "INTEGER"),
+    ("issues", "scope_id", "INTEGER"),
+    ("jobs", "schedule_id", "INTEGER"),
 ]
 
 

@@ -50,10 +50,12 @@ def nuclei_page_context(db: Session, targets: str = "", selected=None, error: st
 
 def launch_nuclei(db: Session, settings, runner, target_list: list[str], paths: list[str], params: dict, *,
                   rate_limit: int, timeout: int, extra_flags: list[str], tags: list[str] | None = None,
-                  severities: list[str] | None = None, campaign_id: int | None = None) -> Job:
+                  severities: list[str] | None = None, campaign_id: int | None = None,
+                  schedule_id: int | None = None) -> Job:
     """Create and start a nuclei job. Inputs must already be validated."""
     job = runner.create_job(db, "nuclei", [settings.nuclei_bin], params=params)
     job.campaign_id = campaign_id
+    job.schedule_id = schedule_id
     targets_file = write_targets_file(settings, job.id, target_list)
     argv = build_nuclei_argv(settings.nuclei_bin, paths, str(targets_file), str(settings.nuclei_templates_dir),
                              rate_limit=max(1, min(rate_limit, 1000)), timeout=max(1, min(timeout, 120)),
