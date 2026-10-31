@@ -26,6 +26,7 @@ EVENTS = {
     "campaign.draft": "0-day watch drafted a campaign",
     "scan.problem": "Scan failed or incomplete",
     "schedule.error": "Scheduled run failed",
+    "surface.changed": "Attack surface changed",
 }
 TICKET_EVENTS = ("issue.created", "issue.reopened")
 SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}

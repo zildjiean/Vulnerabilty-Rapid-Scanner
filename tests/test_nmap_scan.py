@@ -23,7 +23,7 @@ def test_ingest_upserts_hosts_and_replaces_services(tmp_path):
         db.commit()
         stats = ingest_nmap_results(db, job, FIXTURE.read_text())
         db.commit()
-        assert stats == {"hosts": 2, "services": 5}
+        assert stats == {"hosts": 2, "services": 5, "changes": 2}
         hosts = {h.address: h for h in db.scalars(select(Host))}
         assert set(hosts) == {"192.168.1.10", "192.168.1.12"}
         web = hosts["192.168.1.10"]

@@ -25,7 +25,10 @@ class HostResult:
     ports: list[PortResult] = field(default_factory=list)
 
 
-def parse_nmap_xml(xml_text: str) -> list[HostResult]:
+MAX_PORT = 65535
+
+
+def _root(xml_text: str) -> ET.Element:
     if not xml_text or not xml_text.strip():
         raise ValueError("nmap produced no XML output")
     try:
@@ -34,7 +37,26 @@ def parse_nmap_xml(xml_text: str) -> list[HostResult]:
         raise ValueError(f"invalid nmap XML: {e}") from e
     if root.tag != "nmaprun":
         raise ValueError("not an nmap XML document")
+    return root
 
+
+def parse_nmap_scaninfo(xml_text: str) -> dict[str, set[int]]:
+    """The ports nmap was asked to scan, per protocol, from every ``<scaninfo services="1,3-4,...">``. {} when absent."""
+    out: dict[str, set[int]] = {}
+    for el in _root(xml_text).findall("scaninfo"):
+        ports = out.setdefault(el.get("protocol", "tcp"), set())
+        for token in (el.get("services") or "").split(","):
+            lo, _, hi = token.strip().partition("-")
+            if not lo.isdigit() or (hi and not hi.isdigit()):
+                continue
+            first, last = int(lo), min(int(hi or lo), MAX_PORT)
+            if first <= last:
+                ports.update(range(first, last + 1))
+    return out
+
+
+def parse_nmap_xml(xml_text: str) -> list[HostResult]:
+    root = _root(xml_text)
     hosts: list[HostResult] = []
     for host_el in root.findall("host"):
         status = host_el.find("status")

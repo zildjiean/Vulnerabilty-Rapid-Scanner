@@ -448,6 +448,26 @@ class WatchHit(Base):
     record: Mapped[str] = mapped_column(Text, default="{}")  # JSON watch record (intel + CPE ranges), to draft later
 
 
+class SurfaceChange(Base):
+    """One attack-surface change an nmap scan found against the inventory as it stood before the scan."""
+    __tablename__ = "surface_changes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="SET NULL"), nullable=True)
+    address: Mapped[str] = mapped_column(String(64), default="")
+    hostname: Mapped[str] = mapped_column(String(255), default="")
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    protocol: Mapped[str] = mapped_column(String(8), default="")
+    kind: Mapped[str] = mapped_column(String(24))  # host_new | port_opened | port_closed | service_changed | host_gone
+    before: Mapped[str] = mapped_column(String(2000), default="")
+    after: Mapped[str] = mapped_column(String(2000), default="")
+    severity: Mapped[str] = mapped_column(String(16), default="low")
+    scope_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    acknowledged_by: Mapped[str] = mapped_column(String(64), default="")
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
