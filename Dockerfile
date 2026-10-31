@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-ARG APP_VERSION=1.7.0
+ARG APP_VERSION=1.8.0
 LABEL org.opencontainers.image.title="0-Day Rapid Scanner" \
       org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.source="https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner" \
