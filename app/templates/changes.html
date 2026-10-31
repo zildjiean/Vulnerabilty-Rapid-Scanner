@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_surface_macros.html" import kind_badge, port_cell, before_after %}
+{% set section = "Discovery" %}
+{% set page_title = "Changes" %}
+{% set page_subtitle = "What every nmap scan changed in the attack surface: new hosts, opened and closed ports, version changes and hosts that stopped responding. Times are UTC." %}
+{% macro hidden_filters() -%}
+{% for k in ('kind', 'scope', 'days', 'job', 'state') %}{% if f[k] is not none and f[k] != '' %}<input type="hidden" name="{{ k }}" value="{{ f[k] }}">{% endif %}{% endfor %}
+{%- endmacro %}
+{% block page_actions %}
+{% if can('issues.manage') and open_count %}<form method="post" action="/changes/ack-all" data-confirm="Acknowledge all {{ open_count }} open change(s) matching the current filters?"><input type="hidden" name="csrf" value="{{ csrf }}">{{ hidden_filters() }}<button type="submit"><svg class="icon"><use href="#i-check"/></svg>Acknowledge all ({{ open_count }})</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+<form method="get" action="/changes" class="card mb">
+  <div class="card-body row" style="align-items:flex-end">
+    <div class="field" style="min-width:160px"><label for="kind">Change</label>
+      <select id="kind" name="kind"><option value="">All changes</option>{% for k, label in kind_labels.items() %}<option value="{{ k }}" {{ 'selected' if f.kind == k }}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="field" style="min-width:160px"><label for="scope">Scope</label>
+      <select id="scope" name="scope"><option value="">All scopes</option>{% for s in scopes %}<option value="{{ s.id }}" {{ 'selected' if f.scope == s.id }}>{{ s.name }}</option>{% endfor %}</select></div>
+    <div class="field" style="min-width:150px"><label for="days">Period</label>
+      <select id="days" name="days">{% for k, label in days_labels.items() %}<option value="{{ k }}" {{ 'selected' if f.days == k }}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="field w-sm"><label for="job">Job</label><input id="job" name="job" inputmode="numeric" value="{{ f.job or '' }}"></div>
+    <div class="field" style="min-width:150px"><label for="state">State</label>
+      <select id="state" name="state"><option value="open" {{ 'selected' if f.state == 'open' }}>Open</option><option value="all" {{ 'selected' if f.state == 'all' }}>All</option></select></div>
+    <button type="submit"><svg class="icon"><use href="#i-filter"/></svg>Filter</button>
+    <a class="btn ghost" href="/changes">Reset</a>
+  </div>
+</form>
+<div class="card">
+  <div class="table-toolbar"><div class="text-2"><b class="num">{{ total }}</b> change(s){% if pages > 1 %} · page <span class="num">{{ page }}</span> of <span class="num">{{ pages }}</span>{% endif %}</div></div>
+  <div class="table-wrap">
+  <table class="data" data-surface-changes>
+    <thead><tr><th>Time (UTC)</th><th>Change</th><th>Asset</th><th>Port</th><th>Before → after</th><th>Scope</th><th>Job</th><th>State</th></tr></thead>
+    <tbody>
+    {% for c in rows %}
+    <tr>
+      <td class="small text-2 num" style="white-space:nowrap">{{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ kind_badge(c, kind_labels) }}</td>
+      <td><a class="cell-mono" href="/inventory?q={{ c.address|urlencode }}">{{ c.address }}</a>{% if c.hostname and c.hostname != c.address %}<div class="small text-2">{{ c.hostname }}</div>{% endif %}</td>
+      <td>{{ port_cell(c) }}</td>
+      <td style="max-width:420px;overflow-wrap:anywhere">{{ before_after(c) }}</td>
+      <td class="small">{{ scope_names.get(c.scope_id, '—') }}</td>
+      <td class="num">{% if c.job_id %}<a href="/jobs/{{ c.job_id }}">#{{ c.job_id }}</a>{% else %}—{% endif %}</td>
+      <td>{% if c.acknowledged_at %}<span class="small text-2" title="{{ c.acknowledged_at.strftime('%Y-%m-%d %H:%M') }} UTC">Acknowledged by {{ c.acknowledged_by or '—' }}</span>
+        {% elif can('issues.manage') %}<form method="post" action="/changes/{{ c.id }}/ack"><input type="hidden" name="csrf" value="{{ csrf }}">{{ hidden_filters() }}{% if page > 1 %}<input type="hidden" name="page" value="{{ page }}">{% endif %}<button type="submit" class="sm" aria-label="Acknowledge {{ kind_labels.get(c.kind, c.kind) }} on {{ c.address }}"><svg class="icon sm"><use href="#i-check"/></svg>Acknowledge</button></form>
+        {% else %}<span class="badge neutral">Open</span>{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr data-empty="1"><td colspan="8"><div class="empty"><svg class="icon"><use href="#i-activity"/></svg><b>No changes</b>Nothing matches these filters. Every nmap scan is compared with the inventory; differences appear here.</div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Change pages">
+    {% if page > 1 %}<a class="btn ghost sm" href="{{ page_url(page - 1) }}">Previous</a>{% endif %}
+    <span class="small text-2">Page {{ page }} of {{ pages }}</span>
+    {% if page < pages %}<a class="btn ghost sm" href="{{ page_url(page + 1) }}">Next</a>{% endif %}
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

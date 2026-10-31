@@ -86,8 +86,14 @@ def job_detail(request: Request, job_id: int, db: Session = Depends(get_db), run
     except json.JSONDecodeError:
         params = {}
     from ..ai import latest_note
+    changes = None
+    if job.kind == "nmap":
+        from .. import surface
+        rows = list(db.scalars(surface.query(db, days="all", job_id=job.id, state="all")))
+        changes = {"counts": surface.summarize(rows), "rows": rows[:20], "total": len(rows),
+                   "labels": surface.KIND_LABELS}
     return render(request, "job_detail.html", active="jobs", job=job, log=log, live=live, params=params, summary=job_summary(job),
-                  ai_diagnosis=latest_note(db, "diagnose", "job", job.id))
+                  ai_diagnosis=latest_note(db, "diagnose", "job", job.id), changes=changes)
 
 
 @router.get("/jobs/{job_id}/status")

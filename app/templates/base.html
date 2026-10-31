@@ -32,6 +32,7 @@
         {{ item('/campaigns', 'campaigns', 'flag', 'Campaigns') }}
         {{ item('/watch', 'watch', 'radar', '0-day watch') }}
         {{ item('/inventory', 'inventory', 'server', 'Inventory') }}
+        {{ item('/changes', 'changes', 'activity', 'Changes') }}
         {{ item('/reports', 'reports', 'file', 'Reports') }}
       </div>
       {% call group('scan', 'Scanning', ['nmap', 'nuclei', 'findings', 'jobs', 'schedules', 'scopes']) %}

@@ -198,6 +198,21 @@ async def campaign_verify(request: Request, cid: int, body: VerifyIn, db: Sessio
     return {"job_id": job.id, "url": f"{get_base_url(db)}/jobs/{job.id}"}
 
 
+# ----------------------------------------------------------------- surface changes
+@router.get("/changes", dependencies=VIEW)
+def changes_list(days: str = "30", kind: str = "", job: int | None = None, state: str = "open", limit: int = 100,
+                 db: Session = Depends(get_db)):
+    from .. import surface
+    limit = max(1, min(limit, MAX_LIMIT))
+    rows = list(db.scalars(surface.query(db, kind=kind, days=surface.parse_days(days), job_id=job,
+                                         state="all" if state == "all" else "open").limit(limit)))
+    return {"items": [{"id": c.id, "job_id": c.job_id, "kind": c.kind, "severity": c.severity, "address": c.address,
+                       "hostname": c.hostname, "port": c.port, "protocol": c.protocol, "before": c.before,
+                       "after": c.after, "scope_id": c.scope_id, "created_at": _ts(c.created_at),
+                       "acknowledged_at": _ts(c.acknowledged_at), "acknowledged_by": c.acknowledged_by or None}
+                      for c in rows], "count": len(rows)}
+
+
 # ----------------------------------------------------------------- scans and jobs
 class NmapIn(BaseModel):
     targets: list[str]
