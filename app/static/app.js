@@ -232,6 +232,10 @@
     };
     kind?.addEventListener("change", sync);
     freq?.addEventListener("change", sync);
+    // AI provider forms: a base URL typed for one provider type is never right for another one, and keeping it
+    // would send the key to the old host. Clear it when the type changes (the field stays visible to retype).
+    const base = form.hasAttribute("data-disable-hidden") ? $('[name="base_url"]', form) : null;
+    if (kind && base) kind.addEventListener("change", () => { base.value = ""; });
     sync();
   });
 
