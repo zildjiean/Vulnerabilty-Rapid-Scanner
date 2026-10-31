@@ -120,3 +120,21 @@ def test_proof_card_shows_request_response_and_curl(env):
     assert "GET /index.php HTTP/1.1" in env.get(f"/issues/{iid}?proof={first_id}").text
     r = env.get(f"/issues/{iid}?proof=%C2%B2")          # '²'.isdigit() is True but int() rejects it
     assert r.status_code == 200 and "did not record a request/response" in r.text
+
+
+def test_play_icons_in_list_and_campaign_only_for_scanners(env):
+    ids = seed(env, SPECS)
+    page = env.get("/issues").text
+    assert f'action="/issues/{ids[CVE]}/verify"' in page and 'aria-label="Verify now' in page
+    assert 'name="back" value="/issues"' in page
+    from app.campaigns import create_campaign
+    with env.app.state.SessionLocal() as db:
+        c = create_campaign(db, name="PHP UAF", cve_id=CVE, description="", severity="critical", product_pattern="php",
+                            version_constraint="< 8.3.15", attach_templates=False, intel=None, created_by="admin")
+        db.commit()
+        cid = c.id
+    page = env.get(f"/campaigns/{cid}").text
+    assert "/verify" in page and f'name="back" value="/campaigns/{cid}"' in page
+    make_user(env, "vera", "viewer")
+    login_as(env, "vera")
+    assert "/verify" not in env.get("/issues").text and "/verify" not in env.get(f"/campaigns/{cid}").text
