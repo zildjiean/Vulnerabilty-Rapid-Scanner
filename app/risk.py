@@ -9,9 +9,10 @@ import asyncio
 import json
 import logging
 import math
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Iterable
+from typing import Callable, Iterable
 
 import httpx
 from sqlalchemy import select
@@ -24,11 +25,11 @@ log = logging.getLogger(__name__)
 
 EPSS_URL = "https://api.first.org/data/v1/epss"
 EPSS_BATCH = 100
-NVD_LIMIT = 10
+NVD_LIMIT = 5
+NVD_PAUSE = 6   # seconds between NVD calls: the public API allows 5 requests per 30 s without a key
 REFRESH_KEY = "intel_refresh"
 REFRESH_EVERY = timedelta(minutes=60)
 STARTUP_DELAY = timedelta(minutes=2)
-NET_ERRORS = (httpx.HTTPError, OSError, ValueError)
 
 SEVERITY_POINTS = {"critical": 47, "high": 37, "medium": 25, "low": 12}
 CONFIDENCE_POINTS = {"verified": 10, "confirmed": 5}
@@ -160,13 +161,23 @@ def collect_cves(db: Session) -> list[str]:
     return sorted(out)
 
 
+def short_error(source: str, e: BaseException) -> str:
+    """'EPSS: HTTPStatusError 503' - the exception type and HTTP status only, never a URL or response body."""
+    text = f"{source}: {type(e).__name__}"
+    if isinstance(e, httpx.HTTPStatusError):
+        text += f" {e.response.status_code}"
+    return text[:200]
+
+
 def refresh_intel(db: Session, settings, get_json: GetJson, nvd_limit: int = NVD_LIMIT,
-                  now: datetime | None = None) -> dict:
-    """Refresh EPSS, KEV and CVSS for every CVE on an issue or campaign. Network errors are collected per source
-    in ``errors``; a failing source keeps its previous values and never blocks the others. Caller commits."""
+                  now: datetime | None = None, sleep: Callable[[float], None] = time.sleep) -> dict:
+    """Refresh EPSS, KEV and CVSS for every CVE on an issue or campaign. Any error is recorded per source in
+    ``errors`` (short text); a failing source keeps its previous values and never blocks the others. NVD calls are
+    paced ``NVD_PAUSE`` seconds apart (public rate limit 5 per 30 s without a key). Caller commits."""
     now = now or utcnow()
     cves = collect_cves(db)
     summary = {"cves": len(cves), "epss": 0, "kev": 0, "nvd": 0, "cvss_from_campaigns": 0, "errors": []}
+    errors = summary["errors"]
     if cves:
         existing = {r.cve_id: r for r in db.scalars(select(CveIntel))}
         rows: dict[str, CveIntel] = {}
@@ -177,66 +188,80 @@ def refresh_intel(db: Session, settings, get_json: GetJson, nvd_limit: int = NVD
                 db.add(row)
             rows[cve] = row
 
-        for start in range(0, len(cves), EPSS_BATCH):
-            batch = cves[start:start + EPSS_BATCH]
-            try:
-                parsed = parse_epss(get_json(EPSS_URL, {"cve": ",".join(batch)}))
-            except NET_ERRORS as e:
-                summary["errors"].append(f"EPSS lookup failed: {e}")
-                break
-            for cve, (epss, pct, date) in parsed.items():
-                if cve in rows:
-                    rows[cve].epss, rows[cve].epss_percentile, rows[cve].epss_date = epss, pct, date
-                    summary["epss"] += 1
+        try:
+            for start in range(0, len(cves), EPSS_BATCH):
+                batch = cves[start:start + EPSS_BATCH]
+                for cve, (epss, pct, date) in parse_epss(get_json(EPSS_URL, {"cve": ",".join(batch)})).items():
+                    if cve in rows:
+                        rows[cve].epss, rows[cve].epss_percentile, rows[cve].epss_date = epss, pct, date
+                        summary["epss"] += 1
+        except Exception as e:  # noqa: BLE001 - one bad source must not stop the others
+            errors.append(short_error("EPSS", e))
 
         try:
             feed = _load_kev_feed(settings.data_dir / "kev.json", get_json)
             if not isinstance(feed, dict):
                 raise ValueError("unexpected KEV feed format")
             kev = {v.get("cveID"): v for v in feed.get("vulnerabilities") or [] if isinstance(v, dict)}
-            for cve, row in rows.items():
+            flags = {}
+            for cve in rows:
                 entry = kev.get(cve)
-                row.kev = entry is not None
-                row.kev_ransomware = bool(entry) and str(entry.get("knownRansomwareCampaignUse", "")).lower() == "known"
-                row.kev_due = str(entry.get("dueDate") or "")[:16] if entry else ""
-                summary["kev"] += int(entry is not None)
-        except NET_ERRORS as e:
-            summary["errors"].append(f"CISA KEV lookup failed: {e}")
+                flags[cve] = (entry is not None,
+                              bool(entry) and str(entry.get("knownRansomwareCampaignUse", "")).lower() == "known",
+                              str(entry.get("dueDate") or "")[:16] if entry else "")
+            for cve, (is_kev, ransomware, due) in flags.items():   # applied only once the whole feed parsed
+                rows[cve].kev, rows[cve].kev_ransomware, rows[cve].kev_due = is_kev, ransomware, due
+                summary["kev"] += int(is_kev)
+        except Exception as e:  # noqa: BLE001
+            errors.append(short_error("CISA KEV", e))
 
-        scored: dict[str, Campaign] = {}
-        for c in db.scalars(select(Campaign).where(Campaign.cvss_score.is_not(None)).order_by(Campaign.id)):
-            try:
-                scored.setdefault(normalize_cve(c.cve_id or ""), c)
-            except ValueError:
-                continue
-        for cve, row in rows.items():
-            c = scored.get(cve)
-            if c is not None:
-                row.cvss_score, row.cvss_severity = c.cvss_score, c.cvss_severity or ""
-                summary["cvss_from_campaigns"] += 1
+        try:
+            scored: dict[str, Campaign] = {}
+            for c in db.scalars(select(Campaign).where(Campaign.cvss_score.is_not(None)).order_by(Campaign.id)):
+                try:
+                    scored.setdefault(normalize_cve(c.cve_id or ""), c)
+                except ValueError:
+                    continue
+            for cve, row in rows.items():
+                c = scored.get(cve)
+                if c is not None:
+                    row.cvss_score, row.cvss_severity = c.cvss_score, c.cvss_severity or ""
+                    summary["cvss_from_campaigns"] += 1
+        except Exception as e:  # noqa: BLE001
+            errors.append(short_error("campaign CVSS", e))
 
         # Unscored CVEs least recently asked first, so a small per-run budget eventually covers all of them.
         missing = sorted((r for r in rows.values() if r.cvss_score is None),
                          key=lambda r: (r.nvd_checked_at or datetime.min, r.cve_id))[:max(0, nvd_limit)]
-        for row in missing:
+        for n, row in enumerate(missing):
+            if n:
+                sleep(NVD_PAUSE)
             try:
                 nvd = fetch_nvd(row.cve_id, get_json)
-            except NET_ERRORS as e:
-                summary["errors"].append(f"NVD lookup failed: {e}")
+            except Exception as e:  # noqa: BLE001
+                errors.append(short_error("NVD", e))
                 break
             row.nvd_checked_at = now
             summary["nvd"] += 1
-            if nvd and nvd.get("cvss_score") is not None:
-                row.cvss_score, row.cvss_severity = float(nvd["cvss_score"]), nvd.get("cvss_severity") or ""
+            try:
+                score = float(nvd["cvss_score"]) if nvd and nvd.get("cvss_score") is not None else None
+            except (TypeError, ValueError):
+                score = None
+            if score is not None and 0 <= score <= 10:
+                row.cvss_score, row.cvss_severity = score, str(nvd.get("cvss_severity") or "")[:16]
 
         for row in rows.values():
             row.updated_at = now
 
+    _store_summary(db, now, summary)
+    db.flush()
+    return summary
+
+
+def _store_summary(db: Session, now: datetime, summary: dict) -> None:
     setting = db.get(AppSetting, REFRESH_KEY) or AppSetting(key=REFRESH_KEY)
     setting.value = json.dumps({"at": now.isoformat(timespec="seconds"), **summary})
     db.add(setting)
-    db.flush()
-    return summary
 
 
 def last_refresh(db: Session) -> dict | None:
@@ -252,46 +277,67 @@ def last_refresh(db: Session) -> dict | None:
     return data
 
 
-def summary_text(summary: dict) -> str:
-    text = (f"Threat intel refreshed: {summary['cves']} CVE(s), {summary['epss']} EPSS row(s), {summary['kev']} KEV "
-            f"hit(s), {summary['nvd']} NVD lookup(s).")
-    if summary.get("errors"):
-        text += " Errors: " + "; ".join(summary["errors"])
-    return text
-
-
 def _refresh_sync(app, now: datetime | None) -> dict:
+    """Worker-thread body. Never raises: a crash is stored as the run's summary so the next try waits an hour."""
+    now = now or utcnow()
     get_json = getattr(app.state, "get_json", None) or http_get_json
     with app.state.SessionLocal() as db:
-        summary = refresh_intel(db, app.state.settings, get_json, now=now)
-        db.commit()
-        return summary
+        try:
+            summary = refresh_intel(db, app.state.settings, get_json, now=now)
+            db.commit()
+            return summary
+        except Exception as e:  # noqa: BLE001
+            log.exception("threat intel refresh failed")
+            db.rollback()
+            summary = {"cves": 0, "epss": 0, "kev": 0, "nvd": 0, "cvss_from_campaigns": 0,
+                       "errors": [short_error("refresh", e)]}
+            try:
+                _store_summary(db, now, summary)
+                db.commit()
+            except Exception:  # noqa: BLE001 - the in-memory attempt time in maybe_refresh_intel still gates
+                db.rollback()
+            return summary
 
 
-async def run_refresh(app, now: datetime | None = None) -> dict | None:
-    """Run a refresh in a worker thread. Returns None when one is already running."""
-    if getattr(app.state, "intel_refreshing", False):
-        return None
-    app.state.intel_refreshing = True
+async def _run(app, now: datetime | None) -> dict:
     try:
-        return await asyncio.to_thread(_refresh_sync, app, now)
+        summary = await asyncio.to_thread(_refresh_sync, app, now)
+        if summary["errors"]:
+            log.warning("threat intel refresh: %s", "; ".join(summary["errors"]))
+        return summary
     finally:
         app.state.intel_refreshing = False
 
 
-async def maybe_refresh_intel(app, now: datetime | None = None) -> dict | None:
-    """Called every scheduler tick: refreshes shortly after startup and then at most once an hour."""
+def start_refresh(app, now: datetime | None = None) -> asyncio.Task | None:
+    """Start a refresh in the background (worker thread). Returns None when one is already running.
+    Must be called from the event loop; the task is kept on ``app.state.intel_task``."""
+    if getattr(app.state, "intel_refreshing", False):
+        return None
+    app.state.intel_refreshing = True
+    app.state.intel_last_attempt = now or utcnow()
+    try:
+        app.state.intel_task = asyncio.get_running_loop().create_task(_run(app, now))
+    except BaseException:
+        app.state.intel_refreshing = False
+        raise
+    return app.state.intel_task
+
+
+async def maybe_refresh_intel(app, now: datetime | None = None) -> asyncio.Task | None:
+    """Called every scheduler tick; never waits for the refresh. Starts one shortly after startup and then at most
+    once an hour (counting failed attempts too). Returns the started task or None."""
     now = now or utcnow()
     started = getattr(app.state, "intel_started_at", None)
     if started is None:
         app.state.intel_started_at = started = now
-    if now - started < STARTUP_DELAY:
+    if now - started < STARTUP_DELAY or getattr(app.state, "intel_refreshing", False):
+        return None
+    attempt = getattr(app.state, "intel_last_attempt", None)
+    if attempt is not None and now - attempt < REFRESH_EVERY:
         return None
     with app.state.SessionLocal() as db:
         last = last_refresh(db)
     if last is not None and now - last["at"] < REFRESH_EVERY:
         return None
-    summary = await run_refresh(app, now)
-    if summary and summary["errors"]:
-        log.warning("threat intel refresh: %s", "; ".join(summary["errors"]))
-    return summary
+    return start_refresh(app, now)

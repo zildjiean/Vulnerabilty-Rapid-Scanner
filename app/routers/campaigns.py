@@ -14,16 +14,15 @@ from ..authz import require
 from ..db import Campaign, CampaignTemplate, Job, Rule, utcnow
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..intel import enrich, http_get_json, normalize_cve
-from ..risk import intel_for, top_pct
+from ..risk import intel_for
 from ..issues import ISSUE_SEVERITIES
-from ..render import render, templates
+from ..render import render
 from ..scanners.nuclei_runner import DEFAULT_PROFILE, PROFILES, profile_flags, validate_template_paths
 from ..validation import parse_nuclei_targets
 from .jobs import job_summary
 from .nuclei import launch_nuclei
 
 router = APIRouter()
-templates.env.globals.update(epss_top=top_pct)
 VIEWS = ("active", "closed", "all")
 MANAGE = [Depends(require("campaigns.manage")), Depends(verify_csrf)]
 

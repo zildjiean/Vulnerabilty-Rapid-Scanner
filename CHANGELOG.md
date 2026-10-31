@@ -12,7 +12,7 @@ All notable changes to this project are documented here. The format follows
   The Issues list has a sortable **Risk** column and is ordered by risk; the issue page has a **Risk** card with the
   breakdown, EPSS and KEV; the dashboard lists the **Top risks**; campaigns show EPSS next to CVSS; notifications
   carry a Risk field; CSV/JSON exports and the API gain `risk_score`, `risk_band`, `epss`, `epss_percentile`, `kev`.
-- Threat intel cache (`cve_intel`): EPSS, KEV and missing CVSS scores (NVD, 10 per run) for the CVEs on issues and
+- Threat intel cache (`cve_intel`): EPSS, KEV and missing CVSS scores (NVD, 5 per run) for the CVEs on issues and
   campaigns are refreshed hourly by the scheduler; Settings → **Threat intel** shows the last run and has
   *Refresh threat intel now*.
 

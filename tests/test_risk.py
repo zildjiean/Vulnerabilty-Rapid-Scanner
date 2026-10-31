@@ -85,6 +85,7 @@ def test_parse_epss():
 
 
 # ----------------------------------------------------------------- refresh
+NO_SLEEP = lambda s: None
 KEV_FEED = {"vulnerabilities": [{"cveID": "CVE-2021-41773", "dueDate": "2021-11-17",
                                  "knownRansomwareCampaignUse": "Known"}]}
 
@@ -141,7 +142,7 @@ def test_refresh_intel_epss_batches_kev_campaign_cvss_and_nvd_limit(auth):
     net = IntelNet(epss={"CVE-2021-41773": (0.94, 0.999), "CVE-2026-1001": (0.01, 0.4)},
                    nvd={"CVE-2021-41773": NVD_V31})
     with auth.app.state.SessionLocal() as db:
-        summary = risk.refresh_intel(db, auth.app.state.settings, net, nvd_limit=3)
+        summary = risk.refresh_intel(db, auth.app.state.settings, net, nvd_limit=3, sleep=NO_SLEEP)
         db.commit()
     batches = net.urls(risk.EPSS_URL)
     assert len(batches) == 2 and len(batches[0]["cve"].split(",")) == 100
@@ -161,7 +162,7 @@ def test_refresh_intel_epss_batches_kev_campaign_cvss_and_nvd_limit(auth):
     first = {p["cveId"] for p in net.urls(intel.NVD_URL)}
     net.calls.clear()
     with auth.app.state.SessionLocal() as db:
-        risk.refresh_intel(db, auth.app.state.settings, net, nvd_limit=3)
+        risk.refresh_intel(db, auth.app.state.settings, net, nvd_limit=3, sleep=NO_SLEEP)
         db.commit()
     second = {p["cveId"] for p in net.urls(intel.NVD_URL)}
     assert len(second) == 3 and not first & second and "CVE-2021-41773" not in second   # scored ones are skipped
@@ -171,14 +172,14 @@ def test_refresh_intel_one_source_failing_keeps_the_others(auth):
     seed(auth, SPECS)
     net = IntelNet(epss={"CVE-2021-41773": (0.5, 0.8)}, nvd={"CVE-2021-41773": NVD_V31}, fail={"kev"})
     with auth.app.state.SessionLocal() as db:
-        summary = risk.refresh_intel(db, auth.app.state.settings, net)
+        summary = risk.refresh_intel(db, auth.app.state.settings, net, sleep=NO_SLEEP)
         db.commit()
-    assert len(summary["errors"]) == 1 and "KEV" in summary["errors"][0]
+    assert summary["errors"] == ["CISA KEV: ConnectError"]
     row = intel_rows(auth)["CVE-2021-41773"]
     assert row.epss == 0.5 and row.cvss_score == 7.5 and row.kev is False
     net = IntelNet(fail={"epss", "nvd"})   # earlier EPSS value survives a failed run
     with auth.app.state.SessionLocal() as db:
-        summary = risk.refresh_intel(db, auth.app.state.settings, net)
+        summary = risk.refresh_intel(db, auth.app.state.settings, net, sleep=NO_SLEEP)
         db.commit()
     assert any("EPSS" in e for e in summary["errors"]) and summary["kev"] == 1
     row = intel_rows(auth)["CVE-2021-41773"]
@@ -188,7 +189,7 @@ def test_refresh_intel_one_source_failing_keeps_the_others(auth):
 def test_refresh_intel_without_cves_makes_no_requests(auth):
     net = IntelNet()
     with auth.app.state.SessionLocal() as db:
-        summary = risk.refresh_intel(db, auth.app.state.settings, net)
+        summary = risk.refresh_intel(db, auth.app.state.settings, net, sleep=NO_SLEEP)
     assert net.calls == [] and summary["cves"] == 0
 
 
@@ -198,7 +199,7 @@ def test_refresh_shares_the_campaign_kev_cache(auth):
     cache.write_text(json.dumps(KEV_FEED))
     net = IntelNet()
     with auth.app.state.SessionLocal() as db:
-        risk.refresh_intel(db, auth.app.state.settings, net)
+        risk.refresh_intel(db, auth.app.state.settings, net, sleep=NO_SLEEP)
     assert net.urls(intel.KEV_URL) == []   # fresh cache reused
 
 
@@ -209,12 +210,125 @@ def test_maybe_refresh_intel_gating(auth):
     net = IntelNet()
     auth.app.state.get_json = net
     now = utcnow()
-    assert asyncio.run(risk.maybe_refresh_intel(auth.app, now)) is None             # not straight after startup
-    assert asyncio.run(risk.maybe_refresh_intel(auth.app, now + timedelta(minutes=3))) is not None
+
+    async def tick(at):
+        task = await risk.maybe_refresh_intel(auth.app, at)   # returns the started task, never waits for it
+        if task is not None:
+            await task
+        return task
+
+    assert asyncio.run(tick(now)) is None             # not straight after startup
+    assert asyncio.run(tick(now + timedelta(minutes=3))) is not None
     calls = len(net.calls)
-    assert asyncio.run(risk.maybe_refresh_intel(auth.app, now + timedelta(minutes=30))) is None   # within the hour
+    assert asyncio.run(tick(now + timedelta(minutes=30))) is None   # within the hour
     assert len(net.calls) == calls
-    assert asyncio.run(risk.maybe_refresh_intel(auth.app, now + timedelta(minutes=70))) is not None
+    assert asyncio.run(tick(now + timedelta(minutes=70))) is not None
+
+
+def test_maybe_refresh_does_not_block_and_never_overlaps(auth):
+    import asyncio
+    import threading
+    seed(auth, SPECS)
+    gate = threading.Event()
+
+    def slow(url, params=None):
+        gate.wait(5)
+        return IntelNet()(url, params)
+    auth.app.state.get_json = slow
+    now = utcnow()
+
+    async def scenario():
+        risk_start = auth.app.state.intel_started_at = now - timedelta(minutes=5)
+        first = await risk.maybe_refresh_intel(auth.app, now)
+        assert first is not None and not first.done()           # tick returned while the refresh is running
+        assert auth.app.state.intel_task is first
+        assert await risk.maybe_refresh_intel(auth.app, now + timedelta(hours=2)) is None   # already running
+        gate.set()
+        await first
+        return risk_start
+    asyncio.run(scenario())
+
+
+def test_refresh_survives_malformed_nvd_and_records_the_attempt(auth):
+    import asyncio
+    seed(auth, SPECS)
+
+    class Broken(IntelNet):
+        def __call__(self, url, params=None):
+            if url == intel.NVD_URL:
+                self.calls.append((url, params))
+                return ["not", "a", "dict"]
+            return super().__call__(url, params)
+    net = Broken(epss={"CVE-2021-41773": (0.5, 0.8)})
+    auth.app.state.get_json = net
+    now = utcnow()
+    auth.app.state.intel_started_at = now - timedelta(minutes=5)
+
+    async def tick(at):
+        task = await risk.maybe_refresh_intel(auth.app, at)
+        if task is not None:
+            await task
+        return task
+    assert asyncio.run(tick(now)) is not None
+    with auth.app.state.SessionLocal() as db:
+        last = risk.last_refresh(db)
+    assert last["errors"] == ["NVD: AttributeError"] and last["epss"] == 1 and last["kev"] == 1
+    row = intel_rows(auth)["CVE-2021-41773"]
+    assert row.epss == 0.5 and row.kev is True and row.cvss_score is None
+    calls = len(net.calls)
+    assert asyncio.run(tick(now + timedelta(seconds=30))) is None and len(net.calls) == calls
+
+
+def test_refresh_that_raises_still_records_the_attempt(auth, monkeypatch):
+    import asyncio
+    seed(auth, SPECS)
+    monkeypatch.setattr(risk, "refresh_intel", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db exploded")))
+    now = utcnow()
+    auth.app.state.intel_started_at = now - timedelta(minutes=5)
+
+    async def tick(at):
+        task = await risk.maybe_refresh_intel(auth.app, at)
+        if task is not None:
+            await task
+        return task
+    assert asyncio.run(tick(now)) is not None
+    with auth.app.state.SessionLocal() as db:
+        assert risk.last_refresh(db)["errors"] == ["refresh: RuntimeError"]
+    assert asyncio.run(tick(now + timedelta(seconds=30))) is None
+
+
+def test_nvd_pacing_and_default_limit(auth):
+    add_issue_cves(auth, [f"CVE-2026-{2000 + n}" for n in range(8)])
+    net, sleeps = IntelNet(), []
+    with auth.app.state.SessionLocal() as db:
+        summary = risk.refresh_intel(db, auth.app.state.settings, net, sleep=sleeps.append)
+    assert summary["nvd"] == 5 and len(net.urls(intel.NVD_URL)) == 5 and sleeps == [6, 6, 6, 6]
+
+
+def test_short_error_text_has_no_url():
+    req = httpx.Request("GET", "https://api.first.org/data/v1/epss?cve=CVE-2026-1")
+    err = httpx.HTTPStatusError("503 for url https://api.first.org/...", request=req,
+                                response=httpx.Response(503, request=req))
+    assert risk.short_error("EPSS", err) == "EPSS: HTTPStatusError 503"
+    assert risk.short_error("NVD", httpx.ConnectError("boom https://x")) == "NVD: ConnectError"
+    assert len(risk.short_error("X" * 300, ValueError())) == 200
+
+
+def test_default_get_json_in_tests_is_offline(client):
+    with pytest.raises(httpx.HTTPError):
+        client.app.state.get_json(intel.KEV_URL, None)
+
+
+def wait_refresh(client, timeout=10.0):
+    import time
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not getattr(client.app.state, "intel_refreshing", False):
+            with client.app.state.SessionLocal() as db:
+                if risk.last_refresh(db):
+                    return
+        time.sleep(0.05)
+    raise AssertionError("intel refresh did not finish")
 
 
 # ----------------------------------------------------------------- routes
@@ -226,11 +340,12 @@ def test_settings_intel_refresh_route(auth):
     csrf = get_csrf(auth, "/settings")
     assert auth.post("/settings/intel/refresh", data={}, follow_redirects=False).status_code in (400, 403)
     r = auth.post("/settings/intel/refresh", data={"csrf": csrf}, follow_redirects=False)
-    assert r.status_code == 303 and "msg=" in r.headers["location"] and "1+CVE" in r.headers["location"]
+    assert r.status_code == 303 and "Threat+intel+refresh+started" in r.headers["location"]
+    wait_refresh(auth)
     page = auth.get("/settings").text
-    assert "Refresh threat intel now" in page and "EPSS rows" in page
+    assert "Refresh threat intel now" in page and "EPSS rows" in page and "Never" not in page
     with auth.app.state.SessionLocal() as db:
-        assert db.scalar(select(AuditLog).where(AuditLog.action == "intel.refreshed")) is not None
+        assert db.scalar(select(AuditLog).where(AuditLog.action == "intel.refresh_started")) is not None
 
 
 def test_settings_intel_refresh_needs_settings_manage(auth):
@@ -258,6 +373,7 @@ def test_issue_list_risk_column_and_default_order(auth):
         db.commit()
     page = auth.get("/issues").text
     assert ">Risk</th>" in page and "risk-high" in page and "CVSS 9.8 → 49 · KEV → 25" in page
+    assert '79<span class="sr-only"> of 100, high risk</span>' in page and 'aria-label="Risk' not in page
     # low verified on a critical scope (12+10+10=32) outranks medium suspected (25)
     assert page.index("CVE-2021-41773 title") < page.index("weak-cipher title") < page.index("exposed-panel title")
     with auth.app.state.SessionLocal() as db:

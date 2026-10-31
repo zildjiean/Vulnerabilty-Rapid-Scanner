@@ -342,14 +342,10 @@ def settings_reverify(request: Request, enabled: bool = Form(False), delay_minut
 
 @router.post("/settings/intel/refresh", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
 async def settings_intel_refresh(request: Request, db: Session = Depends(get_db)):
-    summary = await rk.run_refresh(request.app)
-    if summary is None:
+    if rk.start_refresh(request.app) is None:
         return _redirect("/settings#intel", msg="A threat intel refresh is already running.")
-    audit(db, request, "intel.refreshed", target=f"{summary['cves']} CVE(s)", epss=summary["epss"], kev=summary["kev"],
-          nvd=summary["nvd"], errors=len(summary["errors"]))
-    if summary["errors"]:
-        return _redirect("/settings#intel", err=rk.summary_text(summary))
-    return _redirect("/settings#intel", msg=rk.summary_text(summary))
+    audit(db, request, "intel.refresh_started", target="threat intel")
+    return _redirect("/settings#intel", msg="Threat intel refresh started. Reload this page in a minute for the result.")
 
 
 @router.post("/settings/notifications", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])

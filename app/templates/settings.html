@@ -50,7 +50,7 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Threat intel</h2></div>
   <div class="card-body stack">
-    <p class="text-2">Every hour the scanner fetches FIRST EPSS scores, the CISA KEV catalog and missing CVSS scores (NVD, up to 10 per run) for each CVE on an issue or campaign. They feed the risk score shown on issues.</p>
+    <p class="text-2">Every hour the scanner fetches FIRST EPSS scores, the CISA KEV catalog and missing CVSS scores (NVD, up to 5 per run, 6 s apart) for each CVE on an issue or campaign. They feed the risk score shown on issues.</p>
     {% set ir = intel_refresh %}
     <dl class="kv">
       <dt>Last run</dt><dd class="num">{% if ir %}{{ ir.at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}<span class="muted">Never</span>{% endif %}{% if intel_refreshing %} <span class="status st-running">running</span>{% endif %}</dd>
