@@ -206,7 +206,6 @@
         rows.slice(0, 20).forEach((row, i) => {
           const l = document.createElement("label");
           l.className = "list-row row center";
-          l.style.gap = "8px";
           l.innerHTML = `<input type="radio" name="template_id" value="${esc(row.template_id)}"${i === 0 ? " checked" : ""}>` +
             `<span class="cell-mono small">${esc(row.template_id)}</span><span class="small">${esc(row.name)}</span>` +
             `<span class="badge sev-${esc(row.severity)}">${esc(row.severity)}</span>`;

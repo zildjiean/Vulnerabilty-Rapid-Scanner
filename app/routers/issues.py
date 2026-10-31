@@ -257,6 +257,8 @@ async def issue_verify(request: Request, issue_id: int, back: str = Form(""), db
 @router.post("/issues/{issue_id}/template", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
 def issue_template(request: Request, issue_id: int, template_id: str = Form(""), db: Session = Depends(get_db)):
     issue = _get(db, issue_id)
+    if proof.live_verify_job(db, issue) is not None:   # complete_verify matches findings on the template id
+        return _redirect(f"/issues/{issue.id}", err="Wait for the running verification to finish before changing the template.")
     tid = template_id.strip()
     row = db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == tid).limit(1)) if tid else None
     if row is None:

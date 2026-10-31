@@ -94,6 +94,25 @@ def test_viewer_sees_no_button_and_cannot_verify(env):
     assert "Verify now" not in env.get(f"/issues/{iid}").text
     r = env.post(f"/issues/{iid}/verify", data={"csrf": get_csrf(env, f"/issues/{iid}")})
     assert r.status_code == 403
+    sus = suspected_issue(env)
+    assert 'id="verify"' not in env.get(f"/issues/{sus}").text
+    r = env.post(f"/issues/{sus}/template", data={"csrf": get_csrf(env, f"/issues/{sus}"), "template_id": CVE})
+    assert r.status_code == 403
+
+
+def test_template_cannot_change_while_a_verification_runs(env):
+    iid = seed(env, SPECS)[CVE]
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="running")
+        db.add(job)
+        db.flush()
+        db.get(Issue, iid).verify_job_id = job.id
+        db.commit()
+    r = env.post(f"/issues/{iid}/template", data={"csrf": get_csrf(env, f"/issues/{iid}"), "template_id": "exposed-panel"},
+                 follow_redirects=False)
+    assert r.status_code == 303 and "err=Wait+for+the+running" in r.headers["location"]
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, iid).template_id == CVE
 
 
 def test_proof_card_shows_request_response_and_curl(env):
