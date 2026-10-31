@@ -31,7 +31,7 @@ RUN ARCH="$(dpkg --print-architecture)" \
  && curl -fsSL -o /tmp/subfinder.zip "https://github.com/projectdiscovery/subfinder/releases/download/v${SUBFINDER_VERSION}/subfinder_${SUBFINDER_VERSION}_linux_${NARCH}.zip" \
  && curl -fsSL -o /tmp/httpx.zip "https://github.com/projectdiscovery/httpx/releases/download/v${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_${NARCH}.zip" \
  && printf '%s  %s\n' "$NUCLEI_SHA256" /tmp/nuclei.zip "$SUBFINDER_SHA256" /tmp/subfinder.zip "$HTTPX_SHA256" /tmp/httpx.zip \
-    | sha256sum -c - \
+    | sha256sum --strict -c - \
  && mkdir -p /opt/nuclei && unzip -q /tmp/nuclei.zip nuclei -d /opt/nuclei && rm /tmp/nuclei.zip \
  && chmod +x /opt/nuclei/nuclei \
  && mkdir -p /opt/pd && unzip -q /tmp/subfinder.zip subfinder -d /opt/pd && unzip -q /tmp/httpx.zip httpx -d /opt/pd \

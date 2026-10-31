@@ -54,8 +54,8 @@ async def tool_versions(settings: Settings) -> dict:
     nmap_out, nuclei_out, subfinder_out, httpx_out = await asyncio.gather(
         _run_capture([settings.nmap_bin, "--version"]),
         _run_capture([settings.nuclei_bin, "-version", "-disable-update-check"]),
-        _run_capture([settings.subfinder_bin, "-version"]),
-        _run_capture([settings.httpx_bin, "-version"]),
+        _run_capture([settings.subfinder_bin, "-version", "-duc"]),
+        _run_capture([settings.httpx_bin, "-version", "-duc"]),
     )
     return {"nmap": parse_nmap_version(nmap_out), "nuclei": parse_nuclei_version(nuclei_out),
             "subfinder": parse_nuclei_version(subfinder_out), "httpx": parse_nuclei_version(httpx_out)}
