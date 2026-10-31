@@ -28,7 +28,7 @@ New job kind `discovery`, permission `scan.run`, page **Scanning → Discovery**
 - Authorization notice: "Only enumerate domains you own or are authorized to test."
 
 Execution (reuse `app/jobs.py` runner; no shell):
-1. `subfinder -dL <domains file> -silent -oJ -all? ` — use `-silent -json` (JSONL with `host`, `source`) and
+1. `subfinder -dL <domains file> -silent -json` (JSONL with `host`, `source`) and
    `-pc <provider config>` only when keys are configured. Do not use `-all` (slow, noisy) — default sources.
    Timeout as other jobs. Write the domains file under `DATA_DIR/tmp/` and delete after completion.
 2. On completion, ingest subdomains (§3). If probing is on and ≥ 1 host was found, start a chained job of
