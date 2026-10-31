@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.0.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.1.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -286,6 +286,13 @@ secret ของ integration เข้ารหัสในฐานข้อม
 
 จากนั้นกด **Test** แล้ว **Make default**
 
+**แก้ค่าที่ใส่ผิด**: กด **Edit** ที่แถวของ provider แก้ได้ทุกช่อง รวมถึงประเภท provider (เช่น เลือก OpenAI ไว้แต่จริงๆ
+เป็น Ollama ให้เปลี่ยนเป็น OpenAI-compatible) แล้วกด **Save & test** เพื่อบันทึกและทดสอบทันที
+- ช่อง API key เว้นว่างไว้ = ใช้ key เดิม, พิมพ์ใหม่ = แทนที่, ติ๊ก **Remove stored key** = ลบ key (สำหรับ server
+  ในเครื่องที่ไม่ใช้ key)
+- เปลี่ยนประเภทแล้วไม่ได้ใส่ key ใหม่ ระบบเก็บ key เดิมไว้และเตือนให้ลบถ้า provider ใหม่ไม่ใช้
+- แก้ประเภท, model, Base URL, API version หรือ key แล้วผล Test เดิมถูกล้าง ต้องทดสอบใหม่
+
 - **Redact IPs and host names** (เปิดเป็นค่าเริ่มต้น): IP และ hostname ถูกแทนด้วย `HOST-1`, `HOST-2` ก่อนส่งออก และแปลงกลับตอนแสดงผล ปิดได้สำหรับ model ที่รันภายใน
 - **Max output tokens** จำกัดความยาวคำตอบ
 - หน้าเดียวกันแสดงการใช้ token ย้อนหลัง 30 วัน แยกตาม provider, ฟีเจอร์ และผู้ใช้
@@ -354,7 +361,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.0.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.1.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

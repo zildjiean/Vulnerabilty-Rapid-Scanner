@@ -1,22 +1,21 @@
 {% extends "base.html" %}
+{% from "_ai_provider_fields.html" import provider_fields %}
 {% set section = "AI assistant" %}
 {% set page_title = p.name %}
 {% set page_subtitle = kinds[p.kind] %}
 {% block page_actions %}<a class="btn ghost" href="/ai">Back</a>{% endblock %}
 {% block content %}
-<form method="post" action="/ai/providers/{{ p.id }}" class="card" style="max-width:720px" data-loading>
+<form method="post" action="/ai/providers/{{ p.id }}" class="card schedule-form" data-disable-hidden style="max-width:720px" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card-body stack">
-    <div class="field"><label for="name">Name</label><input id="name" name="name" required maxlength="64" value="{{ p.name }}"></div>
-    <div class="field"><label for="model">Model{{ ' / deployment' if p.kind == 'azure_openai' }}</label><input id="model" name="model" value="{{ config.model }}"></div>
-    {% if p.kind != 'openai' %}<div class="field"><label for="base_url">Base URL / endpoint</label><input id="base_url" name="base_url" value="{{ config.base_url }}"></div>{% endif %}
-    {% if p.kind == 'azure_openai' %}<div class="field"><label for="api_version">API version</label><input id="api_version" name="api_version" value="{{ config.api_version }}"></div>{% endif %}
-    <div class="field"><label for="api_key">API key</label><input id="api_key" name="api_key" type="password" autocomplete="off" placeholder="{{ 'stored · leave blank to keep' if key_stored else '' }}"></div>
-    <div class="row">
-      <div class="field w-sm"><label for="max_tokens">Max output tokens</label><input id="max_tokens" name="max_tokens" type="number" min="256" max="128000" value="{{ p.max_tokens }}"></div>
-      <label class="check"><input type="checkbox" name="redact" value="true" {{ 'checked' if p.redact }}> Redact IPs and host names</label>
+    <div class="small">Last test:
+      {% if p.last_test_at %}<span class="status {{ 'st-done' if p.last_test_ok else 'st-failed' }}">{{ 'ok' if p.last_test_ok else 'failed' }}</span> <span class="text-2">{{ p.last_test_message }}</span>{% else %}<span class="muted">never</span>{% endif %}
     </div>
-    <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save</button></div>
+    {{ provider_fields(form, kinds, default_models, gemini_base, key_stored=key_stored) }}
+    <div class="row">
+      <button class="primary" type="submit" name="action" value="test"><svg class="icon"><use href="#i-play"/></svg>Save &amp; test</button>
+      <button type="submit" name="action" value="save"><svg class="icon"><use href="#i-check"/></svg>Save</button>
+    </div>
   </div>
 </form>
 {% endblock %}

@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-31
+
+### Added
+- AI providers can be fixed in place: an **Edit** button on System → AI opens a form with the same fields and hints
+  as *Add provider*, including the **provider type**. A stored API key can be kept, replaced or removed
+  (**Remove stored key**). **Save & test** saves and runs the connection test in one step.
+
+### Changed
+- Changing the type, model, base URL, API version or key of a provider clears its previous test result.
+- A validation error on the provider form keeps everything that was typed.
+
+### Fixed
+- Switching a provider to the OpenAI type no longer keeps a base URL from its previous type, so the key is only
+  sent to api.openai.com.
+
 ## [1.0.0] - 2026-10-31
 
 First stable release: the scanner from 0.1.0 grows into a vulnerability-response platform.
@@ -107,6 +122,7 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/releases/tag/v0.1.0

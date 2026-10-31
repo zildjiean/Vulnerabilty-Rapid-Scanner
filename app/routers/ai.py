@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -39,7 +40,9 @@ def _page(request: Request, db: Session, status_code: int = 200, error: str | No
 
 
 def _fields(kind: str, model: str, base_url: str, api_version: str) -> dict:
-    config = {"model": model.strip() or DEFAULT_MODELS.get(kind, ""), "base_url": base_url.strip().rstrip("/")}
+    # OpenAI always talks to api.openai.com: never carry over a base URL typed for another type (key exfiltration).
+    base = "" if kind == "openai" else base_url.strip().rstrip("/")
+    config = {"model": model.strip() or DEFAULT_MODELS.get(kind, ""), "base_url": base}
     if kind == "azure_openai":
         config["api_version"] = api_version.strip()
     return config
@@ -88,34 +91,72 @@ def _get(db: Session, pid: int) -> AiProvider:
     return p
 
 
-@router.get("/ai/providers/{pid}", dependencies=VIEW)
-def provider_edit_page(request: Request, pid: int, db: Session = Depends(get_db)):
-    p = _get(db, pid)
-    return render(request, "ai_provider.html", active="ai", p=p, config=json.loads(p.config or "{}"), kinds=PROVIDER_KINDS,
+def _edit_page(request: Request, p: AiProvider, status_code: int = 200, error: str | None = None,
+               form: dict | None = None):
+    if form is None:
+        config = json.loads(p.config or "{}")
+        form = {"name": p.name, "kind": p.kind, "model": config.get("model", ""), "base_url": config.get("base_url", ""),
+                "api_version": config.get("api_version", ""), "max_tokens": p.max_tokens, "redact": p.redact}
+    return render(request, "ai_provider.html", status_code=status_code, active="ai", error=error, p=p, form=form,
+                  kinds=PROVIDER_KINDS, default_models=DEFAULT_MODELS, gemini_base=GEMINI_BASE_URL,
                   key_stored=bool(request.app.state.secretbox.decrypt(p.secret).get("api_key")))
 
 
+@router.get("/ai/providers/{pid}", dependencies=VIEW)
+def provider_edit_page(request: Request, pid: int, db: Session = Depends(get_db)):
+    return _edit_page(request, _get(db, pid))
+
+
+KEPT_KEY_WARNING = (" The API key from the previous provider type was kept; tick Remove stored key if the new provider "
+                    "does not use it.")
+# Settings whose change makes the last connectivity test meaningless.
+_TESTED_FIELDS = {"kind", "model", "base_url", "api_version", "api_key"}
+
+
 @router.post("/ai/providers/{pid}", dependencies=MANAGE)
-def provider_update(request: Request, pid: int, name: str = Form(""), model: str = Form(""), base_url: str = Form(""),
-                    api_version: str = Form(""), api_key: str = Form(""), max_tokens: str = Form("8000"),
-                    redact: bool = Form(False), db: Session = Depends(get_db)):
+async def provider_update(request: Request, pid: int, name: str = Form(""), kind: str = Form(""), model: str = Form(""),
+                          base_url: str = Form(""), api_version: str = Form(""), api_key: str = Form(""),
+                          remove_key: bool = Form(False), max_tokens: str = Form("8000"), redact: bool = Form(False),
+                          action: str = Form("save"), db: Session = Depends(get_db)):
     p = _get(db, pid)
     box = request.app.state.secretbox
-    config = _fields(p.kind, model, base_url, api_version)
-    merged = box.merge(p.secret, {"api_key": api_key.strip()})
-    err = "Give the provider a name." if not name.strip() else validate_provider(p.kind, config, box.decrypt(merged))
+    kind = kind or p.kind
+    form = {"name": name, "kind": kind, "model": model, "base_url": base_url, "api_version": api_version,
+            "max_tokens": max_tokens, "redact": redact, "remove_key": remove_key}
+    config = _fields(kind, model, base_url, api_version)
+    stored = box.decrypt(p.secret)
+    secret = dict(stored)
+    if api_key.strip():
+        secret["api_key"] = api_key.strip()
+    elif remove_key:
+        secret.pop("api_key", None)
+    err = "Give the provider a name." if not name.strip() else validate_provider(kind, config, secret)
     try:
         tokens = _max_tokens(max_tokens)
     except ValueError as e:
         err = err or str(e)
     if err:
-        return render(request, "ai_provider.html", status_code=400, active="ai", p=p, config=config, kinds=PROVIDER_KINDS,
-                      key_stored=bool(box.decrypt(p.secret).get("api_key")), error=err)
-    p.name, p.config, p.secret, p.max_tokens, p.redact = name.strip()[:64], json.dumps(config), merged, tokens, redact
+        return _edit_page(request, p, 400, err, form)
+    old_config = json.loads(p.config or "{}")
+    old = {"name": p.name, "kind": p.kind, "max_tokens": p.max_tokens, "redact": p.redact,
+           "api_key": stored.get("api_key"), **{k: old_config.get(k, "") for k in ("model", "base_url", "api_version")}}
+    new = {"name": name.strip()[:64], "kind": kind, "max_tokens": tokens, "redact": redact,
+           "api_key": secret.get("api_key"), **{k: config.get(k, "") for k in ("model", "base_url", "api_version")}}
+    changed = sorted(k for k in new if new[k] != old[k])
+    p.name, p.kind, p.config, p.max_tokens, p.redact = new["name"], kind, json.dumps(config), tokens, redact
+    p.secret = box.encrypt(secret)
+    if _TESTED_FIELDS & set(changed):
+        p.last_test_at, p.last_test_ok, p.last_test_message = None, None, ""
     db.commit()
-    audit(db, request, "ai.provider_updated", target=p.name, provider_id=p.id, model=config["model"], redact=redact,
-          key_changed=bool(api_key.strip()))
-    return RedirectResponse("/ai?msg=Provider+saved", status_code=303)
+    ai.refresh_ready(request.app)
+    audit(db, request, "ai.provider_updated", target=p.name, provider_id=p.id, kind=kind, model=config["model"],
+          redact=redact, changed=changed, key_changed="api_key" in changed)
+    warning = KEPT_KEY_WARNING if "kind" in changed and secret.get("api_key") and "api_key" not in changed else ""
+    if action == "test":
+        ok, _ = await _run_test(request, db, p)
+        message = ("Test succeeded." if ok else "Test failed.") + warning
+        return RedirectResponse(f"/ai/providers/{pid}?{urlencode({'msg': message})}", status_code=303)
+    return RedirectResponse(f"/ai?{urlencode({'msg': 'Provider saved.' + warning})}#p{pid}", status_code=303)
 
 
 @router.post("/ai/providers/{pid}/default", dependencies=MANAGE)
@@ -156,9 +197,9 @@ def provider_delete(request: Request, pid: int, db: Session = Depends(get_db)):
     return RedirectResponse("/ai?msg=Provider+deleted", status_code=303)
 
 
-@router.post("/ai/providers/{pid}/test", dependencies=MANAGE)
-async def provider_test(request: Request, pid: int, db: Session = Depends(get_db)):
-    p = _get(db, pid)
+async def _run_test(request: Request, db: Session, p: AiProvider) -> tuple[bool, str]:
+    """Send a tiny prompt through ``p``, store the outcome as its last test and commit."""
+    pid = p.id
     try:
         result, _ = await ai.generate(request, db, "test", "You are a connectivity check.",
                                       "Reply with the single word OK.", effort="low", max_tokens=512, provider=p)
@@ -168,4 +209,10 @@ async def provider_test(request: Request, pid: int, db: Session = Depends(get_db
     p = _get(db, pid)
     p.last_test_at, p.last_test_ok, p.last_test_message = utcnow(), ok, message[:1000]
     db.commit()
+    return ok, message
+
+
+@router.post("/ai/providers/{pid}/test", dependencies=MANAGE)
+async def provider_test(request: Request, pid: int, db: Session = Depends(get_db)):
+    ok, _ = await _run_test(request, db, _get(db, pid))
     return RedirectResponse("/ai?msg=" + ("Test+succeeded" if ok else "Test+failed") + f"#p{pid}", status_code=303)
