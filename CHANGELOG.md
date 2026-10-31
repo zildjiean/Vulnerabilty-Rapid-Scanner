@@ -8,15 +8,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 - **0-day watch**: every hour (first run 3 minutes after start) the scanner reads CVEs published or changed in NVD
-  since its last check (CVE API 2.0 `lastMod` window, paged, 6 s apart) and new CISA KEV entries (KEV CVEs without
-  NVD product ranges are looked up one by one, at most 5 per run), keeps those at or above the minimum CVSS
-  (default 7.0) or known exploited, and matches their vulnerable CPE ranges against the inventory: nmap CPE, an
-  alias table of common nmap product names and name similarity. A match is *confirmed* when the service version
-  is inside the range and *possible* when it cannot be checked.
+  since its last check (CVE API 2.0 `lastMod` window read in one-day sub-windows of 500 results, 60 s timeout,
+  checkpointed after each sub-window, 30 minutes of overlap) and new CISA KEV entries (one day of overlap; KEV CVEs
+  not already read from NVD are looked up one by one, at most 5 per run), keeps those at or above the minimum CVSS
+  (default 7.0) or known exploited, and matches their vulnerable CPE ranges against the inventory: nmap application
+  CPE, an alias table of common nmap product names (whole words only) and name similarity; OS CPEs count only when
+  the version is known and in range. A match is *confirmed* when the service version is inside the range and
+  *possible* when it cannot be checked.
+- All NVD requests (0-day watch and threat intel refresh) share one process-wide limiter: at least 6 s apart.
+- Only CVEs published in the last 30 days or known exploited are drafted (older CVEs that NVD reports as modified
+  stay as hits), at most 20 drafts per run (setting *Drafts per run*; known exploited and highest CVSS first; the
+  run summary notes how many more were not drafted).
 - For each new hit a **draft campaign** is prepared: intel from NVD / KEV, up to 5 version rules (created
   disabled), matching nuclei templates, and a `campaign.draft` notification. The draft page shows the matched
   assets with quality badges; **Activate** enables the rules, opens suspected issues and sends `campaign.created`;
-  **Dismiss** turns it down for good (it can be reopened as a draft). A CVE that already has a campaign, in any
+  **Dismiss** turns it down for good (it can be reopened as a draft). Matched assets without a readable version
+  are flagged on the draft (version rules cannot cover them) and get a suspected issue on Activate. A CVE that already has a campaign, in any
   status, is never drafted again.
 - Templates are attached automatically to draft and active campaigns that have none, after every watch run and
   every template re-index (for example after a nuclei-templates update).
@@ -29,6 +36,8 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 - Draft and dismissed campaigns never produce issues: their rules are skipped by rule evaluation even when enabled,
   verification is refused until the campaign is activated, and they are not counted as active anywhere.
+  The issue page does not list them; the Version rules page marks their rules *waiting for activation*, and
+  editing such a rule returns to its campaign.
 
 ## [1.3.0] - 2026-10-31
 

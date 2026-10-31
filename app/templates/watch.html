@@ -18,6 +18,7 @@
         <dt>Matched the inventory</dt><dd class="num">{{ last.matched }}</dd>
         <dt>Drafts created</dt><dd class="num">{{ last.drafts }}</dd>
         <dt>Templates attached</dt><dd class="num">{{ last.templates }}</dd>
+        {% if last.notes %}<dt>Notes</dt><dd><ul class="small">{% for n in last.notes %}<li>{{ n }}</li>{% endfor %}</ul></dd>{% endif %}
         <dt>Errors</dt><dd>{% if last.errors %}<ul class="small">{% for e in last.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% else %}<span class="muted">none</span>{% endif %}</dd>
         {% endif %}
         <dt>NVD checked up to</dt><dd class="num">{{ cfg.last_nvd_check or '—' }}</dd>
@@ -33,6 +34,7 @@
       {% set ro = not can('settings.manage') %}
       <label class="check"><input type="checkbox" name="enabled" value="true" {{ 'checked' if cfg.enabled }} {{ 'disabled' if ro }}> Run every hour</label>
       <div class="field"><label for="min_cvss">Minimum CVSS</label><input id="min_cvss" name="min_cvss" type="number" min="0" max="10" step="0.1" value="{{ cfg.min_cvss }}" {{ 'disabled' if ro }} aria-describedby="min_cvss_help"><span class="small text-2" id="min_cvss_help">CVEs below this score are skipped unless they are known exploited.</span></div>
+      <div class="field"><label for="max_drafts">Drafts per run</label><input id="max_drafts" name="max_drafts" type="number" min="1" max="200" step="1" value="{{ cfg.max_drafts }}" {{ 'disabled' if ro }} aria-describedby="max_drafts_help"><span class="small text-2" id="max_drafts_help">Known exploited and highest CVSS first; the rest stay listed as hits.</span></div>
       <label class="check"><input type="checkbox" name="kev_always" value="true" {{ 'checked' if cfg.kev_always }} {{ 'disabled' if ro }}> Always include CISA KEV entries (known exploited)</label>
       <label class="check"><input type="checkbox" name="include_possible" value="true" {{ 'checked' if cfg.include_possible }} {{ 'disabled' if ro }}> Include possible matches (product matches, version unknown)</label>
       {% if not ro %}<div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save settings</button></div>{% else %}<p class="small text-2">Only an administrator can change these settings.</p>{% endif %}

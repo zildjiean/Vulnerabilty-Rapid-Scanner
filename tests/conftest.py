@@ -36,6 +36,15 @@ cat "$(dirname "$0")/nuclei_sample.jsonl"
 """
 
 
+@pytest.fixture(autouse=True)
+def _fresh_nvd_limiter():
+    """The NVD limiter is process-wide; start every test with no previous NVD call."""
+    from app import intel
+    intel.NVD_LIMITER.reset()
+    yield
+    intel.NVD_LIMITER.reset()
+
+
 @pytest.fixture
 def fake_bins(tmp_path):
     bins = tmp_path / "bin"

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -13,14 +14,43 @@ import httpx
 NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 KEV_MAX_AGE = 24 * 3600
+NVD_PAUSE = 6      # seconds between any two NVD requests: the public API allows 5 per 30 s without a key
 MAX_REFERENCES = 15
 CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$")
 
 GetJson = Callable[[str, "dict | None"], Any]
 
 
-def http_get_json(url: str, params: dict | None = None) -> Any:
-    with httpx.Client(timeout=15, follow_redirects=True, headers={"User-Agent": "zero-day-rapid-scanner"}) as c:
+class NvdLimiter:
+    """Process-wide NVD pacing: at least ``NVD_PAUSE`` seconds between any two NVD requests, whoever makes them
+    (the hourly threat intel refresh and the 0-day watch may run at the same time in different threads)."""
+
+    def __init__(self, pause: float = NVD_PAUSE, clock: Callable[[], float] = time.monotonic):
+        self.pause, self.clock, self.last = pause, clock, None
+        self._lock = threading.Lock()
+
+    def wait(self, sleep: Callable[[float], None] = time.sleep) -> None:
+        with self._lock:      # held while sleeping, so callers queue up instead of all passing at once
+            if self.last is not None:
+                delay = self.last + self.pause - self.clock()
+                if delay > 0:
+                    sleep(delay)
+            self.last = self.clock()
+
+    def reset(self) -> None:
+        with self._lock:
+            self.last = None
+
+
+NVD_LIMITER = NvdLimiter()
+
+
+def nvd_wait(sleep: Callable[[float], None] = time.sleep) -> None:
+    NVD_LIMITER.wait(sleep)
+
+
+def http_get_json(url: str, params: dict | None = None, timeout: float = 15) -> Any:
+    with httpx.Client(timeout=timeout, follow_redirects=True, headers={"User-Agent": "zero-day-rapid-scanner"}) as c:
         r = c.get(url, params=params)
         r.raise_for_status()
         return r.json()
@@ -74,7 +104,8 @@ def fetch_nvd(cve: str, get_json: GetJson) -> dict | None:
     return parse_nvd(get_json(NVD_URL, {"cveId": cve}))
 
 
-def _load_kev_feed(cache: Path, get_json: GetJson, refresh: bool = False) -> dict:
+def load_kev_feed(cache: Path, get_json: GetJson, refresh: bool = False) -> tuple[dict, bool]:
+    """(feed, downloaded): the cached copy is used while fresh, or when the download fails and a cache exists."""
     fresh = not refresh and cache.exists() and time.time() - cache.stat().st_mtime < KEV_MAX_AGE
     if not fresh:
         try:
@@ -83,11 +114,15 @@ def _load_kev_feed(cache: Path, get_json: GetJson, refresh: bool = False) -> dic
             tmp = cache.with_suffix(".tmp")
             tmp.write_text(json.dumps(feed))
             tmp.replace(cache)
-            return feed
+            return feed, True
         except (httpx.HTTPError, OSError, ValueError):
             if not cache.exists():
                 raise
-    return json.loads(cache.read_text())
+    return json.loads(cache.read_text()), False
+
+
+def _load_kev_feed(cache: Path, get_json: GetJson, refresh: bool = False) -> dict:
+    return load_kev_feed(cache, get_json, refresh)[0]
 
 
 def kev_entry(cve: str, cache: Path, get_json: GetJson, refresh: bool = False) -> dict | None:

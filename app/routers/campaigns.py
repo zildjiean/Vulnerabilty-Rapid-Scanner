@@ -111,7 +111,10 @@ def _detail(request: Request, db: Session, c: Campaign, status_code: int = 200, 
     rules = list(db.scalars(select(Rule).where(Rule.campaign_id == c.id).order_by(Rule.id)))
     from ..watch import hit_matches
     hit = db.scalar(select(WatchHit).where(WatchHit.campaign_id == c.id))
-    return render(request, "campaign_detail.html", watch_hit=hit, watch_matches=hit_matches(hit), status_code=status_code, active="campaigns", c=c, error=error,
+    from ..watch import unversioned
+    matches = hit_matches(hit)
+    return render(request, "campaign_detail.html", watch_hit=hit, watch_matches=matches,
+                  watch_unversioned=len(unversioned(matches)), status_code=status_code, active="campaigns", c=c, error=error,
                   issues=issues, p=camp.progress(issues), rules=rules, suggestions=camp.suggested_templates(db, c),
                   jobs=jobs, job_summary=job_summary, targets=camp.verify_targets(db, c), profiles=PROFILES,
                   default_profile=DEFAULT_PROFILE, refs=camp.references(c),
@@ -229,13 +232,16 @@ def campaign_activate(request: Request, cid: int, db: Session = Depends(get_db))
     c = _get(db, cid)
     try:
         enabled = camp.activate_campaign(db, c)
+        from ..watch import open_unversioned_issues
+        unversioned = open_unversioned_issues(db, c)
     except ValueError as e:
         db.rollback()
         return RedirectResponse(f"/campaigns/{cid}?err={quote_plus(str(e))}", status_code=303)
     from ..notifications import campaign_message, notify
     notify(db, "campaign.created", message=campaign_message(db, c), severity=c.severity)
     db.commit()
-    audit(db, request, "campaign.activated", target=c.name, campaign_id=c.id, cve=c.cve_id, rules=enabled)
+    audit(db, request, "campaign.activated", target=c.name, campaign_id=c.id, cve=c.cve_id, rules=enabled,
+          version_unknown_issues=unversioned)
     return RedirectResponse(f"/campaigns/{cid}?msg=Campaign+activated:+rules+enabled+and+evaluated", status_code=303)
 
 

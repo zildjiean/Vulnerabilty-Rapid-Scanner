@@ -150,17 +150,44 @@ def test_parse_nvd_item_ranges_and_best_cvss():
 
 
 def test_nvd_paging_dates_and_window():
-    net, sleeps = WatchNet(page_total=2500), []
+    net, sleeps = WatchNet(page_total=1200), []
     pacer = watch._Pacer(sleeps.append)
-    recs = watch.fetch_nvd_changes(net, NOW - timedelta(days=3), NOW, pacer)
+    recs, done, err = watch.fetch_nvd_changes(net, NOW - timedelta(hours=12), NOW, pacer)
     calls = net.nvd()
-    assert [c["startIndex"] for c in calls] == [0, 2000] and sleeps == [6]
-    assert calls[0]["lastModStartDate"] == "2026-10-28T12:00:00.000"
-    assert calls[0]["lastModEndDate"] == "2026-10-31T12:00:00.000" and calls[0]["resultsPerPage"] == 2000
-    assert len(recs) == len(DEFAULT_ITEMS) + 1
+    assert [c["startIndex"] for c in calls] == [0, 500, 1000] and sleeps == pytest.approx([6, 6], abs=0.5)
+    assert calls[0]["lastModStartDate"] == "2026-10-31T00:00:00.000"
+    assert calls[0]["lastModEndDate"] == "2026-10-31T12:00:00.000" and calls[0]["resultsPerPage"] == 500
+    assert len(recs) == len(DEFAULT_ITEMS) + 2 and done == NOW and err is None
     net = WatchNet()
-    watch.fetch_nvd_changes(net, NOW - timedelta(days=400), NOW, watch._Pacer(NO_SLEEP))
-    assert net.nvd()[0]["lastModStartDate"] == "2026-07-03T12:00:00.000"   # clamped to 120 days
+    _recs, done, _err = watch.fetch_nvd_changes(net, NOW - timedelta(days=400), NOW, watch._Pacer(NO_SLEEP))
+    starts = [c["lastModStartDate"] for c in net.nvd()]
+    assert starts[0] == "2026-07-03T12:00:00.000" and len(starts) == 120   # clamped to 120 days, one call per day
+    assert net.nvd()[0]["lastModEndDate"] == "2026-07-04T12:00:00.000" and done == NOW
+
+
+def test_nvd_failure_keeps_the_checkpoint_of_completed_sub_windows(env):
+    class Flaky(WatchNet):
+        def __call__(self, url, params=None):
+            if url == intel.NVD_URL and params.get("lastModStartDate", "").startswith("2026-10-30"):
+                self.calls.append((url, dict(params)))
+                raise httpx.ReadTimeout("slow")
+            return super().__call__(url, params)
+    summary = run(env, Flaky())
+    assert summary["errors"] == ["NVD: ReadTimeout"]
+    assert summary["drafts"] == 2                                     # records from the first day were processed
+    with env.app.state.SessionLocal() as db:
+        assert watch.load_state(db)["last_nvd_check"] == "2026-10-30T12:00:00"   # two of three days read
+    net = WatchNet()
+    run(env, net, now=NOW + timedelta(hours=1))
+    assert net.nvd()[0]["lastModStartDate"] == "2026-10-30T11:30:00.000"   # 30 minutes of overlap
+
+
+def test_nvd_uses_a_long_timeout_with_the_real_client(monkeypatch):
+    seen = []
+    monkeypatch.setattr(watch, "http_get_json", lambda url, params=None, timeout=15: seen.append(timeout) or {})
+    watch._Pacer(NO_SLEEP)(watch.http_get_json, {"cveId": PHP_CVE})
+    watch._Pacer(NO_SLEEP)(lambda url, params: seen.append("fake") or {}, {"cveId": PHP_CVE})
+    assert seen == [60, "fake"]
 
 
 def test_new_kev_entries_by_date():
@@ -251,7 +278,8 @@ def test_run_drafts_campaigns_with_disabled_rules_templates_and_hits(env):
         assert hit.campaign_id == php.id and hit.quality == "confirmed" and hit.source == "nvd" and hit.cvss_score == 9.8
         m = json.loads(hit.matches)
         assert m == [{"service_id": m[0]["service_id"], "host": "192.168.1.10", "port": 8080, "product": "PHP cli server",
-                      "version": "8.3.10", "quality": "confirmed", "reason": "php:php 8.3.10 is in >= 8.3.0, < 8.3.15"}]
+                      "version": "8.3.10", "quality": "confirmed", "reason": "php:php 8.3.10 is in >= 8.3.0, < 8.3.15",
+                      "has_version": True}]
         deliveries = list(db.scalars(select(Delivery)))
         assert [d.event for d in deliveries] == ["campaign.draft", "campaign.draft"]
         assert any("0-day watch: CVE-2026-109619 affects 1 asset" in d.title for d in deliveries)
@@ -313,7 +341,8 @@ def test_kev_entries_lookup_nvd_and_kev_always(env):
     net, sleeps = WatchNet(items=[], kev=kev, lookups=lookups), []
     summary = run(env, net, sleep=sleeps.append)
     assert summary["errors"] == [] and summary["drafts"] == 1
-    assert [p for p in net.nvd() if "cveId" in p] == [{"cveId": KEV_CVE}] and sleeps == [6]
+    assert [p for p in net.nvd() if "cveId" in p] == [{"cveId": KEV_CVE}]
+    assert sleeps == pytest.approx([6] * (len(net.nvd()) - 1), abs=0.5)    # every NVD call paced by the limiter
     c = campaigns(env)[KEV_CVE]
     assert c.kev and c.kev_ransomware and c.kev_due == "2026-11-19" and c.name == f"{KEV_CVE} nginx resolver bug"
     assert c.cvss_score == 5.0                                       # below 7.0 but known exploited
@@ -542,3 +571,128 @@ def test_reindex_after_template_update_attaches_new_templates(env):
     from app.routers.templates import reindex_in_background
     asyncio.run(reindex_in_background(env.app))
     assert [t.template_id for t in campaigns(env)[APACHE_CVE].templates] == [APACHE_CVE]
+
+
+# ----------------------------------------------------------------- review fixes
+def test_aliases_are_word_bounded():
+    assert ("php", "php") not in watch.service_keys(svc("phpMyAdmin")[0])
+    assert watch.service_keys(svc("PHP")[0]) == {("php", "php")}
+    assert watch.service_keys(svc("Fortinet FortiWeb")[0]) == set()
+    assert watch.service_keys(svc("Fortinet FortiGate SSL VPN")[0]) == {("fortinet", "fortios")}
+    assert watch.service_keys(svc("Apache httpd")[0]) == {("apache", "http_server")}
+    assert watch.service_keys(svc("Apache Tomcat")[0]) == {("apache", "tomcat")}
+    m = watch.match_cve(rec([cpe_match("fortinet", "fortios", si="7.0.0", ee="7.0.15")]), [svc("Fortinet FortiWeb", "7.0.2")])
+    assert m == []
+
+
+def test_os_cpe_needs_a_version_in_range():
+    rpc = svc("Microsoft Windows RPC", "", "cpe:/o:microsoft:windows")
+    assert watch.service_keys(rpc[0]) == set() and watch.os_keys(rpc[0]) == {("microsoft", "windows")}
+    assert watch.match_cve(rec([cpe_match("microsoft", "windows_server", si="10.0", ee="10.0.20348")]), [rpc]) == []
+    kernel = svc("Linux telnetd", "", "cpe:/o:linux:linux_kernel")
+    assert watch.match_cve(rec([cpe_match("linux", "linux_kernel", si="2.6.12", ee="6.1.100")]), [kernel]) == []
+    kernel = svc("Linux telnetd", "5.10", "cpe:/o:linux:linux_kernel:5.10")
+    m = watch.match_cve(rec([cpe_match("linux", "linux_kernel", si="2.6.12", ee="6.1.100")]), [kernel])
+    assert [x.quality for x in m] == ["confirmed"]
+
+
+def test_kev_name_compared_with_cpe_key_words():
+    apache = svc("Apache httpd", "2.4.58", "cpe:/a:apache:http_server:2.4.58")
+    m = watch.match_cve(rec(kev_vendor="Apache", kev_product="HTTP Server"), [apache])
+    assert [x.quality for x in m] == ["possible"]
+
+
+def test_old_cves_are_hits_only_and_kev_still_drafts(env):
+    old = nvd_cve(APACHE_CVE, 9.1, [cpe_match("apache", "http_server", si="2.4.0", ee="2.4.62")])
+    old["cve"]["published"] = "2024-01-10T10:00:00.000"
+    summary = run(env, WatchNet(items=[DEFAULT_ITEMS[0], old]))
+    assert summary["drafts"] == 1 and summary["hits_only"] == 1 and set(campaigns(env)) == {PHP_CVE}
+    with env.app.state.SessionLocal() as db:
+        hit = db.scalar(select(WatchHit).where(WatchHit.cve_id == APACHE_CVE))
+        assert hit is not None and hit.campaign_id is None
+    kev = {"vulnerabilities": [{"cveID": APACHE_CVE, "dateAdded": "2026-10-31", "vendorProject": "Apache",
+                                "product": "HTTP Server"}]}
+    assert run(env, WatchNet(items=[old], kev=kev), now=NOW + timedelta(hours=1))["drafts"] == 1
+
+
+def test_drafts_per_run_are_capped_and_only_drafts_notify(env):
+    with env.app.state.SessionLocal() as db:
+        ch = NotificationChannel(name="hook", kind="webhook", config=json.dumps({"url": "https://hook.test/x"}))
+        db.add(ch)
+        db.flush()
+        db.add(NotificationRule(channel_id=ch.id, events=json.dumps(["campaign.draft"]), min_severity="low"))
+        watch.set_watch_settings(db, True, "7", True, True, "1")
+        db.commit()
+    summary = run(env, WatchNet())
+    assert summary["drafts"] == 1 and summary["not_drafted_limit"] == 1
+    assert summary["notes"] == ["1 more not drafted (limit)"]
+    assert set(campaigns(env)) == {PHP_CVE}                         # highest CVSS first
+    with env.app.state.SessionLocal() as db:
+        assert len(list(db.scalars(select(Delivery)))) == 1
+        assert len(list(db.scalars(select(WatchHit)))) == 2
+        with pytest.raises(ValueError):
+            watch.set_watch_settings(db, True, "7", True, True, "0")
+    assert "1 more not drafted (limit)" in env.get("/watch").text
+
+
+def test_kev_window_overlaps_one_day_and_skips_known_lookups(env):
+    with env.app.state.SessionLocal() as db:
+        watch.save_state(db, {**watch.load_state(db), "last_kev_date": "2026-10-30",
+                              "last_nvd_check": "2026-10-31T11:00:00"})
+        db.commit()
+    kev = {"vulnerabilities": [{"cveID": PHP_CVE, "dateAdded": "2026-10-29", "vendorProject": "PHP", "product": "PHP"},
+                               {"cveID": SSH_CVE, "dateAdded": "2026-10-28", "vendorProject": "OpenBSD", "product": "OpenSSH"}]}
+    net = WatchNet(kev=kev)
+    run(env, net)
+    nvd = net.nvd()
+    assert nvd[0]["lastModStartDate"] == "2026-10-31T10:30:00.000"
+    assert [p for p in nvd if "cveId" in p] == []                   # PHP came from NVD this run; SSH too old
+    assert campaigns(env)[PHP_CVE].kev is True
+    with env.app.state.SessionLocal() as db:
+        assert watch.load_state(db)["last_kev_date"] == "2026-10-30"
+
+
+def add_redis(client):
+    from app.db import Host, Service
+    with client.app.state.SessionLocal() as db:
+        h = db.scalar(select(Host).where(Host.address == "192.168.1.12"))
+        db.add(Service(host_id=h.id, port=6379, product="Redis key-value store", version="", service_name="redis"))
+        db.commit()
+
+
+REDIS_CVE = "CVE-2026-20010"
+
+
+def test_version_unknown_assets_are_flagged_and_opened_on_activate(env):
+    add_redis(env)
+    run(env, WatchNet(items=[nvd_cve(REDIS_CVE, 9.0, [cpe_match("redis", "redis", ee="7.2.5")])]))
+    c = campaigns(env)[REDIS_CVE]
+    page = env.get(f"/campaigns/{c.id}").text
+    assert 'data-unversioned="1"' in page and "no readable version" in page
+    csrf = get_csrf(env, f"/campaigns/{c.id}")
+    assert env.post(f"/campaigns/{c.id}/activate", data={"csrf": csrf}, follow_redirects=False).status_code == 303
+    found = [i for i in issues(env) if i.vuln_id == REDIS_CVE]
+    assert [(i.asset, i.confidence, i.rule_id) for i in found] == [("192.168.1.12:6379", "suspected", None)]
+    from app.db import IssueEvent
+    with env.app.state.SessionLocal() as db:
+        assert db.scalar(select(IssueEvent).where(IssueEvent.issue_id == found[0].id)).body == "0-day watch (version unknown)"
+    assert "data-unversioned" not in env.get(f"/campaigns/{c.id}").text
+
+
+def test_draft_campaigns_hidden_from_issue_and_rules_page_marks_them(env):
+    from app.campaigns import campaigns_for_issue
+    run(env, WatchNet())
+    php = campaigns(env)[PHP_CVE]
+    with env.app.state.SessionLocal() as db:
+        db.add(Issue(key=f"10.1.1.1:80|{PHP_CVE}", asset="10.1.1.1:80", vuln_id=PHP_CVE, cve_id=PHP_CVE, title="x"))
+        db.commit()
+        issue = db.scalar(select(Issue).where(Issue.vuln_id == PHP_CVE))
+        assert campaigns_for_issue(db, issue) == []
+    page = env.get("/rules").text
+    assert "waiting for activation" in page
+    rule = rules_of(env, php.id)[0]
+    csrf = get_csrf(env, "/rules")
+    r = env.post(f"/rules/{rule.id}/edit", data={"csrf": csrf, "name": rule.name, "product_pattern": "php",
+                                                 "version_constraint": "< 8.3.15", "severity": "high"},
+                 follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith(f"/campaigns/{php.id}")

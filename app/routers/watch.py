@@ -31,15 +31,16 @@ def watch_page(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/watch/settings", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
 def watch_settings(request: Request, enabled: bool = Form(False), min_cvss: str = Form("7.0"),
-                   kev_always: bool = Form(False), include_possible: bool = Form(False), db: Session = Depends(get_db)):
+                   kev_always: bool = Form(False), include_possible: bool = Form(False), max_drafts: str = Form("20"),
+                   db: Session = Depends(get_db)):
     try:
-        cfg = w.set_watch_settings(db, enabled, min_cvss, kev_always, include_possible)
+        cfg = w.set_watch_settings(db, enabled, min_cvss, kev_always, include_possible, max_drafts)
     except ValueError as e:
         db.rollback()
         return _page(request, db, 400, str(e))
     db.commit()
     audit(db, request, "settings.updated", target="0-day watch", enabled=cfg["enabled"], min_cvss=cfg["min_cvss"],
-          kev_always=cfg["kev_always"], include_possible=cfg["include_possible"])
+          kev_always=cfg["kev_always"], include_possible=cfg["include_possible"], max_drafts=cfg["max_drafts"])
     return RedirectResponse("/watch?msg=0-day+watch+settings+saved", status_code=303)
 
 

@@ -302,7 +302,22 @@ def test_nvd_pacing_and_default_limit(auth):
     net, sleeps = IntelNet(), []
     with auth.app.state.SessionLocal() as db:
         summary = risk.refresh_intel(db, auth.app.state.settings, net, sleep=sleeps.append)
-    assert summary["nvd"] == 5 and len(net.urls(intel.NVD_URL)) == 5 and sleeps == [6, 6, 6, 6]
+    assert summary["nvd"] == 5 and len(net.urls(intel.NVD_URL)) == 5 and sleeps == pytest.approx([6, 6, 6, 6], abs=0.5)
+
+
+def test_nvd_limiter_is_shared_between_callers():
+    clock = [100.0]
+    lim = intel.NvdLimiter(clock=lambda: clock[0])
+    waits = []
+    lim.wait(waits.append)                       # first call: no wait
+    clock[0] += 2
+    lim.wait(waits.append)                       # 2 s later, from another caller: waits the remaining 4 s
+    clock[0] += 10
+    lim.wait(waits.append)                       # long after: no wait
+    assert waits == [4.0]
+    from app import risk as rk, watch as wt
+    import inspect
+    assert "nvd_wait" in inspect.getsource(rk.refresh_intel) and "nvd_wait" in inspect.getsource(wt)
 
 
 def test_short_error_text_has_no_url():

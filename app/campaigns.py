@@ -179,7 +179,9 @@ def campaigns_for_issue(db: Session, issue: Issue) -> list[Campaign]:
     if issue.template_id:
         conds.append(Campaign.id.in_(select(CampaignTemplate.campaign_id).where(
             CampaignTemplate.template_id == issue.template_id)))
-    return list(db.scalars(select(Campaign).where(or_(*conds)))) if conds else []
+    if not conds:
+        return []
+    return list(db.scalars(select(Campaign).where(or_(*conds), Campaign.status.not_in(UNREVIEWED))))
 
 
 def progress(issues: list[Issue]) -> dict:
