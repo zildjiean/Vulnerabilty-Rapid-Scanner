@@ -2,7 +2,7 @@
 {% from "_schedule_parts.html" import schedules_table, schedule_form with context %}
 {% set section = "System" %}
 {% set page_title = "Schedules" %}
-{% set page_subtitle = "Recurring nmap discovery and nuclei scans per scope, and automatic re-verification of active campaigns. Times are in " ~ tz_name ~ "." %}
+{% set page_subtitle = "Recurring nmap discovery and nuclei scans per scope, external subdomain discovery of root domains, and automatic re-verification of active campaigns. Times are in " ~ tz_name ~ "." %}
 {% block page_actions %}{% if can('settings.manage') %}<a class="btn ghost" href="/settings"><svg class="icon"><use href="#i-clock"/></svg>Timezone</a>{% endif %}{% endblock %}
 {% block content %}
 <div class="grid {{ 'grid-issue' if can('scopes.manage') }}">
