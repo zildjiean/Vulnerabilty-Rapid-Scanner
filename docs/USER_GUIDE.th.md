@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.3.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.4.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -53,6 +53,7 @@ docker compose up -d --build
 | ส่วนบน (ใช้ทุกวัน) | Dashboard | ภาพรวม: issue ที่เปิดอยู่, เกิน SLA, campaign ที่ active, งานล่าสุด |
 | | Issues | รายการช่องโหว่ต่อ asset ที่ต้องจัดการ |
 | | Campaigns | ติดตาม CVE / 0-day แต่ละตัว |
+| | 0-day watch | ระบบเฝ้าดู CVE ใหม่จาก NVD / CISA KEV ทุกชั่วโมง แล้วสร้าง draft campaign ให้เมื่อกระทบ asset ของคุณ |
 | | Inventory | host, service, software, version ทั้งหมดที่เจอ |
 | | Reports | รายงานผู้บริหาร, รายงาน campaign / scope, export |
 | Scanning | Nmap scan, Nuclei scan | สั่งสแกนเอง |
@@ -211,6 +212,33 @@ New → Triaged → In progress → Fixed → Fix verified
 ## 7. รับมือ 0-day: Campaigns, Templates, Version rules
 
 นี่คือ flow หลักเมื่อมีช่องโหว่ใหม่ประกาศ
+
+### ให้ระบบเฝ้าดูให้: 0-day watch
+
+ระบบดึง CVE ใหม่จาก **NVD** และรายการใหม่ใน **CISA KEV** ทุกชั่วโมงเอง (ส่งออกไปแค่คำขอข้อมูลสาธารณะ ไม่ส่งข้อมูล
+inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE ที่ nmap ระบุ, ตารางชื่อ product ยอดนิยม (เช่น *Apache httpd*,
+*OpenSSH*, *nginx*, *PHP*, *Microsoft IIS*) และชื่อที่ใกล้เคียง จากนั้นเช็กเวอร์ชันกับช่วงที่ได้รับผลกระทบ
+
+- **confirmed** เวอร์ชันอ่านได้และอยู่ในช่วงที่มีช่องโหว่
+- **possible** เวอร์ชันไม่ชัด (เช่น `2.0.8 or later`) หรือไม่ทราบ ต้องตรวจเอง
+
+เมื่อมี asset เข้าข่าย ระบบสร้าง **Draft campaign** พร้อม intel, version rule (ยังปิดอยู่) และรายชื่อ asset แล้ว
+แจ้งเตือนผ่าน channel ที่ตั้งกฎ event *0-day watch draft* ไว้ (Slack, Teams, อีเมล, webhook)
+
+1. เปิด **Campaigns → แท็บ Draft** หรือการ์ด *Drafts waiting* บน Dashboard
+2. ตรวจ asset ที่ตรงและ rule (แก้ได้)
+3. กด **Activate** ระบบเปิด rule และสร้าง suspected issue ทันที รวมถึง asset ที่ไม่ทราบเวอร์ชัน หรือกด **Dismiss**
+   ถ้าไม่เกี่ยว (CVE นั้นจะไม่ถูกสร้าง draft อีก)
+4. ถ้ามี nuclei template ของ CVE นั้นแล้ว (หรือมีภายหลังเมื่ออัปเดต templates) ระบบแนบให้ campaign อัตโนมัติ กด
+   **Verify** ได้เลย
+
+หน้า **0-day watch** แสดงผลรอบล่าสุด, CVE ที่จับคู่ได้ และปุ่ม **Check now** / **Draft now** admin ตั้งค่าได้ที่หน้านี้:
+เปิด/ปิด, CVSS ขั้นต่ำ (ค่าเริ่มต้น 7.0), รวม KEV เสมอ, รวม match แบบ possible และจำนวน draft สูงสุดต่อรอบ
+(ค่าเริ่มต้น 20) ระบบสร้าง draft เฉพาะ CVE ที่เผยแพร่ภายใน 30 วันหรืออยู่ใน KEV ส่วนที่เกินโควตาจะถูกสร้างในรอบถัดไป
+
+> ข้อควรรู้: เวอร์ชันจาก distro (เช่น `5.7.33-0ubuntu0.18.04.1`) และ service ที่ไม่บอกเวอร์ชัน (เช่น *Microsoft Windows RPC*)
+> จะเป็น **possible** เสมอ เพราะ distro มัก backport แพตช์โดยไม่เปลี่ยนเลขเวอร์ชัน ตรวจก่อนกด Activate
+
 
 ### ขั้นตอนเร็วที่สุด
 
@@ -379,7 +407,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.3.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.4.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 
