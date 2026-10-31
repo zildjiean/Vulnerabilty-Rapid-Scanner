@@ -52,6 +52,8 @@ class JobRunner:
         self._tasks: set[asyncio.Task] = set()
         self._live: dict[int, list[str]] = {}
         self._cancel_requested: set[int] = set()
+        self._redact: dict[int, list[str]] = {}
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     # ----- creation / start -------------------------------------------------
     def create_job(self, db: Session, kind: str, argv: list[str], params: dict | None = None) -> Job:
@@ -63,10 +65,26 @@ class JobRunner:
 
     def start(self, job_id: int, argv: list[str], on_complete: Optional[CompletionHook] = None,
               env: dict | None = None, stdout_to_log: bool = True,
-              cleanup: Optional[Callable[[], None]] = None) -> asyncio.Task:
-        """``cleanup`` runs once the job has ended, whatever the outcome (done, failed, cancelled, cannot start)."""
-        task = asyncio.get_running_loop().create_task(self._run_and_clean(job_id, argv, on_complete, env, stdout_to_log,
-                                                                          cleanup))
+              cleanup: Optional[Callable[[], None]] = None, redact: list[str] | None = None) -> asyncio.Task | None:
+        """``on_complete`` and ``cleanup`` run in a worker thread (a large ingest must not freeze HTTP); ``cleanup``
+        runs once the job has ended, whatever the outcome (done, failed, cancelled, cannot start). Every string in
+        ``redact`` is replaced by [redacted] in the live and stored log and output.
+        Called from a worker thread (a completion hook chaining a job), the start is handed to the event loop and
+        None is returned."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is None:
+            if self._loop is None:
+                raise RuntimeError("JobRunner.start called outside the event loop before any job ran")
+            self._loop.call_soon_threadsafe(lambda: self.start(job_id, argv, on_complete, env, stdout_to_log, cleanup,
+                                                               redact))
+            return None
+        self._loop = loop
+        if redact:
+            self._redact[job_id] = sorted({r for r in redact if r}, key=len, reverse=True)
+        task = loop.create_task(self._run_and_clean(job_id, argv, on_complete, env, stdout_to_log, cleanup))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return task
@@ -101,7 +119,13 @@ class JobRunner:
     def _sem(self, kind: str) -> asyncio.Semaphore:
         return self._sems.setdefault(kind, asyncio.Semaphore(1))
 
+    def _scrub(self, job_id: int, text: str) -> str:
+        for secret in self._redact.get(job_id, ()):
+            text = text.replace(secret, "[redacted]")
+        return text
+
     def _publish(self, job_id: int, line: str) -> None:
+        line = self._scrub(job_id, line)
         lines = self._live.setdefault(job_id, [])
         if len(lines) >= MAX_LIVE_LINES:
             del lines[: len(lines) - MAX_LIVE_LINES + 1]
@@ -121,6 +145,8 @@ class JobRunner:
 
     def _finish(self, job_id: int, status: str, exit_code: int | None, output: str) -> None:
         log = "\n".join(self._live.pop(job_id, []))
+        output = self._scrub(job_id, output)
+        self._redact.pop(job_id, None)
         self._cancel_requested.discard(job_id)
         self._update(job_id, status=status, exit_code=exit_code, finished_at=utcnow(), log=log, output=output)
         for q in self._subs.pop(job_id, set()):
@@ -155,9 +181,19 @@ class JobRunner:
         finally:
             if cleanup is not None:
                 try:
-                    cleanup()
+                    await asyncio.to_thread(cleanup)
                 except Exception:  # noqa: BLE001 - never let cleanup mask the job result
                     pass
+
+    def _complete(self, job_id: int, on_complete: CompletionHook, output: str, live: str) -> Optional[str]:
+        """Runs in a worker thread with its own session. Hooks only use the database; one that chains a job calls
+        ``start``, which hands it back to the event loop."""
+        with self.session_factory() as db:
+            job = db.get(Job, job_id)
+            job.log = live
+            note = on_complete(db, job, output)
+            db.commit()
+        return note
 
     async def _run(self, job_id: int, argv: list[str], on_complete, env, stdout_to_log: bool) -> None:
         with self.session_factory() as db:
@@ -202,11 +238,8 @@ class JobRunner:
                 status = "failed"
             if on_complete is not None and status == "done":
                 try:
-                    with self.session_factory() as db:
-                        job = db.get(Job, job_id)
-                        job.log = "\n".join(self._live.get(job_id, []))  # hooks may inspect the tool's own status lines
-                        note = on_complete(db, job, output)
-                        db.commit()
+                    live = "\n".join(self._live.get(job_id, []))  # hooks may inspect the tool's own status lines
+                    note = await asyncio.to_thread(self._complete, job_id, on_complete, output, live)
                     self._publish(job_id, "[runner] results processed")
                     if isinstance(note, str) and note:
                         self._publish(job_id, note)
