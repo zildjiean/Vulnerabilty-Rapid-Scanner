@@ -113,6 +113,8 @@ docker compose up -d --build
 
 ทุกครั้งที่สแกน nmap เสร็จ ระบบเทียบผลกับ Inventory ก่อนสแกน แล้วบันทึกการเปลี่ยนแปลงไว้ที่เมนู **Changes**
 
+![หน้า Changes แสดงการเปลี่ยนแปลงของ attack surface](screenshots/changes.png)
+
 | ชนิด | ความหมาย |
 |---|---|
 | *New host* | เจอ host ที่ไม่เคยมีใน Inventory (1 รายการต่อ host พร้อมรายชื่อพอร์ตที่เปิด) |
@@ -130,6 +132,8 @@ docker compose up -d --build
 ### Discovery: ค้นหา asset ภายนอก
 
 ใช้หา subdomain และเว็บขององค์กรที่ทีมอาจไม่รู้ว่ามีอยู่ **ใช้กับโดเมนที่คุณเป็นเจ้าของหรือได้รับอนุญาตเท่านั้น**
+
+![หน้า Discovery พร้อมตาราง Discovered assets](screenshots/discovery.png)
 
 1. ไปที่ **Scanning → Discovery**
 2. **Root domains** ใส่บรรทัดละหนึ่งโดเมน เช่น `example.com` (สูงสุด 20 โดเมน ไม่ต้องใส่ `https://`)
@@ -334,6 +338,8 @@ inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE
 ### กราฟแนวโน้มบน Dashboard (Trends)
 
 การ์ด **Trends** บน Dashboard คำนวณจากประวัติ issue ที่มีอยู่แล้ว จึงเห็นย้อนหลังได้ทันที
+
+![การ์ด Trends บน Dashboard](screenshots/dashboard.png)
 
 | กราฟ | แสดงอะไร |
 |---|---|

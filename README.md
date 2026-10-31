@@ -93,6 +93,8 @@ Everything runs in one container. No external services, no accounts, works offli
 | ![Inventory](docs/screenshots/inventory.png) | ![Nuclei scan](docs/screenshots/nuclei.png) |
 | **Verify now and Proof** | **Verification template for a suspected issue** |
 | ![Proof](docs/screenshots/proof.png) | ![Verification template](docs/screenshots/verify-template.png) |
+| **Attack-surface changes** | **External asset discovery** |
+| ![Changes](docs/screenshots/changes.png) | ![Discovery](docs/screenshots/discovery.png) |
 
 <sub>Screenshots use fictional demo data (RFC 5737 documentation addresses, example.com hosts, made-up CVE ids).</sub>
 
