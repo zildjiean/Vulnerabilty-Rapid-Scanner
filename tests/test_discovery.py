@@ -960,3 +960,79 @@ def test_probe_cap_warning_has_no_nuclei_advice(auth, monkeypatch):
     assert "Done with warnings" in page and "probe cap" in page
     assert "Gentle profile" not in page and "Never drop unresponsive hosts" not in page
     assert "next discovery run probes them first" in page
+
+
+# ----------------------------------------------------------------- write-lock hold (re-review)
+def _count_commits(db):
+    from sqlalchemy import event
+    n = {"commits": 0}
+
+    def on_commit(_session):
+        n["commits"] += 1
+    event.listen(db, "after_commit", on_commit)
+    return n, lambda: event.remove(db, "after_commit", on_commit)
+
+
+def test_discovery_ingest_commits_in_chunks(client, db, monkeypatch):
+    """The write lock is held per chunk, not for the whole ingest; changes, baseline and the single notification
+    stay correct."""
+    channel(client, "slack", secret=SLACK, events=("surface.changed",), min_severity="low")
+    monkeypatch.setattr(dsc, "INGEST_CHUNK", 2)
+    j1 = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j1, sf("a.example.com"))
+    db.commit()
+    finish(db, j1)
+    j2 = make_job(db, ["example.com"])
+    n, stop = _count_commits(db)
+    hosts = [f"h{i}.example.com" for i in range(7)] + ["a.example.com"]
+    stats = dsc.complete_discovery(db, j2, sf(*hosts))
+    stop()
+    assert n["commits"] >= 4                      # 8 hosts in chunks of 2
+    assert stats["new"] == 7 and stats["notified"] == 7 and stats["baseline"] is False
+    assert len(list(db.scalars(select(SurfaceChange).where(SurfaceChange.job_id == j2.id)))) == 7
+    deliveries = list(db.scalars(select(Delivery)))
+    assert len(deliveries) == 1 and json.loads(deliveries[0].payload)["message"]["title"].endswith(": 7 new subdomains")
+
+
+def test_probe_ingest_commits_in_chunks(db, monkeypatch):
+    monkeypatch.setattr(dsc, "INGEST_CHUNK", 2)
+    j = make_job(db, ["example.com", "example.org"])
+    dsc.complete_discovery(db, j, SUBFINDER)
+    n, stop = _count_commits(db)
+    stats = dsc.ingest_probe(db, make_job(db, [], kind="discovery_probe"),
+                             ["www.example.com", "api.example.com", "mail.example.org", "dev.example.com"],
+                             dsc.parse_httpx_jsonl(HTTPX))
+    stop()
+    assert n["commits"] >= 2 and stats == {"probed": 4, "web": 2}
+    assert assets(db)["www.example.com"].web is True
+
+
+def test_cancel_during_hook_starts_no_probe(auth, monkeypatch):
+    runner = auth.app.state.job_runner
+    real = dsc.complete_discovery
+
+    def cancel_midway(db, job, output):
+        stats = real(db, job, output)
+        runner.cancel(job.id)               # the operator hits Cancel while results are being processed
+        return stats
+    monkeypatch.setattr(dsc, "complete_discovery", cancel_midway)
+    jid = job_id_of(start(auth))
+    wait_job(auth, jid)
+    time.sleep(0.3)
+    assert probe_job(auth, jid) is None
+    assert "cancel requested" in auth.get(f"/jobs/{jid}").text
+    with auth.app.state.SessionLocal() as s:
+        assert "www.example.com" in assets(s)        # the ingest itself is kept
+
+
+def test_version_probe_disables_update_check(settings, monkeypatch):
+    import asyncio
+    from app import updates
+    seen = []
+
+    async def capture(argv, timeout=15):
+        seen.append(argv)
+        return ""
+    monkeypatch.setattr(updates, "_run_capture", capture)
+    asyncio.run(updates.tool_versions(settings))
+    assert [settings.subfinder_bin, "-version", "-duc"] in seen and [settings.httpx_bin, "-version", "-duc"] in seen

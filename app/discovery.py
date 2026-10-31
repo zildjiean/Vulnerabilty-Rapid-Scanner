@@ -37,6 +37,7 @@ STATES = {"active": "Active", "ignored": "Ignored", "all": "All"}
 KEYS_SETTING = "discovery_source_keys"
 MAX_KEY_LEN = 512
 CHUNK = 500  # stay below SQLite's bound-parameter limit in IN (...) lists
+INGEST_CHUNK = 1000  # rows per commit: SQLite's single write lock is held per chunk (well under a second), not per job
 
 # subfinder providers whose keys can be set on the Settings page (id: label, expected format, two-part key?)
 PROVIDERS = {
@@ -304,34 +305,43 @@ def roots_with_assets(db: Session, roots: list[str]) -> set[str]:
     return set(db.scalars(select(DiscoveredAsset.root_domain).where(DiscoveredAsset.root_domain.in_(roots)).distinct()))
 
 
+def _chunks(items: list) -> list[list]:
+    return [items[i:i + INGEST_CHUNK] for i in range(0, len(items), INGEST_CHUNK)]
+
+
 def complete_discovery(db: Session, job: Job, output: str) -> dict:
     """Upsert the subdomains subfinder found, record ``subdomain_new`` changes for first-time names and send one
-    ``surface.changed`` notification for them. Roots no earlier job covered are a silent baseline."""
+    ``surface.changed`` notification for them once every chunk is in. Roots without assets before this ingest are a
+    silent baseline. Commits every INGEST_CHUNK hosts so other writers (the job runner, the web UI) never wait on
+    a long ingest; a re-run after a crash simply upserts the rest."""
     roots = [r for r in _params(job).get("domains") or [] if isinstance(r, str)]
     found = parse_subfinder_jsonl(output, roots)
     baseline = set(roots) - roots_with_assets(db, roots)  # before this ingest adds rows
     now, compiled = utcnow(), compile_scopes(db)
-    existing = _load(db, sorted(found))
     changes: list[tuple[SurfaceChange, str]] = []
-    for host in sorted(found):
-        info = found[host]
-        a = existing.get(host)
-        is_new = a is None
-        if is_new:
-            a = DiscoveredAsset(root_domain=info["root"], hostname=host, first_seen=now, sources="", web=False,
-                                ignored=False)
-            db.add(a)
-        old = [x for x in a.sources.split(",") if x]
-        a.sources = _join_capped(old + [x for x in info["sources"] if x not in old], 500)
-        a.last_seen, a.last_job_id = now, job.id
-        _rescope(db, compiled, a)
-        if is_new:
-            c = SurfaceChange(job_id=job.id, address=host, hostname=host, kind="subdomain_new",
-                              after=", ".join(info["sources"])[:surface.MAX_TEXT],
-                              severity=surface.KIND_SEVERITY["subdomain_new"], scope_id=a.scope_id, created_at=now)
-            db.add(c)
-            changes.append((c, info["root"]))
-    db.flush()
+    for chunk in _chunks(sorted(found)):
+        existing = _load(db, chunk)  # read before anything is pending, so the write lock starts at flush
+        for host in chunk:
+            info = found[host]
+            a = existing.get(host)
+            is_new = a is None
+            if is_new:
+                a = DiscoveredAsset(root_domain=info["root"], hostname=host, first_seen=now, sources="", web=False,
+                                    ignored=False)
+                db.add(a)
+            old = [x for x in a.sources.split(",") if x]
+            a.sources = _join_capped(old + [x for x in info["sources"] if x not in old], 500)
+            a.last_seen, a.last_job_id = now, job.id
+            _rescope(db, compiled, a)
+            if is_new:
+                c = SurfaceChange(job_id=job.id, address=host, hostname=host, kind="subdomain_new",
+                                  after=", ".join(info["sources"])[:surface.MAX_TEXT],
+                                  severity=surface.KIND_SEVERITY["subdomain_new"], scope_id=a.scope_id,
+                                  created_at=now)
+                db.add(c)
+                changes.append((c, info["root"]))
+        db.flush()
+        db.commit()
     to_notify = [c for c, root in changes if root not in baseline]
     if to_notify:
         try:
@@ -357,25 +367,27 @@ def probe_order(db: Session, hostnames: list[str], new: set[str]) -> list[str]:
 def ingest_probe(db: Session, job: Job, hosts: list[str], results: dict[str, dict]) -> dict:
     """Apply httpx answers to the probed rows; a probed host without an answer gets web=False."""
     now, compiled = utcnow(), compile_scopes(db)
-    rows = _load(db, list(hosts))
     probed = web = 0
-    for host in hosts:
-        a = rows.get(host)
-        if a is None:
-            continue
-        probed += 1
-        a.last_probed_at = now
-        r = results.get(host)
-        if r is None:
-            a.web, a.status_code = False, None   # url / title stay as history; never shown or used while web is off
-        else:
-            web += 1
-            a.web, a.url, a.status_code = True, r["url"], r["status_code"]
-            a.title, a.webserver, a.tech = r["title"], r["webserver"], _join_capped(r["tech"], 1000)
-            if r["ips"]:
-                a.ips = _join_capped(r["ips"], 1000)
-        _rescope(db, compiled, a)
-    db.flush()
+    for chunk in _chunks(list(hosts)):   # one commit per chunk, as in complete_discovery
+        rows = _load(db, chunk)
+        for host in chunk:
+            a = rows.get(host)
+            if a is None:
+                continue
+            probed += 1
+            a.last_probed_at = now
+            r = results.get(host)
+            if r is None:
+                a.web, a.status_code = False, None  # url / title stay as history; never shown or used while web is off
+            else:
+                web += 1
+                a.web, a.url, a.status_code = True, r["url"], r["status_code"]
+                a.title, a.webserver, a.tech = r["title"], r["webserver"], _join_capped(r["tech"], 1000)
+                if r["ips"]:
+                    a.ips = _join_capped(r["ips"], 1000)
+            _rescope(db, compiled, a)
+        db.flush()
+        db.commit()
     return {"probed": probed, "web": web}
 
 
@@ -542,7 +554,9 @@ def _discovery_hook(settings: Settings, runner, probe: bool):
         result = {"subdomains": stats["hosts"], "new": stats["new"]}
         note = (f"[discovery] {stats['hosts']} subdomain(s) found, {stats['new']} new"
                 + (" (first run for some roots: baseline, not notified)" if stats["baseline"] and stats["new"] else ""))
-        if probe and hostnames:
+        if probe and hostnames and runner.cancel_requested(job.id):
+            note += "; cancel requested while results were processed: web probe not started"
+        elif probe and hostnames:
             hosts = probe_order(db, hostnames, set(stats["new_hostnames"]))
             if hosts:
                 # The ingest is complete: commit it first, so nothing below can turn this job into a failure.
