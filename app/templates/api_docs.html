@@ -16,7 +16,7 @@ curl -s -H "Authorization: Bearer $ZDRS_KEY" {{ B }}/me</pre>
   <tbody>
   {% for m, p, perm, desc in [
     ('GET', '/me', 'view', 'Key owner, role and key name.'),
-    ('GET', '/issues', 'view', 'Issues. Query: view (active|closed|all), status, severity, scope (id|none), assignee (me|none|id), confidence, overdue=1, q, limit (≤500), offset.'),
+    ('GET', '/issues', 'view', 'Issues. Query: view (active|closed|all), status, severity, scope (id|none), assignee (me|none|id), confidence (suspected|confirmed|verified), overdue=1, q, limit (≤500), offset.'),
     ('GET', '/issues/{id}', 'view', 'One issue with timeline events, finding count and tickets.'),
     ('PATCH', '/issues/{id}', 'issues.manage', 'Body: status, comment, severity, assignee (username or null).'),
     ('GET', '/assets', 'view', 'Inventory hosts with services and scope.'),

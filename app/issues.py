@@ -12,12 +12,12 @@ from urllib.parse import urlsplit
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db import AppSetting, Finding, Host, Issue, IssueEvent, Rule, RuleMatch, Service, utcnow
+from .db import AppSetting, Finding, Host, Issue, IssueEvent, Job, Rule, RuleMatch, Service, utcnow
 from .render import SEVERITY_ORDER, normalize_severity
 
 STATUSES = ("new", "triaged", "in_progress", "fixed", "verified", "false_positive", "accepted_risk")
 STATUS_LABELS = {"new": "New", "triaged": "Triaged", "in_progress": "In progress", "fixed": "Fixed",
-                 "verified": "Verified", "false_positive": "False positive", "accepted_risk": "Accepted risk"}
+                 "verified": "Fix verified", "false_positive": "False positive", "accepted_risk": "Accepted risk"}
 ACTIVE = ("new", "triaged", "in_progress", "fixed")       # fixed = awaiting verification
 OPEN_WORK = ("new", "triaged", "in_progress")              # still needs remediation; the SLA clock runs
 CLOSED = ("verified", "false_positive", "accepted_risk")
@@ -32,7 +32,8 @@ TRANSITIONS = {
     "false_positive": ["triaged"],
     "accepted_risk": ["triaged"],
 }
-CONFIDENCE_LABELS = {"suspected": "Suspected", "confirmed": "Confirmed"}
+CONFIDENCE_LABELS = {"suspected": "Suspected", "confirmed": "Confirmed", "verified": "Verified"}
+SCAN_CONFIRMED = ("confirmed", "verified")   # seen by a scan; verified = Verify now reproduced it with proof
 ISSUE_SEVERITIES = ("critical", "high", "medium", "low")   # info / unknown never become issues
 DEFAULT_SLA = {"critical": 3, "high": 7, "medium": 30, "low": 90}
 SLA_KEY = "sla_days"
@@ -158,7 +159,7 @@ def _set_status(db: Session, issue: Issue, new: str, actor, kind: str = "status"
     else:
         issue.resolved_at = None
     # confirmed fixes are re-scanned automatically (app/reverify.py); any other move cancels a pending request
-    if new == "fixed" and issue.confidence == "confirmed" and issue.template_id:
+    if new == "fixed" and issue.confidence in SCAN_CONFIRMED and issue.template_id:
         issue.reverify_requested_at, issue.reverify_job_id = issue.status_changed_at, None
     else:
         issue.reverify_requested_at = None
@@ -199,7 +200,7 @@ def upsert_issue(db: Session, *, address: str, port: str, hostname: str, vuln_id
     if count_sighting:
         issue.occurrences += 1
         _event(db, issue, "seen", body=source, at=seen_at)
-    if confidence == "confirmed" and issue.confidence != "confirmed":
+    if confidence == "confirmed" and issue.confidence == "suspected":   # never downgrades verified
         issue.confidence = "confirmed"
         issue.title = title[:512] or issue.title
         _event(db, issue, "confirmed", from_value="suspected", to_value="confirmed", body=source)
@@ -312,8 +313,32 @@ def backfill_issues(db: Session) -> int:
     pending = list(db.scalars(select(Finding).where(Finding.issue_id.is_(None),
                                                      Finding.severity.in_(ISSUE_SEVERITIES))))
     created = issues_from_findings(db, pending) + sync_rule_issues(db)
+    backfill_verified(db)
     db.commit()
     return created
+
+
+def backfill_verified(db: Session) -> int:
+    """Issues reproduced by Verify now before the verified confidence existed become verified. Idempotent."""
+    todo = list(db.scalars(select(Issue).where(Issue.verify_result == "reproduced", Issue.confidence == "confirmed")))
+    if not todo:
+        return 0
+    last_job: dict[int, int] = {}
+    for jid, params in db.execute(select(Job.id, Job.params_json).where(Job.params_json.like('%"verify_issue"%'))
+                                  .order_by(Job.id)):
+        try:
+            iid = json.loads(params or "{}").get("verify_issue")
+        except (json.JSONDecodeError, AttributeError):
+            continue
+        if isinstance(iid, int):
+            last_job[iid] = jid
+    for issue in todo:
+        newest = select(Finding.id).where(Finding.issue_id == issue.id).order_by(Finding.id.desc()).limit(1)
+        fid = db.scalar(newest.where(Finding.job_id == last_job[issue.id])) if issue.id in last_job else None
+        issue.verified_finding_id = fid or db.scalar(newest)
+        issue.confidence = "verified"
+    db.flush()
+    return len(todo)
 
 
 # ----------------------------------------------------------------- user actions

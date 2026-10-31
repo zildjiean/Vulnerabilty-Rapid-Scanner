@@ -200,3 +200,20 @@ def test_permissions(env):
                  f"/campaigns/{cid}/status", f"/campaigns/{cid}/refresh"):
         assert env.post(path, data={"csrf": csrf}).status_code == 403, path
     assert "New campaign" not in env.get("/campaigns").text
+
+
+def test_progress_counts_verified_issues_and_links_the_badge(env):
+    cid = int(create(env).headers["location"].rsplit("/", 1)[1])
+    with env.app.state.SessionLocal() as db:
+        c = db.get(Campaign, cid)
+        issue = camp.campaign_issues(db, c)[0]
+        issue.confidence = "verified"
+        db.commit()
+        iid = issue.id
+        p = camp.progress(camp.campaign_issues(db, c))
+        assert (p["confirmed"], p["conf_verified"], p["suspected"], p["scan_confirmed"]) == (0, 1, 0, 1)
+    page = env.get(f"/campaigns/{cid}").text
+    assert "0 confirmed · 1 verified · 0 suspected" in page
+    assert f'class="badge conf-verified" href="/issues/{iid}#proof"' in page
+    report = env.get(f"/reports/campaigns/{cid}").text   # printable: badge without an in-app link
+    assert '<span class="badge conf-verified"' in report and f'href="/issues/{iid}#proof"' not in report

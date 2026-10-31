@@ -86,10 +86,10 @@ def set_smtp(db: Session, box, host: str, port: str, security: str, username: st
 def issue_message(db: Session, issue: Issue, event: str, note: str = "") -> ch.Message:
     label = {"issue.created": "New issue", "issue.reopened": "Reopened", "issue.overdue": "Overdue",
              "issue.assigned": "Assigned", "issue.status_changed": "Status changed"}.get(event, "Issue")
-    from .issues import STATUS_LABELS
+    from .issues import CONFIDENCE_LABELS, STATUS_LABELS
     fields = [("Asset", issue.asset + (f" ({issue.hostname})" if issue.hostname and issue.hostname != issue.address else "")),
               ("Vulnerability", issue.vuln_id), ("Status", STATUS_LABELS.get(issue.status, issue.status)),
-              ("Confidence", issue.confidence)]
+              ("Confidence", CONFIDENCE_LABELS.get(issue.confidence, issue.confidence))]
     if issue.scope_id and issue.scope:
         fields.append(("Scope", f"{issue.scope.name} ({issue.scope.criticality})"))
     assignee = db.get(User, issue.assignee_id) if issue.assignee_id else None

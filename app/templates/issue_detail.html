@@ -9,7 +9,7 @@
 {% block content %}
 <div class="issue-head card mb"><div class="card-body row center" style="gap:10px">
   <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="Changed manually; scans no longer raise it">(manual)</span>{% endif %}
-  {{ status_badge(issue.status) }} {{ confidence_badge(issue.confidence) }}
+  {{ status_badge(issue.status) }} {{ confidence_badge(issue.confidence, issue) }}
   {% if issue.status == 'fixed' and issue.reverify_job_id %}<span class="status st-running" title="Re-verification scan"><a href="/jobs/{{ issue.reverify_job_id }}">re-verifying (job #{{ issue.reverify_job_id }})</a></span>
   {% elif issue.status == 'fixed' and issue.reverify_requested_at %}<span class="status st-queued">{% if reverify.enabled %}re-verify queued{% else %}re-verify paused (Settings){% endif %}</span>{% endif %}
   {% if issue.verify_job_id %}<span class="status st-running" title="Verification scan"><a href="/jobs/{{ issue.verify_job_id }}">verifying (job #{{ issue.verify_job_id }})</a></span>
@@ -82,6 +82,7 @@
             <div class="ev-body">
               {% if e.kind == 'created' %}Created from {{ e.body }}
               {% elif e.kind == 'seen' %}Seen again: {{ e.body }}
+              {% elif e.kind == 'confirmed' and 'verified' in (e.from_value, e.to_value) %}Confidence: {{ issue_confidence_labels.get(e.from_value, e.from_value) }} → {{ issue_confidence_labels.get(e.to_value, e.to_value) }} — {{ e.body }}
               {% elif e.kind == 'confirmed' %}Confirmed by a scan: {{ e.body }}
               {% elif e.kind in ('status', 'reopened', 'auto_fixed') %}{{ {'reopened': 'Reopened', 'auto_fixed': 'Automatically marked fixed'}.get(e.kind, 'Status') }}: {{ issue_status_labels.get(e.from_value, e.from_value) }} → {{ issue_status_labels.get(e.to_value, e.to_value) }}{% if e.body %}<div class="text-2 small">{{ e.body }}</div>{% endif %}
               {% elif e.kind == 'assigned' %}{% if e.to_value %}Assigned to {{ e.to_value }}{% else %}Unassigned{% endif %}{% if e.from_value %} <span class="text-2">(was {{ e.from_value }})</span>{% endif %}

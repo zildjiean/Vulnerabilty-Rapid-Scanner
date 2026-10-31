@@ -158,3 +158,28 @@ def test_dashboard_and_findings_link_issues(auth):
     assert 'href="/issues"' in r.text and "Active issues" in r.text
     r = auth.get("/findings")
     assert f'href="/issues/{ids["CVE-2021-41773"]}"' in r.text
+
+
+def test_verified_confidence_kpis_filter_and_fix_verified_status_label(auth):
+    from app.routers.issues import issue_kpis
+    ids = seed(auth, SPECS)
+    with auth.app.state.SessionLocal() as db:
+        db.get(Issue, ids["CVE-2021-41773"]).confidence = "verified"
+        db.get(Issue, ids["weak-cipher"]).confidence = "suspected"
+        db.commit()
+        k = issue_kpis(db)
+        assert (k["confirmed"], k["conf_verified"], k["suspected"], k["scan_confirmed"]) == (1, 1, 1, 2)
+    page = auth.get("/issues").text
+    assert "1 confirmed · 1 verified · 1 suspected" in page
+    assert '<option value="verified"' in page and "conf-verified" in page
+    filtered = auth.get("/issues?confidence=verified").text
+    assert "CVE-2021-41773 title" in filtered and "exposed-panel title" not in filtered
+    assert iss.CONFIDENCE_LABELS["verified"] == "Verified" and iss.STATUS_LABELS["verified"] == "Fix verified"
+    with auth.app.state.SessionLocal() as db:
+        i = db.get(Issue, ids["exposed-panel"])
+        iss.change_status(db, i, "fixed", actor=None)
+        iss.change_status(db, i, "verified", actor=None)
+        db.commit()
+    closed = auth.get("/issues?view=closed").text
+    assert "Fix verified" in closed and "exposed-panel title" in closed
+    assert "Fix verified" in auth.get(f"/issues/{ids['exposed-panel']}").text

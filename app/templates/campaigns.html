@@ -16,7 +16,7 @@
       <td><a class="issue-title" href="/campaigns/{{ c.id }}">{{ c.name }}</a><div class="row center small" style="gap:6px;margin-top:2px">{% if c.cve_id and c.cve_id != c.name %}<span class="cell-mono text-2">{{ c.cve_id }}</span>{% endif %}<span class="badge sev-{{ c.severity }}">{{ c.severity }}</span>{{ kev_badge(c) }}</div></td>
       <td class="num" data-value="{{ c.cvss_score or 0 }}">{{ c.cvss_score if c.cvss_score is not none else '—' }}</td>
       <td class="num" data-value="{{ p.total }}">{{ p.total }}</td>
-      <td class="num" data-value="{{ p.confirmed }}">{{ p.confirmed }}</td>
+      <td class="num" data-value="{{ p.scan_confirmed }}" title="Confirmed or verified by a scan">{{ p.scan_confirmed }}</td>
       <td class="num" data-value="{{ p.open }}">{{ p.open }}</td>
       <td style="min-width:160px">{{ progress_bar(p) }}<div class="small text-2 num">{{ p.remediated_pct }}% remediated</div></td>
       <td><span class="status {{ 'st-running' if c.status == 'active' else 'st-done' }}">{{ c.status }}</span></td>

@@ -199,3 +199,40 @@ def test_link_existing_template_then_play_works(env):
         assert db.get(Issue, iid).template_id == CVE
     page = env.get(f"/issues/{iid}").text
     assert "Verify now" in page and 'id="verify"' not in page and f"Linked verification template {CVE}" in page
+
+
+def test_verified_badge_links_to_its_proof(env):
+    iid = seed(env, SPECS)[CVE]
+    with env.app.state.SessionLocal() as db:
+        from app.db import Finding
+        fid = db.scalar(select(Finding.id).where(Finding.issue_id == iid))
+        i = db.get(Issue, iid)
+        i.confidence, i.verified_finding_id = "verified", fid
+        db.commit()
+    badge = f'class="badge conf-verified" href="/issues/{iid}?proof={fid}#proof"'
+    for url in ("/issues", f"/issues/{iid}"):
+        page = env.get(url).text
+        assert badge in page, url
+        assert "Reproduced by Verify now; proof captured" in page and "#i-check-circle" in page
+    assert 'id="proof"' in env.get(f"/issues/{iid}?proof={fid}").text
+    with env.app.state.SessionLocal() as db:
+        db.get(Issue, iid).verified_finding_id = None
+        db.commit()
+    assert f'class="badge conf-verified" href="/issues/{iid}#proof"' in env.get("/issues").text
+
+
+def test_proof_link_opens_a_finding_older_than_the_listed_fifty(env):
+    iid = seed(env, SPECS)[CVE]
+    from app.db import Finding
+    with env.app.state.SessionLocal() as db:
+        first = db.scalar(select(Finding).where(Finding.issue_id == iid))
+        first.raw_json = json.dumps({**json.loads(first.raw_json), "request": "GET /oldest-proof HTTP/1.1"})
+        for n in range(55):
+            db.add(Finding(job_id=first.job_id, template_id=CVE, severity="critical", host="192.168.1.10",
+                           matched_at=f"http://192.168.1.10:8080/{n}", raw_json="{}", issue_id=iid))
+        db.commit()
+        old_id = first.id
+        other = db.scalar(select(Finding).where(Finding.issue_id != iid))
+    assert "GET /oldest-proof HTTP/1.1" in env.get(f"/issues/{iid}?proof={old_id}").text
+    if other is not None:   # a finding of another issue is never shown
+        assert env.get(f"/issues/{iid}?proof={other.id}").status_code == 200

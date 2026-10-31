@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.1.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.2.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -146,14 +146,16 @@ docker compose up -d --build
 
 Issue คือ "ช่องโหว่ 1 ตัว บน asset 1 ตัว" รวมผลจากหลาย scan ไม่ซ้ำกัน
 
-**แหล่งที่มา**
+**ระดับความมั่นใจ (Confidence)**
 - *Suspected* (สงสัย) จาก version rule ที่ตรงกับเวอร์ชันใน inventory ยังไม่ได้ยิงทดสอบจริง
-- *Confirmed* (ยืนยันแล้ว) จาก nuclei ที่เจอจริง
+- *Confirmed* (ยืนยันแล้ว) จาก nuclei ที่เจอจริงตอนสแกน
+- *Verified* ✓ (พิสูจน์แล้ว) กด **Verify now** แล้วยิงซ้ำเจอจริง มีหลักฐาน request/response เก็บไว้ คลิกป้ายเพื่อเปิดหลักฐาน
+  issue ยังเปิดอยู่จนกว่าจะแก้ ถ้าภายหลัง Verify now ไม่เจอแล้ว จะกลับเป็น Confirmed
 
 **วงจรสถานะ**
 
 ```
-New → Triaged → In progress → Fixed → Verified
+New → Triaged → In progress → Fixed → Fix verified
                      ↘ False positive / Accepted risk (ต้องใส่เหตุผล)
 ```
 
@@ -162,7 +164,7 @@ New → Triaged → In progress → Fixed → Verified
 2. ติ๊กหลายแถวแล้ว **Assign** / **Set status** ทีเดียว
 3. เปิด issue เพื่อดูหลักฐาน (request/response), timeline, ใส่ comment, เปลี่ยน owner หรือ severity
 4. เมื่อแก้แล้วตั้งเป็น **Fixed** ระบบจะ **re-verify** อัตโนมัติด้วย template เดิม
-   - ไม่เจอแล้ว → **Verified**
+   - ไม่เจอแล้ว → **Fix verified** (ปิดงาน)
    - ยังเจอ → **Reopened**
    - สแกนไม่สมบูรณ์ → คงไว้ที่ Fixed พร้อมหมายเหตุ
 5. issue ที่ปิดแล้วจะเปิดใหม่เองถ้าสแกนเจออีก และ issue *suspected* จะปิดเองเมื่อสแกนพบเวอร์ชันที่แก้แล้ว
@@ -179,7 +181,7 @@ New → Triaged → In progress → Fixed → Verified
 
 - ปุ่ม **Verify now** (ไอคอน ▶) บนหน้า issue, ท้ายแถวในตาราง Issues และในตาราง Exposure ของ Campaign จะรัน nuclei
   ด้วย template ตัวเดิมต่อ asset นั้นตัวเดียว ผลขึ้นเป็นป้าย **reproduced** / **not reproduced** / **inconclusive**
-  พร้อมบันทึกใน timeline ถ้า reproduced issue จะกลายเป็น confirmed
+  พร้อมบันทึกใน timeline ถ้า reproduced issue จะขึ้นเป็น **Verified** พร้อมลิงก์หลักฐาน
 - การ์ด **Proof** แสดง HTTP request/response ที่ nuclei ใช้ match, matcher, ค่าที่ดึงได้ และปุ่ม **Copy curl**
   สำหรับยิงซ้ำด้วยมือ กด *proof* ที่แถวใน Evidence เพื่อดูของ job อื่น
 - issue ที่มาจาก version rule ยังไม่มี template: การ์ด **Verification template** ให้ค้นหา template ที่มีอยู่แล้ว
@@ -201,7 +203,7 @@ New → Triaged → In progress → Fixed → Verified
 3. ใส่ **Product pattern (regex)** และ **Vulnerable versions** เช่น `php` กับ `< 8.3.15` หรือ `>= 2.0, < 2.4.62`
    - ไม่แน่ใจ ให้วาง advisory ในช่อง *Advisory text* แล้วกด **Draft campaign with AI** ระบบเติมฟอร์มให้ตรวจ
 4. บันทึก → asset ที่เข้าข่ายใน inventory ขึ้นเป็น **suspected issues ทันที** โดยไม่ต้องยิงอะไรไปที่เป้าหมาย
-5. ถ้ามี nuclei template ของ CVE นี้ ผูกไว้กับ campaign แล้วกด **Verify** ระบบสแกนเฉพาะ asset ที่เข้าข่าย (เพิ่ม target เองได้) ผลที่เจอจริงยืนยันเป็น *confirmed*
+5. ถ้ามี nuclei template ของ CVE นี้ ผูกไว้กับ campaign แล้วกด **Verify** ระบบสแกนเฉพาะ asset ที่เข้าข่าย (เพิ่ม target เองได้) ผลที่เจอจริงยืนยันเป็น *confirmed* และกด Verify now ที่แต่ละแถวเพื่อเก็บหลักฐานเป็น *Verified*
 6. ติดตามความคืบหน้าแก้ไขในหน้า campaign และออก campaign report
 
 ### ยังไม่มี template ทางการ?
@@ -361,7 +363,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.1.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.2.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

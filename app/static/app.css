@@ -348,6 +348,8 @@ dialog.confirm .actions{display:flex;justify-content:flex-end;gap:8px;margin-top
 .status .icon.sm{width:12px;height:12px;margin-right:4px}
 .timeline li.ev-verify::before{border-color:var(--primary)}
 .badge.conf-confirmed{background:var(--danger-soft);color:var(--danger)}
+.badge.conf-verified{background:var(--success-soft);color:var(--success);text-decoration:none}
+.badge.conf-verified:hover{text-decoration:underline}
 .badge.conf-suspected{background:var(--surface-3);color:var(--text-2);border:1px dashed var(--border-strong)}
 .due{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .due.overdue{color:var(--danger);font-weight:600}

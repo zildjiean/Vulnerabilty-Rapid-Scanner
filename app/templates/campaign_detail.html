@@ -19,7 +19,7 @@
   <span class="small text-2">Started {{ c.created_at.strftime('%Y-%m-%d %H:%M') }} UTC by {{ c.created_by or 'unknown' }}</span>
 </div></div>
 <div class="grid grid-4 mb">
-  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">Exposed assets</div><div class="kpi-value">{{ p.total }}</div><div class="kpi-sub">{{ p.confirmed }} confirmed · {{ p.suspected }} suspected</div></div></div>
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">Exposed assets</div><div class="kpi-value">{{ p.total }}</div><div class="kpi-sub">{{ p.confirmed }} confirmed · {{ p.conf_verified }} verified · {{ p.suspected }} suspected</div></div></div>
   <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-alert"/></svg></div><div><div class="kpi-label">Open</div><div class="kpi-value">{{ p.open }}</div><div class="kpi-sub">new, triaged or in progress</div></div></div>
   <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div style="flex:1"><div class="kpi-label">Remediated</div><div class="kpi-value">{{ p.remediated_pct }}%</div>{{ progress_bar(p) }}</div></div>
   <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">CVSS {{ c.cvss_version }}</div><div class="kpi-value">{{ c.cvss_score if c.cvss_score is not none else '—' }}</div><div class="kpi-sub">{{ c.cvss_severity or 'not scored yet' }}</div></div></div>
@@ -50,7 +50,7 @@
         <tr class="{{ 'row-overdue' if issue_is_overdue(i) }}">
           <td class="cell-mono small">{{ i.asset }}{% if i.hostname and i.hostname != i.address %}<div class="text-2">{{ i.hostname }}</div>{% endif %}</td>
           <td><a href="/issues/{{ i.id }}">#{{ i.id }}</a> <span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td>
-          <td>{{ confidence_badge(i.confidence) }}</td><td>{{ status_badge(i.status) }}</td>
+          <td>{{ confidence_badge(i.confidence, i) }}</td><td>{{ status_badge(i.status) }}</td>
           <td class="small">{{ (i.assignee.display_name or i.assignee.username) if i.assignee else '—' }}</td>
           <td class="small">{{ due_cell(i) }}</td>
           {% if playcol %}<td class="num">{{ play_button(i, csrf, '/campaigns/' ~ c.id) }}</td>{% endif %}

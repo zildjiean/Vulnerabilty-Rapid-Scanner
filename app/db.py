@@ -183,7 +183,7 @@ class Issue(Base):
     title: Mapped[str] = mapped_column(String(512), default="")
     severity: Mapped[str] = mapped_column(String(16), default="unknown")
     severity_overridden: Mapped[bool] = mapped_column(Boolean, default=False)
-    confidence: Mapped[str] = mapped_column(String(16), default="suspected")  # suspected | confirmed
+    confidence: Mapped[str] = mapped_column(String(16), default="suspected")  # suspected | confirmed | verified
     status: Mapped[str] = mapped_column(String(24), default="new", index=True)
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -201,6 +201,7 @@ class Issue(Base):
     verify_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)       # one-click "Verify now" scan
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     verify_result: Mapped[str] = mapped_column(String(16), default="")              # "" | reproduced | not_reproduced | inconclusive
+    verified_finding_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # the finding that proved "verified"
     assignee: Mapped["User | None"] = relationship()
     scope: Mapped["Scope | None"] = relationship()
     events: Mapped[list["IssueEvent"]] = relationship(back_populates="issue", cascade="all, delete-orphan",
@@ -458,6 +459,7 @@ _ADDED_COLUMNS = [
     ("issues", "verify_job_id", "INTEGER"),
     ("issues", "last_verified_at", "DATETIME"),
     ("issues", "verify_result", "VARCHAR(16) NOT NULL DEFAULT ''"),
+    ("issues", "verified_finding_id", "INTEGER"),
 ]
 
 

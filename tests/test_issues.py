@@ -302,3 +302,43 @@ def test_backfill_is_idempotent(db):
     assert confirmed.occurrences == 2
     # timeline shows when the scan saw it, not when the backfill ran
     assert [e.created_at for e in confirmed.events] == [datetime(2026, 10, 1, 8, 0), datetime(2026, 10, 2, 8, 0)]
+
+
+def test_nuclei_sighting_does_not_downgrade_verified(db):
+    j = job(db)
+    iss.issues_from_findings(db, [finding(db, j)], j)
+    issue = db.scalar(select(Issue))
+    issue.confidence = "verified"
+    db.commit()
+    j2 = job(db)
+    iss.issues_from_findings(db, [finding(db, j2)], j2)
+    db.commit()
+    assert issue.confidence == "verified" and "confirmed" not in events(db, issue)
+
+
+def test_backfill_marks_reproduced_issues_verified(db):
+    j = job(db)
+    f_old = finding(db, j)
+    other = finding(db, j, template_id="exposed-panel", host="10.0.0.6", ip="10.0.0.6", port="8080",
+                    matched_at="https://10.0.0.6:8080/", cve=None, name="Panel")
+    plain = finding(db, j, template_id="weak-cipher", host="10.0.0.7", ip="10.0.0.7", port="443",
+                    matched_at="https://10.0.0.7/", cve=None, name="Cipher")
+    db.flush()
+    iss.issues_from_findings(db, [f_old, other, plain], j)
+    a, b, c = (db.get(Issue, f.issue_id) for f in (f_old, other, plain))
+    vj = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issue": a.id}))
+    db.add(vj)
+    db.flush()
+    f_proof = finding(db, vj)
+    iss.issues_from_findings(db, [f_proof], vj)
+    f_later = finding(db, j)          # a newer sighting from a normal scan: the verify job's finding still wins
+    iss.issues_from_findings(db, [f_later], j)
+    a.verify_result = b.verify_result = "reproduced"   # b has no verify job on record: falls back to its newest finding
+    c.verify_result = "not_reproduced"
+    db.commit()
+    iss.backfill_issues(db)
+    assert (a.confidence, a.verified_finding_id) == ("verified", f_proof.id)
+    assert (b.confidence, b.verified_finding_id) == ("verified", other.id)
+    assert (c.confidence, c.verified_finding_id) == ("confirmed", None)
+    iss.backfill_issues(db)           # idempotent
+    assert a.verified_finding_id == f_proof.id

@@ -47,7 +47,9 @@ def issue_kpis(db: Session) -> dict:
         "due_soon": sum(1 for i in open_work if i.due_at and now <= i.due_at <= now + timedelta(days=7)),
         "unassigned": sum(1 for i in open_work if i.assignee_id is None),
         "confirmed": sum(1 for i in active if i.confidence == "confirmed"),
+        "conf_verified": sum(1 for i in active if i.confidence == "verified"),
         "suspected": sum(1 for i in active if i.confidence == "suspected"),
+        "scan_confirmed": sum(1 for i in active if i.confidence in iss.SCAN_CONFIRMED),
         "awaiting_verification": sum(1 for i in active if i.status == "fixed"),
         "critical": sum(1 for i in open_work if i.severity == "critical"),
     }
@@ -110,7 +112,11 @@ def _get(db: Session, issue_id: int) -> Issue:
 def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200, error: str | None = None, **extra):
     findings = list(db.scalars(select(Finding).where(Finding.issue_id == issue.id).order_by(Finding.id.desc()).limit(50)))
     wanted = request.query_params.get("proof", "")
-    selected = next((f for f in findings if str(f.id) == wanted), findings[0] if findings else None)
+    selected = next((f for f in findings if str(f.id) == wanted), None)
+    if selected is None and wanted.isascii() and wanted.isdigit() and len(wanted) < 12:   # older than the 50 listed
+        older = db.get(Finding, int(wanted))
+        selected = older if older is not None and older.issue_id == issue.id else None
+    selected = selected or (findings[0] if findings else None)
     rule = db.get(Rule, issue.rule_id) if issue.rule_id else None
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
                   findings=findings, rule=rule, users=assignable_users(db), verify_labels=proof.VERIFY_LABELS,
