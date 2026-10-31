@@ -31,6 +31,15 @@ class LLMError(Exception):
     pass
 
 
+class LLMRefusal(LLMError):
+    """The model declined: safety classifier, provider content filter, or a refusal written as prose."""
+
+
+_REFUSAL_RE = re.compile(
+    r"\b(I can(?:')?t|I cannot|I(?:'m| am) unable|I won(?:')?t|not able to (?:help|assist|provide|create)|"
+    r"against (?:my|our) (?:guidelines|policies)|can(?:')?t help with)\b", re.I)
+
+
 @dataclass
 class LLMRequest:
     system: str
@@ -76,6 +85,18 @@ def _parse_json(text: str) -> dict:
     return data
 
 
+def _parse_or_refusal(text: str, r: LLMRequest) -> dict | None:
+    """Structured answers must parse; prose that reads like a refusal is reported as one."""
+    if r.json_schema is None:
+        return None
+    try:
+        return _parse_json(text)
+    except LLMError:
+        if _REFUSAL_RE.search(text[:600]):
+            raise LLMRefusal(f'the model answered: "{text.strip()[:160]}"') from None
+        raise
+
+
 def _claude(config: dict, secret: dict, r: LLMRequest) -> LLMResult:
     if not secret.get("api_key"):
         raise LLMError("No API key configured for this provider.")
@@ -102,12 +123,12 @@ def _claude(config: dict, secret: dict, r: LLMRequest) -> LLMResult:
         raise LLMError(f"Cannot reach the Claude API: {e}") from e
     if resp.stop_reason == "refusal":
         category = getattr(resp.stop_details, "category", None) if resp.stop_details else None
-        raise LLMError(f"The request was declined by the model's safety classifier ({category or 'unspecified'}).")
+        raise LLMRefusal(f"The request was declined by the model's safety classifier ({category or 'unspecified'}).")
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
     if resp.stop_reason == "max_tokens" and r.json_schema:
         raise LLMError("The answer hit the provider's max output tokens. Raise it in AI settings.")
     usage = getattr(resp, "usage", None)
-    return LLMResult(text=text, data=_parse_json(text) if r.json_schema else None, model=getattr(resp, "model", model),
+    return LLMResult(text=text, data=_parse_or_refusal(text, r), model=getattr(resp, "model", model),
                      input_tokens=getattr(usage, "input_tokens", 0) or 0, output_tokens=getattr(usage, "output_tokens", 0) or 0)
 
 
@@ -143,9 +164,9 @@ def _openai_family(kind: str, config: dict, secret: dict, r: LLMRequest) -> LLMR
     if choice.finish_reason == "length" and r.json_schema:
         raise LLMError("The answer hit the provider's max output tokens. Raise it in AI settings.")
     if choice.finish_reason == "content_filter":
-        raise LLMError("The provider's content filter blocked the answer.")
+        raise LLMRefusal("the provider's content filter blocked the answer")
     usage = getattr(resp, "usage", None)
-    return LLMResult(text=text, data=_parse_json(text) if r.json_schema else None, model=getattr(resp, "model", model) or model,
+    return LLMResult(text=text, data=_parse_or_refusal(text, r), model=getattr(resp, "model", model) or model,
                      input_tokens=getattr(usage, "prompt_tokens", 0) or 0, output_tokens=getattr(usage, "completion_tokens", 0) or 0)
 
 

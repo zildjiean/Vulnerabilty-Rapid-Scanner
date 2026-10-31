@@ -173,3 +173,27 @@ def test_validate_provider():
     assert llm.validate_provider("openai_compatible", {"model": "llama", "base_url": "http://ollama:11434/v1"}, {}) is None
     assert "model" in llm.validate_provider("openai", {"model": ""}, {"api_key": "k"}).lower()
     assert llm.validate_provider("bogus", {}, {})
+
+
+def test_refusals_are_typed_for_every_provider(fake_anthropic, fake_openai):
+    fake_anthropic(claude_response("", stop="refusal", category="cyber"))
+    with pytest.raises(llm.LLMRefusal, match="safety classifier"):
+        llm.complete("anthropic", {"model": "claude-opus-5-5"}, {"api_key": "k"}, req())
+    fake_openai("", finish="content_filter")
+    with pytest.raises(llm.LLMRefusal, match="content filter"):
+        llm.complete("openai", {"model": "gpt-5"}, {"api_key": "k"}, req())
+    # a refusal written as prose where JSON was required
+    fake_openai("I'm sorry, but I can't help with creating exploit templates.")
+    with pytest.raises(llm.LLMRefusal, match="can't help"):
+        llm.complete("openai_compatible", {"model": "llama3", "base_url": "http://ollama:11434/v1"}, {}, req(SCHEMA))
+    fake_anthropic(claude_response("I cannot assist with that request."))
+    with pytest.raises(llm.LLMRefusal):
+        llm.complete("anthropic", {"model": "claude-opus-5-5"}, {"api_key": "k"}, req(SCHEMA))
+    # plain bad JSON stays a generic error, and valid JSON containing "cannot" is not a refusal
+    fake_openai("not json at all")
+    with pytest.raises(llm.LLMError) as ei:
+        llm.complete("openai", {"model": "gpt-5"}, {"api_key": "k"}, req(SCHEMA))
+    assert not isinstance(ei.value, llm.LLMRefusal)
+    fake_openai('{"verdict": "The server cannot be reached; I cannot confirm."}')
+    assert llm.complete("openai", {"model": "gpt-5"}, {"api_key": "k"}, req(SCHEMA)).data["verdict"].startswith("The server")
+    assert issubclass(llm.LLMRefusal, llm.LLMError)
