@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.5.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.6.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -55,6 +55,7 @@ docker compose up -d --build
 | | Campaigns | ติดตาม CVE / 0-day แต่ละตัว |
 | | 0-day watch | ระบบเฝ้าดู CVE ใหม่จาก NVD / CISA KEV ทุกชั่วโมง แล้วสร้าง draft campaign ให้เมื่อกระทบ asset ของคุณ |
 | | Inventory | host, service, software, version ทั้งหมดที่เจอ |
+| | Changes | สิ่งที่เปลี่ยนไปจากการสแกน nmap แต่ละรอบ: host ใหม่, พอร์ตเปิด/ปิด, เวอร์ชันเปลี่ยน, host ไม่ตอบ |
 | | Reports | รายงานผู้บริหาร, รายงาน campaign / scope, export |
 | Scanning | Nmap scan, Nuclei scan | สั่งสแกนเอง |
 | | Findings | ผลดิบจาก nuclei ทุก job |
@@ -106,6 +107,24 @@ docker compose up -d --build
 - **ส่งต่อให้ nuclei**: ติ๊กแถวหรือทั้งกลุ่ม แล้วกด **Scan selected with nuclei** เป้าหมายจะถูกกรอกให้
 - **ลบ**: **Delete selected** หรือ **Clear inventory** (มีกล่องยืนยันก่อน)
 - **Ask AI** (ถ้าตั้ง AI ไว้) พิมพ์คำถามภาษาคน เช่น "เครื่องที่รัน Apache เวอร์ชันเก่า" ระบบแปลงเป็นตัวกรองให้
+
+### Changes: attack surface เปลี่ยนอะไรบ้าง
+
+ทุกครั้งที่สแกน nmap เสร็จ ระบบเทียบผลกับ Inventory ก่อนสแกน แล้วบันทึกการเปลี่ยนแปลงไว้ที่เมนู **Changes**
+
+| ชนิด | ความหมาย |
+|---|---|
+| *New host* | เจอ host ที่ไม่เคยมีใน Inventory (1 รายการต่อ host พร้อมรายชื่อพอร์ตที่เปิด) |
+| *Port opened* | host เดิมมีพอร์ตใหม่เปิด |
+| *Port closed* | พอร์ตที่เคยเปิดไม่เปิดแล้ว (นับเฉพาะพอร์ตที่อยู่ในช่วงที่สแกนรอบนี้) |
+| *Version changed* | product หรือ version ของพอร์ตเดิมเปลี่ยน |
+| *Not responding* | host ใน Inventory ที่อยู่ในเป้าหมายของการสแกน แต่รอบนี้ไม่ตอบ (host ไม่ถูกลบ) |
+
+- กรองตามชนิด, scope, ช่วงเวลา (ค่าเริ่มต้น 30 วัน), job และสถานะ (ยังไม่รับทราบ / ทั้งหมด)
+- กด **Acknowledge** เมื่อตรวจแล้ว หรือ **Acknowledge all** เพื่อรับทราบทุกรายการที่ตรงตัวกรอง (ต้องมีสิทธิ์จัดการ issue)
+- หน้า job ของ nmap มีการ์ด **Changes from this scan** และ Dashboard มีการ์ด **Surface changes (7 days)**
+- สแกนครั้งแรกตอน Inventory ว่าง ระบบบันทึกเป็น baseline และไม่ส่งแจ้งเตือน
+- สแกนแค่บางพอร์ต (Custom / Top 1000) พอร์ตอื่นของ host เดิมจะยังอยู่ใน Inventory ไม่ถูกลบ
 
 ## 5. สแกนช่องโหว่: Nuclei scan และ Findings
 
@@ -309,7 +328,7 @@ inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE
 
 1. **System → API** สร้าง API key: ตั้งชื่อ, role (ไม่เกิน role ของคุณ), วันหมดอายุ
 2. key แสดงครั้งเดียว เก็บไว้ทันที
-3. ส่ง key ใน header `Authorization: Bearer <key>` (หรือ `X-API-Key: <key>`) ไปที่ `/api/v1` มี endpoint สำหรับ issues, assets, campaigns, scans, jobs ดูตัวอย่าง curl ครบในหน้า **API reference** ในระบบ
+3. ส่ง key ใน header `Authorization: Bearer <key>` (หรือ `X-API-Key: <key>`) ไปที่ `/api/v1` มี endpoint สำหรับ issues, assets, changes, campaigns, scans, jobs ดูตัวอย่าง curl ครบในหน้า **API reference** ในระบบ
 
    ```bash
    curl -s -H "Authorization: Bearer $ZDRS_KEY" http://localhost:8000/api/v1/me
@@ -321,7 +340,7 @@ inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE
 **System → Integrations** (admin)
 
 1. **Add channel** เลือกชนิด: **Slack**, **Microsoft Teams**, **Email**, **Webhook** (มีลายเซ็น), **Jira**, **GitLab**
-2. ตั้งกฎว่าจะส่งเมื่อไร: issue ใหม่ / เปิดใหม่ / เกินกำหนด / ถูก assign / เปลี่ยนสถานะ, campaign, scan ล้มเหลว, schedule error
+2. ตั้งกฎว่าจะส่งเมื่อไร: issue ใหม่ / เปิดใหม่ / เกินกำหนด / ถูก assign / เปลี่ยนสถานะ, campaign, scan ล้มเหลว, schedule error, attack surface เปลี่ยน (`surface.changed` ส่งสรุป 1 ข้อความต่อการสแกน)
    พร้อม severity ขั้นต่ำ และ scope
 3. กด **Send test** เพื่อลองส่ง
 4. **Jira / GitLab ซิงก์สองทาง**: ปิด issue ในระบบ → ปิด ticket, ปิด ticket → issue เป็น Fixed แล้วรอ re-verify
@@ -422,7 +441,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.5.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.6.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

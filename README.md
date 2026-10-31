@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-1.5.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.6.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -18,6 +18,9 @@ Everything runs in one container. No external services, no accounts, works offli
 
 - **Nmap discovery** from the browser: top 1000 ports, all 65 535 ports or a custom range; SYN or connect scan; live log.
 - **Inventory** of every open service with product, version, CPE and hostname. Filter, sort, select, delete.
+- **Attack-surface changes**: each nmap scan is compared with the last known inventory — new hosts, opened and
+  closed ports, version changes and hosts that stopped responding — with acknowledge, a dashboard card and one
+  `surface.changed` notification per scan.
   Group the table by host, product or service type (Web, Database, Remote access, Mail, File sharing,
   Directory & auth, Network services, Other); groups collapse and select as a unit.
 - **Nuclei scanning** with three selection modes: pick templates (search by id, name, tag, CVE), whole template

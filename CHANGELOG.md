@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-31
+
+### Added
+- **Attack-surface change detection**: every nmap scan is compared with the inventory as it was before the scan and
+  records *New host* (one row listing its open ports), *Port opened*, *Port closed*, *Version changed* (product or
+  version) and *Not responding* (a known host inside the scan's targets, not excluded, that was not up; the host is
+  kept and not reported again until it is seen again). Duplicate `<host>` blocks for one address are merged.
+- **Changes** page (core menu, after Inventory): filters for type, scope, period (default 30 days), job and state
+  (open / all), 50 per page; **Acknowledge** one change or **Acknowledge all** matching the filters (only changes
+  shown when the page was rendered; `issues.manage`, audit `surface.ack`).
+- Nmap job pages show **Changes from this scan**; the Dashboard shows **Surface changes (7 days)**.
+- Notification event `surface.changed`: one summary per scan (medium for new hosts / opened ports, else low). The
+  first scan of an empty inventory is recorded as a baseline and not notified.
+- `GET /api/v1/changes` (`days`, `kind`, `job`, `state`, `limit` up to 500).
+
+### Fixed
+- A scan of only some ports (custom or top ports) no longer deletes the host's other ports from the inventory. The
+  scanned ports are read from nmap's `scaninfo`, and only those can be counted as closed.
+- A service whose version detection returns nothing on a rescan keeps its previous product and version.
+
 ## [1.5.0] - 2026-10-31
 
 ### Added
@@ -218,7 +238,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.1...v1.3.0
