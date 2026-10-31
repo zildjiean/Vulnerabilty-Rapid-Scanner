@@ -141,10 +141,12 @@ including failed sign-ins and denied attempts. Filter by user, action group and 
 ## Network access
 
 Besides the targets, the scanner contacts GitHub (template and nuclei updates), `services.nvd.nist.gov` and
-`www.cisa.gov` (campaign intel; the KEV feed is cached in `/data/kev.json` for 24 hours), and the integrations
+`www.cisa.gov` (campaign intel; the KEV feed is cached in `/data/kev.json` for 24 hours), `api.first.org` (EPSS
+scores for the risk score, refreshed hourly for the CVEs on issues and campaigns), and the integrations
 you configure (Slack, Teams, SMTP, Jira, GitLab, webhooks) and the AI provider you add (with redaction on, scan
 data leaves only as `HOST-n` placeholders; a local Ollama keeps everything on your network). Without internet
-access campaigns still work: intel shows an error and can be refreshed later.
+access campaigns still work: intel shows an error and can be refreshed later; risk scores fall back to severity,
+confidence and scope criticality.
 
 ## Configuration
 

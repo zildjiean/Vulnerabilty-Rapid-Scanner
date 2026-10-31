@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Risk score** (0-100) on every issue: CVSS (or severity when no CVSS is known), exploitation from CISA KEV or the
+  FIRST EPSS percentile, KEV ransomware use, confidence and scope criticality. Bands critical / high / medium / low.
+  The Issues list has a sortable **Risk** column and is ordered by risk; the issue page has a **Risk** card with the
+  breakdown, EPSS and KEV; the dashboard lists the **Top risks**; campaigns show EPSS next to CVSS; notifications
+  carry a Risk field; CSV/JSON exports and the API gain `risk_score`, `risk_band`, `epss`, `epss_percentile`, `kev`.
+- Threat intel cache (`cve_intel`): EPSS, KEV and missing CVSS scores (NVD, 10 per run) for the CVEs on issues and
+  campaigns are refreshed hourly by the scheduler; Settings → **Threat intel** shows the last run and has
+  *Refresh threat intel now*.
+
 ## [1.2.1] - 2026-10-31
 
 ### Fixed

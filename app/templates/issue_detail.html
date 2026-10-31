@@ -105,6 +105,20 @@
     </div>
   </div>
   <div class="stack">
+    <div class="card" id="risk">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Risk</h2>{% if risk.intel_updated %}<span class="small text-2">Intel updated {{ risk.intel_updated.strftime('%Y-%m-%d %H:%M') }} UTC</span>{% endif %}</div>
+      <div class="card-body stack">
+        <div class="risk-head"><span class="risk-big risk-{{ risk.band }}">{{ risk.total }}</span><span class="badge risk risk-{{ risk.band }}">{{ risk.band }}</span><span class="small text-2">of 100</span></div>
+        <table class="risk-parts" aria-label="Risk score breakdown"><tbody>
+          {% for label, points, detail in risk.parts %}<tr><td>{{ label }}<div class="small text-2">{{ detail }}</div></td><td class="num">+{{ points }}</td></tr>{% endfor %}
+        </tbody></table>
+        <dl class="kv">
+          <dt>EPSS</dt><dd>{% if risk.epss is not none %}<span class="num">{{ risk.epss_text }}</span>{% if risk.epss_top %} <span class="text-2">({{ risk.epss_top }})</span>{% endif %}{% if risk.epss_date %}<div class="small text-2">FIRST score of {{ risk.epss_date }}</div>{% endif %}{% else %}<span class="muted">{{ 'not scored yet' if issue.cve_id else 'no CVE' }}</span>{% endif %}</dd>
+          <dt>CISA KEV</dt><dd>{% if risk.kev %}<span class="badge kev" title="Listed in the CISA Known Exploited Vulnerabilities catalog"><svg class="icon sm"><use href="#i-alert"/></svg>Known exploited</span>{% if risk.kev_ransomware %} <span class="badge sev-critical">Used by ransomware</span>{% endif %}{% if risk.kev_due %}<div class="small text-2">federal due date {{ risk.kev_due }}</div>{% endif %}{% else %}<span class="muted">not listed</span>{% endif %}</dd>
+        </dl>
+        {% if issue.cve_id and not risk.intel_updated %}<p class="small text-2">Intel for {{ issue.cve_id }} has not been fetched yet; it refreshes hourly{% if can('settings.manage') %} or from <a href="/settings#intel">Settings</a>{% endif %}.</p>{% endif %}
+      </div>
+    </div>
     {% if not issue.template_id and can('scan.run') %}
     <div class="card" id="verify">
       <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Verification template</h2></div>

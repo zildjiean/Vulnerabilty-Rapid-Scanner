@@ -241,3 +241,8 @@ async def scheduler_loop(app, interval: int = LOOP_SECONDS) -> None:
             await run_reverify(app)
         except Exception:  # noqa: BLE001
             log.exception("re-verify iteration failed")
+        try:
+            from .risk import maybe_refresh_intel
+            await maybe_refresh_intel(app)
+        except Exception:  # noqa: BLE001
+            log.exception("threat intel refresh failed")

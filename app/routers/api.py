@@ -53,7 +53,7 @@ def issues_list(request: Request, view: str = "active", severity: str = "", stat
     rows, base = ctx["issues"], get_base_url(db)
     limit, offset = max(1, min(limit, MAX_LIMIT)), max(0, offset)
     return {"count": len(rows), "limit": limit, "offset": offset,
-            "issues": [rep.export_row(i, base) for i in rows[offset:offset + limit]]}
+            "issues": [rep.export_row(i, base, ctx["risk"][i.id]) for i in rows[offset:offset + limit]]}
 
 
 def _issue(db: Session, iid: int) -> Issue:

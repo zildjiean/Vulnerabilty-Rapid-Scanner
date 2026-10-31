@@ -392,6 +392,15 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
 .badge.crit-high{background:var(--sev-high-bg);color:var(--sev-high)}
 .badge.crit-medium{background:var(--sev-medium-bg);color:var(--sev-medium)}
 .badge.crit-low{background:var(--sev-low-bg);color:var(--sev-low)}
+.badge.risk{min-width:34px;justify-content:center;font-variant-numeric:tabular-nums;font-weight:700;border-color:currentColor}
+.badge.risk-critical{background:var(--sev-critical-bg);color:var(--sev-critical)}.badge.risk-high{background:var(--sev-high-bg);color:var(--sev-high)}
+.badge.risk-medium{background:var(--sev-medium-bg);color:var(--sev-medium)}.badge.risk-low{background:var(--sev-low-bg);color:var(--sev-low)}
+.risk-head{display:flex;align-items:baseline;gap:10px}
+.risk-big{font-size:34px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.risk-big.risk-critical{color:var(--sev-critical)}.risk-big.risk-high{color:var(--sev-high)}.risk-big.risk-medium{color:var(--sev-medium)}.risk-big.risk-low{color:var(--sev-low)}
+table.risk-parts{width:100%;border-collapse:collapse;font-size:13px}
+table.risk-parts td{padding:4px 0;border-bottom:1px solid var(--border)}
+table.risk-parts td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
 .page-actions .badge{align-self:center}
 
 /* ---------- Integrations ---------- */

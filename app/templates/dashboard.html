@@ -25,6 +25,18 @@
   <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Potential 0-day</div><div class="kpi-value" data-stat="rule_matches">{{ stats.rule_matches }}</div><div class="kpi-sub">{{ stats.rules }} rule(s) enabled · {{ stats.templates }} templates indexed</div></div></div>
 </div>
 {% from "_campaign_macros.html" import kev_badge, progress_bar %}
+{% from "_issue_macros.html" import risk_pill %}
+{% if top_risks %}
+<div class="card mb">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Top risks</h2><a class="btn sm ghost" href="/issues">All issues<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Risk</th><th>Issue</th><th>Asset</th></tr></thead>
+    <tbody>{% for i, rs in top_risks %}
+    <tr><td>{{ risk_pill(rs) }}</td><td><a class="issue-title" href="/issues/{{ i.id }}">{{ i.title or i.vuln_id }}</a> <span class="badge sev-{{ i.severity }}">{{ i.severity }}</span>{% if rs.kev %} <span class="badge kev" title="Listed in the CISA Known Exploited Vulnerabilities catalog"><svg class="icon sm"><use href="#i-alert"/></svg>Known exploited</span>{% endif %}<div class="small text-2 cell-mono">{{ i.vuln_id }}</div></td><td class="cell-mono small">{{ i.asset }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+</div>
+{% endif %}
 {% if active_campaigns %}
 <div class="card mb">
   <div class="card-head"><h2><svg class="icon"><use href="#i-flag"/></svg>Active campaigns</h2><a class="btn sm ghost" href="/campaigns">All campaigns<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>

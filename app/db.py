@@ -415,6 +415,22 @@ class AiNote(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class CveIntel(Base):
+    """Cached threat intel per CVE (CVSS, FIRST EPSS, CISA KEV), refreshed hourly by app/risk.py."""
+    __tablename__ = "cve_intel"
+    cve_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cvss_severity: Mapped[str] = mapped_column(String(16), default="")
+    epss: Mapped[float | None] = mapped_column(Float, nullable=True)             # probability 0-1
+    epss_percentile: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-1
+    epss_date: Mapped[str] = mapped_column(String(16), default="")
+    kev: Mapped[bool] = mapped_column(Boolean, default=False)
+    kev_ransomware: Mapped[bool] = mapped_column(Boolean, default=False)
+    kev_due: Mapped[str] = mapped_column(String(16), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    nvd_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # rotates the per-run NVD budget
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)

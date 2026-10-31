@@ -46,6 +46,25 @@
     <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save notification settings</button></div>
   </div>
 </form>
+<form method="post" action="/settings/intel/refresh" class="card" id="intel" style="max-width:720px;margin-top:16px" data-loading>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Threat intel</h2></div>
+  <div class="card-body stack">
+    <p class="text-2">Every hour the scanner fetches FIRST EPSS scores, the CISA KEV catalog and missing CVSS scores (NVD, up to 10 per run) for each CVE on an issue or campaign. They feed the risk score shown on issues.</p>
+    {% set ir = intel_refresh %}
+    <dl class="kv">
+      <dt>Last run</dt><dd class="num">{% if ir %}{{ ir.at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}<span class="muted">Never</span>{% endif %}{% if intel_refreshing %} <span class="status st-running">running</span>{% endif %}</dd>
+      {% if ir %}
+      <dt>CVEs</dt><dd class="num">{{ ir.cves }}</dd>
+      <dt>EPSS rows</dt><dd class="num">{{ ir.epss }}</dd>
+      <dt>KEV hits</dt><dd class="num">{{ ir.kev }}</dd>
+      <dt>NVD fetched</dt><dd class="num">{{ ir.nvd }}{% if ir.cvss_from_campaigns %} <span class="small text-2">· {{ ir.cvss_from_campaigns }} CVSS copied from campaigns</span>{% endif %}</dd>
+      <dt>Errors</dt><dd>{% if ir.errors %}<ul class="small">{% for e in ir.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% else %}<span class="muted">none</span>{% endif %}</dd>
+      {% endif %}
+    </dl>
+    {% if can('settings.manage') %}<div><button class="primary" type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Refresh threat intel now</button></div>{% endif %}
+  </div>
+</form>
 <form method="post" action="/settings/timezone" class="card" style="max-width:720px;margin-top:16px" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card-head"><h2><svg class="icon"><use href="#i-clock"/></svg>Timezone</h2></div>

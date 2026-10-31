@@ -92,6 +92,9 @@ def issue_message(db: Session, issue: Issue, event: str, note: str = "") -> ch.M
               ("Confidence", CONFIDENCE_LABELS.get(issue.confidence, issue.confidence))]
     if issue.scope_id and issue.scope:
         fields.append(("Scope", f"{issue.scope.name} ({issue.scope.criticality})"))
+    from .risk import scores_for
+    score = scores_for(db, [issue])[issue.id]
+    fields.append(("Risk", f"{score.total} · {score.band}"))
     assignee = db.get(User, issue.assignee_id) if issue.assignee_id else None
     fields.append(("Assignee", (assignee.display_name or assignee.username) if assignee else "unassigned"))
     if issue.due_at:
