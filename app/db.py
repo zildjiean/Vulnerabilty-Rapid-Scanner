@@ -456,7 +456,7 @@ class SurfaceChange(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="SET NULL"), nullable=True)
-    address: Mapped[str] = mapped_column(String(64), default="")
+    address: Mapped[str] = mapped_column(String(255), default="")  # an IP, or a host name for subdomain_new
     hostname: Mapped[str] = mapped_column(String(255), default="")
     port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     protocol: Mapped[str] = mapped_column(String(8), default="")

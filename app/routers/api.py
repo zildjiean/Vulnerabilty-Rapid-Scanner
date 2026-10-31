@@ -218,21 +218,26 @@ def changes_list(days: str = "", kind: str = "", job: str = "", state: str = "op
 
 # ----------------------------------------------------------------- external discovery
 @router.get("/discovered", dependencies=VIEW)
-def discovered_list(root: str = "", web: str = "any", state: str = "active", limit: int = 100,
+def discovered_list(root: str = "", web: str = "any", state: str = "active", limit: int = 100, offset: int = 0,
                     db: Session = Depends(get_db)):
-    """Discovered assets by root domain and host name. ``web`` any | web | none; ``state`` active | ignored | all."""
+    """Discovered assets by root domain and host name. ``web`` any | web | none; ``state`` active | ignored | all.
+    Web fields (url, status_code, title, webserver, tech) describe the last probe and are null / [] while ``web``
+    is false; ``url`` is only ever an http(s) link."""
     from .. import discovery as dsc
     from .discovery import filters
     f = filters(root, "", web, state, "")
-    limit = max(1, min(limit, MAX_LIMIT))
-    rows = list(db.scalars(dsc.query(f["root"], "", f["web"], f["state"]).limit(limit)))
-    return {"items": [{"id": a.id, "hostname": a.hostname, "root_domain": a.root_domain, "ips": a.ip_list,
-                       "web": a.web, "url": a.url or None, "status_code": a.status_code, "title": a.title,
-                       "webserver": a.webserver, "tech": a.tech_list,
-                       "sources": [x for x in a.sources.split(",") if x], "scope_id": a.scope_id,
-                       "first_seen": _ts(a.first_seen), "last_seen": _ts(a.last_seen),
-                       "last_probed_at": _ts(a.last_probed_at), "ignored": a.ignored} for a in rows],
-            "count": len(rows)}
+    limit, offset = max(1, min(limit, MAX_LIMIT)), max(0, offset)
+    rows = list(db.scalars(dsc.query(f["root"], "", f["web"], f["state"]).limit(limit).offset(offset)))
+
+    def out(a):
+        w = a.web
+        return {"id": a.id, "hostname": a.hostname, "root_domain": a.root_domain, "ips": a.ip_list, "web": w,
+                "url": (a.link or None) if w else None, "status_code": a.status_code if w else None,
+                "title": a.title if w else None, "webserver": a.webserver if w else None,
+                "tech": a.tech_list if w else [], "sources": [x for x in a.sources.split(",") if x],
+                "scope_id": a.scope_id, "first_seen": _ts(a.first_seen), "last_seen": _ts(a.last_seen),
+                "last_probed_at": _ts(a.last_probed_at), "ignored": a.ignored}
+    return {"items": [out(a) for a in rows], "count": len(rows), "limit": limit, "offset": offset}
 
 
 class DiscoveryIn(BaseModel):
@@ -243,7 +248,9 @@ class DiscoveryIn(BaseModel):
 @router.post("/scans/discovery", status_code=202, dependencies=[Depends(require("scan.run"))])
 async def scan_discovery(request: Request, body: DiscoveryIn, db: Session = Depends(get_db),
                          settings=Depends(get_settings), runner=Depends(get_runner)):
-    from ..discovery import launch_discovery, parse_root_domains
+    from ..discovery import MAX_ROOTS, launch_discovery, parse_root_domains
+    if len(body.domains) > MAX_ROOTS:
+        _bad(f"Too many root domains ({len(body.domains)}); the maximum is {MAX_ROOTS} per job.")
     try:
         roots = parse_root_domains(body.domains)
         job = launch_discovery(db, settings, runner, request.app.state.secretbox, roots, body.probe)

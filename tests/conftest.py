@@ -53,6 +53,7 @@ echo "$*" > "$dir/subfinder_rest.txt"
 if [ -n "$pc" ]; then ls -l "$pc" | cut -c1-10 > "$dir/pc_mode.txt"; cat "$pc" > "$dir/pc_seen.yaml"; fi
 if [ -n "$dl" ]; then cat "$dl" > "$dir/domains_seen.txt"; fi
 if grep -q '^slow[.]' "$dl"; then exec sleep 30; fi
+if grep -q '^leak[.]' "$dl" && [ -n "$pc" ]; then echo "[DBG] provider config:" 1>&2; cat "$pc" 1>&2; fi
 if grep -q '^fail[.]' "$dl"; then echo "[FTL] could not run enumeration" 1>&2; exit 1; fi
 cat "$dir/subfinder_sample.jsonl"
 """

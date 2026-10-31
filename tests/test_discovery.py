@@ -110,14 +110,16 @@ def test_parse_httpx_jsonl():
 
 def test_build_argv():
     argv = dsc.build_subfinder_argv("/opt/pd/subfinder", "/data/tmp/d.txt")
-    assert argv == ["/opt/pd/subfinder", "-dL", "/data/tmp/d.txt", "-silent", "-json"]
+    assert argv == ["/opt/pd/subfinder", "-dL", "/data/tmp/d.txt", "-silent", "-json", "-duc"]
     argv = dsc.build_subfinder_argv("/opt/pd/subfinder", "/data/tmp/d.txt", "/data/tmp/subfinder-3.yaml")
     assert argv[-2:] == ["-pc", "/data/tmp/subfinder-3.yaml"] and "-all" not in argv
     argv = dsc.build_httpx_argv("/opt/pd/httpx", "/data/tmp/h.txt")
     assert argv[:3] == ["/opt/pd/httpx", "-l", "/data/tmp/h.txt"]
-    for flag in ("-silent", "-json", "-title", "-status-code", "-tech-detect", "-web-server", "-ip", "-follow-redirects",
-                 "-no-color"):
+    for flag in ("-silent", "-json", "-title", "-status-code", "-tech-detect", "-web-server", "-ip",
+                 "-follow-host-redirects", "-no-color", "-duc"):
         assert flag in argv
+    assert "-follow-redirects" not in argv                     # never follow a redirect to another host
+    assert argv[argv.index("-maxr") + 1] == "3"
     assert argv[argv.index("-rate-limit") + 1] == "50"
 
 
@@ -541,8 +543,8 @@ def test_source_keys_stored_encrypted_and_never_rendered(auth):
 
 
 def test_source_key_validation_never_echoes_key(auth):
-    r = save_keys(auth, key_censys="no-colon-SECRETVALUE")
-    assert r.status_code == 400 and "id:secret" in r.text and "SECRETVALUE" not in r.text
+    r = save_keys(auth, key_fofa="no-colon-SECRETVALUE")
+    assert r.status_code == 400 and "email:key" in r.text and "SECRETVALUE" not in r.text
     r = save_keys(auth, key_shodan="abc\ndef")
     assert r.status_code == 400 and "single value" in r.text and "abc\ndef" not in r.text and "abc&#10;def" not in r.text
 
@@ -689,3 +691,272 @@ def test_api_discovered_and_start(auth):
 def test_api_docs_list_discovery(auth):
     r = auth.get("/api-docs")
     assert "/api/v1/discovered" in r.text and "/api/v1/scans/discovery" in r.text
+
+
+# ----------------------------------------------------------------- review fixes
+def test_baseline_needs_existing_rows_for_the_root(client, db):
+    """I1: a done job that found nothing does not end a root's baseline; rows for the root do."""
+    channel(client, "slack", secret=SLACK, events=("surface.changed",), min_severity="low")
+    j1 = make_job(db, ["example.com"])
+    assert dsc.complete_discovery(db, j1, "")["baseline"] is True
+    finish(db, j1)
+    j2 = make_job(db, ["example.com"])
+    stats = dsc.complete_discovery(db, j2, sf("www.example.com", "api.example.com"))
+    db.commit()
+    finish(db, j2)
+    assert stats["baseline"] is True and stats["notified"] == 0 and list(db.scalars(select(Delivery))) == []
+    j3 = make_job(db, ["example.com"])
+    stats = dsc.complete_discovery(db, j3, sf("vpn.example.com"))
+    db.commit()
+    assert stats["baseline"] is False and stats["notified"] == 1 and len(list(db.scalars(select(Delivery)))) == 1
+
+
+def test_idna_2008_uts46():
+    """I2: IDNA 2008 / UTS46 non-transitional: ß is kept, not mapped to ss."""
+    assert dsc.parse_root_domains("faß.de") == ["xn--fa-hia.de"]
+    assert dsc.parse_root_domains("FAß.de") == ["xn--fa-hia.de"]
+    assert dsc.normalize_hostname("WWW.Faß.de.") == "www.xn--fa-hia.de"
+    assert dsc.normalize_hostname("_dmarc.example.com") == "_dmarc.example.com"   # ASCII path keeps '_'
+    with pytest.raises(ValueError, match="valid DNS name"):
+        dsc.parse_root_domains("a\u200db.example")
+
+
+def test_probe_order_new_then_never_then_oldest(db):
+    """I3: new hosts first, then never-probed, then the longest-unprobed; the cap rotates through the rest."""
+    now = utcnow()
+    j = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j, sf("a.example.com", "b.example.com", "c.example.com"))
+    rows = assets(db)
+    rows["a.example.com"].last_probed_at = now - timedelta(days=2)
+    rows["b.example.com"].last_probed_at = now - timedelta(days=1)
+    db.commit()
+    j2 = make_job(db, ["example.com"])
+    stats = dsc.complete_discovery(db, j2, sf("a.example.com", "b.example.com", "c.example.com", "d.example.com"))
+    assert stats["new_hostnames"] == ["d.example.com"]
+    order = dsc.probe_order(db, stats["hostnames"], set(stats["new_hostnames"]))
+    assert order == ["d.example.com", "c.example.com", "a.example.com", "b.example.com"]
+    # with a cap of 2, the two left out are first next time
+    dsc.ingest_probe(db, make_job(db, [], kind="discovery_probe"), order[:2], {})
+    db.commit()
+    assert dsc.probe_order(db, order, set())[:2] == ["a.example.com", "b.example.com"]
+
+
+def test_ignored_hosts_left_out_of_probe_order(db):
+    j = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j, sf("a.example.com", "b.example.com"))
+    assets(db)["a.example.com"].ignored = True
+    db.commit()
+    assert dsc.probe_order(db, ["a.example.com", "b.example.com"], set()) == ["b.example.com"]
+
+
+def test_hooks_run_off_the_event_loop(auth, monkeypatch):
+    """I5: ingest runs in a worker thread, so a large ingest never blocks HTTP; the chained probe still starts."""
+    import asyncio
+    seen = {}
+    real = dsc.complete_discovery
+
+    def spy(db, job, output):
+        try:
+            asyncio.get_running_loop()
+            seen["loop"] = True
+        except RuntimeError:
+            seen["loop"] = False
+        return real(db, job, output)
+    monkeypatch.setattr(dsc, "complete_discovery", spy)
+    jid = job_id_of(start(auth))
+    assert wait_job(auth, jid)["status"] == "done"
+    assert seen == {"loop": False}
+    assert wait_job(auth, wait_for_probe(auth, jid))["status"] == "done"
+
+
+def test_cancelling_parent_starts_no_probe(auth):
+    jid = job_id_of(start(auth, domains="slow.example.com"))
+    deadline = time.time() + 10
+    while auth.get(f"/jobs/{jid}/status").json()["status"] != "running" and time.time() < deadline:
+        time.sleep(0.05)
+    csrf = get_csrf(auth, f"/jobs/{jid}")
+    auth.post(f"/jobs/{jid}/cancel", data={"csrf": csrf})
+    assert wait_job(auth, jid)["status"] == "cancelled"
+    time.sleep(0.3)
+    assert probe_job(auth, jid) is None
+
+
+def test_failing_probe_hook_fails_only_the_probe(auth, monkeypatch):
+    def boom(*a, **kw):
+        raise RuntimeError("probe ingest exploded")
+    monkeypatch.setattr(dsc, "ingest_probe", boom)
+    jid = job_id_of(start(auth))
+    assert wait_job(auth, jid)["status"] == "done"
+    pid = wait_for_probe(auth, jid)
+    assert wait_job(auth, pid)["status"] == "failed"
+    assert wait_job(auth, jid)["status"] == "done"
+    assert tmp_files(auth) == []
+    with auth.app.state.SessionLocal() as s:
+        assert assets(s)["www.example.com"].last_probed_at is None
+
+
+def test_probe_start_failure_keeps_parent_done(auth, monkeypatch):
+    """M6: the parent's ingest is committed; a probe that cannot start is a failed probe job, not a failed parent."""
+    real = dsc._write_tmp
+
+    def flaky(path, lines):
+        if path.name.startswith("httpx-"):
+            raise OSError(28, "No space left on device")
+        return real(path, lines)
+    monkeypatch.setattr(dsc, "_write_tmp", flaky)
+    jid = job_id_of(start(auth))
+    assert wait_job(auth, jid)["status"] == "done"
+    pid = probe_job(auth, jid)
+    assert pid is not None and wait_job(auth, pid)["status"] == "failed"
+    with auth.app.state.SessionLocal() as s:
+        assert "No space left on device" in s.get(Job, pid).log and "www.example.com" in assets(s)
+    assert "web probe could not start" in auth.get(f"/jobs/{jid}").text
+
+
+def test_tmp_write_failure_fails_the_job_cleanly(auth):
+    """M6: no stuck queued job and no 500 when DATA_DIR/tmp cannot be written."""
+    tmp = auth.app.state.settings.tmp_dir
+    tmp.rmdir()
+    tmp.write_text("not a directory")
+    try:
+        r = start(auth)
+        assert r.status_code == 400 and "temporary file" in r.text
+        with auth.app.state.SessionLocal() as s:
+            job = s.scalar(select(Job).where(Job.kind == "discovery"))
+            assert job.status == "failed" and job.finished_at is not None and "temporary file" in job.log
+    finally:
+        tmp.unlink()
+        tmp.mkdir()
+
+
+def test_provider_config_yaml_round_trip(settings):
+    import yaml
+    keys = {"shodan": 'a"b\\c', "fofa": "me@example.com:k'ey\\\"", "github": "ghp_x#y: z"}
+    path = dsc.write_provider_config(settings, 77, keys)
+    assert yaml.safe_load(path.read_text()) == {k: [v] for k, v in keys.items()}
+
+
+def test_source_keys_redacted_from_job_log(auth):
+    """M8: whatever the tool prints, stored key values never reach the job log."""
+    save_keys(auth, key_shodan=KEY, key_censys="censys_pat_ABCDEF:org-123456")
+    jid = job_id_of(start(auth, domains="leak.example.com", probe=False))
+    assert wait_job(auth, jid)["status"] == "done"
+    with auth.app.state.SessionLocal() as s:
+        log = s.get(Job, jid).log
+    assert "provider config" in log and "[redacted]" in log
+    assert KEY not in log and "censys_pat_ABCDEF" not in log and "org-123456" not in log
+    page = auth.get(f"/jobs/{jid}").text
+    assert KEY not in page and "censys_pat_ABCDEF" not in page
+
+
+def test_censys_key_is_pat_with_optional_org(auth):
+    """M1: subfinder 2.17 takes a Censys Personal Access Token, optionally with ':orgID'."""
+    assert dsc.PROVIDERS["censys"][1] == "pat:orgID"
+    assert save_keys(auth, key_censys="censys_pat_only").status_code == 303
+    assert save_keys(auth, key_censys="censys_pat:org-1").status_code == 303
+    assert "pat:orgID" in auth.get("/settings").text
+
+
+def test_python_httpx_is_not_projectdiscovery(settings, fake_bins, monkeypatch):
+    """M3: an httpx under sys.prefix is the Python client's script, not the prober."""
+    import sys
+    monkeypatch.setattr(sys, "prefix", str(fake_bins.parent))
+    assert dsc.tools_status(settings) == {"subfinder": True, "httpx": False}
+    assert "Python" in dsc.missing_tool_message(settings, "httpx")
+
+
+def test_web_false_clears_status_and_nuclei_uses_url_only_when_web(db):
+    """M4"""
+    j = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j, sf("www.example.com"))
+    dsc.ingest_probe(db, make_job(db, [], kind="discovery_probe"), ["www.example.com"], dsc.parse_httpx_jsonl(HTTPX))
+    a = assets(db)["www.example.com"]
+    assert dsc.nuclei_target(a) == "https://www.example.com"
+    dsc.ingest_probe(db, make_job(db, [], kind="discovery_probe"), ["www.example.com"], {})
+    assert a.web is False and a.status_code is None
+    assert dsc.nuclei_target(a) == "www.example.com"
+
+
+def test_api_only_safe_links_and_no_stale_web_fields(auth):
+    """M4 / M5"""
+    from tests.test_api import api, new_key
+    seeded(auth)
+    key = new_key(auth, name="v", role="viewer")
+    items = {i["hostname"]: i for i in api(auth, key, "GET", "/discovered").json()["items"]}
+    assert items["api.example.com"]["url"] is None and items["api.example.com"]["title"] == "Forbidden"
+    assert items["www.example.com"]["url"] == "https://www.example.com"
+    with auth.app.state.SessionLocal() as s:
+        a = s.scalar(select(DiscoveredAsset).where(DiscoveredAsset.hostname == "www.example.com"))
+        a.web = False
+        s.commit()
+    w = next(i for i in api(auth, key, "GET", "/discovered").json()["items"] if i["hostname"] == "www.example.com")
+    assert w["web"] is False and w["url"] is None and w["title"] is None and w["status_code"] is None
+    assert w["webserver"] is None and w["tech"] == [] and w["last_probed_at"].endswith("Z")
+
+
+def test_api_domains_cap_offset_and_public_suffix(auth):
+    """M10"""
+    from tests.test_api import api, new_key
+    seeded(auth)
+    viewer = new_key(auth, name="v", role="viewer")
+    analyst = new_key(auth, name="a", role="analyst")
+    r = api(auth, analyst, "POST", "/scans/discovery", json={"domains": [f"d{i}.example.com" for i in range(500)]})
+    assert r.status_code == 400 and "20" in r.json()["detail"]
+    for suffix in ("co.uk", "github.io", "com.au"):
+        r = api(auth, analyst, "POST", "/scans/discovery", json={"domains": [suffix]})
+        assert r.status_code == 400 and "public suffix" in r.json()["detail"]
+    all_names = [i["hostname"] for i in api(auth, viewer, "GET", "/discovered").json()["items"]]
+    page2 = api(auth, viewer, "GET", "/discovered?limit=2&offset=2").json()
+    assert [i["hostname"] for i in page2["items"]] == all_names[2:4] and page2["offset"] == 2
+
+
+def test_prefill_pages_never_create_a_job(auth):
+    r1 = auth.get("/nmap?targets=" + "scanme.example.com%0A192.0.2.1")
+    r2 = auth.get("/nuclei?targets=" + "https%3A%2F%2Fwww.example.com")
+    assert r1.status_code == 200 and "scanme.example.com\n192.0.2.1</textarea>" in r1.text
+    assert r2.status_code == 200 and "https://www.example.com</textarea>" in r2.text
+    with auth.app.state.SessionLocal() as s:
+        assert s.scalar(select(Job)) is None
+
+
+def test_changes_page_links_subdomain_to_discovery(auth, db):
+    """M7"""
+    j1 = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j1, sf("www.example.com"))
+    db.commit()
+    r = auth.get("/changes")
+    assert 'href="/discovery?q=www.example.com"' in r.text and "Sources:" in r.text
+    assert 'href="/inventory?q=www.example.com"' not in r.text
+    long_name = ("a" * 60 + ".") * 3 + "example.com"
+    j2 = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j2, sf(long_name))
+    db.commit()
+    assert db.scalar(select(SurfaceChange).where(SurfaceChange.job_id == j2.id)).address == long_name
+    assert SurfaceChange.__table__.c.address.type.length == 255
+
+
+def test_notification_text(client, db):
+    channel(client, "slack", secret=SLACK, events=("surface.changed",), min_severity="low")
+    j1 = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j1, sf("www.example.com"))
+    finish(db, j1)
+    j2 = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j2, sf("vpn.example.com", source="chaos") + "\n" + sf("vpn.example.com", source="crtsh"))
+    db.commit()
+    msg = json.loads(db.scalar(select(Delivery)).payload)["message"]
+    assert msg["text"] == "+ vpn.example.com new subdomain (chaos, crtsh)"
+    assert msg["severity"] == "medium" and msg["data"]["counts"]["subdomain_new"] == 1
+    assert ["Job", f"#{j2.id} (discovery)"] in msg["fields"] and ["New subdomain", "1"] in msg["fields"]
+
+
+def test_probe_cap_warning_has_no_nuclei_advice(auth, monkeypatch):
+    """M9"""
+    monkeypatch.setattr(dsc, "MAX_PROBE_HOSTS", 2)
+    jid = job_id_of(start(auth))
+    wait_job(auth, jid)
+    pid = wait_for_probe(auth, jid)
+    wait_job(auth, pid)
+    page = auth.get(f"/jobs/{pid}").text
+    assert "Done with warnings" in page and "probe cap" in page
+    assert "Gentle profile" not in page and "Never drop unresponsive hosts" not in page
+    assert "next discovery run probes them first" in page

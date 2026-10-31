@@ -10,10 +10,12 @@ import logging
 import os
 import re
 import shutil
+import sys
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import idna
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -40,7 +42,7 @@ CHUNK = 500  # stay below SQLite's bound-parameter limit in IN (...) lists
 PROVIDERS = {
     "securitytrails": ("SecurityTrails", "API key", False),
     "shodan": ("Shodan", "API key", False),
-    "censys": ("Censys", "id:secret", True),
+    "censys": ("Censys (Personal Access Token)", "pat:orgID", False),  # Personal Access Token; ':orgID' is optional (paid accounts)
     "virustotal": ("VirusTotal", "API key", False),
     "chaos": ("Chaos", "API key", False),
     "github": ("GitHub", "token", False),
@@ -52,6 +54,18 @@ _ROOT_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 _HOST_LABEL_RE = re.compile(r"^[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$")  # names in the wild may carry '_'
 _SOURCE_RE = re.compile(r"^[A-Za-z0-9_.\-]{1,40}$")
 _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
+
+# Common public suffixes: shared by many owners, so never a root domain (not the full Public Suffix List).
+PUBLIC_SUFFIXES = frozenset({
+    "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk", "ltd.uk", "plc.uk", "com.au", "net.au", "org.au", "edu.au",
+    "gov.au", "co.nz", "org.nz", "co.jp", "ne.jp", "or.jp", "ac.jp", "co.kr", "or.kr", "co.za", "org.za", "co.in",
+    "net.in", "org.in", "com.br", "com.cn", "net.cn", "org.cn", "com.hk", "com.sg", "com.my", "com.mx", "com.ar",
+    "com.tr", "com.tw", "com.vn", "com.ph", "co.id", "or.id", "co.th", "in.th", "ac.th", "go.th", "or.th",
+    "net.th", "co.il", "com.sa", "com.eg", "github.io", "gitlab.io", "herokuapp.com", "appspot.com",
+    "blogspot.com", "azurewebsites.net", "cloudfront.net", "cloudapp.net", "amazonaws.com", "s3.amazonaws.com",
+    "elasticbeanstalk.com", "firebaseapp.com", "web.app", "pages.dev", "workers.dev", "vercel.app", "netlify.app",
+    "onrender.com", "fly.dev", "ngrok.io", "ngrok-free.app", "duckdns.org", "no-ip.org", "dyndns.org",
+})
 
 
 # ----------------------------------------------------------------- validation
@@ -66,8 +80,11 @@ def _is_ip_or_cidr(text: str) -> bool:
 
 
 def _idna(name: str) -> str:
-    """Unicode labels to punycode ('bücher.example' -> 'xn--bcher-kva.example'); raises UnicodeError."""
-    return name if name.isascii() else name.encode("idna").decode("ascii")
+    """Lowercase; non-ASCII names go through IDNA 2008 / UTS46 non-transitional, so 'faß.de' becomes
+    'xn--fa-hia.de' (IDNA 2003 would turn it into fass.de, a different domain). Raises UnicodeError."""
+    if name.isascii():
+        return name.lower()
+    return idna.encode(name, uts46=True, transitional=False).decode("ascii")
 
 
 def parse_root_domains(value: str | list[str]) -> list[str]:
@@ -88,9 +105,8 @@ def parse_root_domains(value: str | list[str]) -> list[str]:
             raise ValueError(f"{t!r}: enter the domain without a path, e.g. example.com.")
         if "*" in t:
             raise ValueError(f"{t!r}: no wildcard needed, subfinder finds every subdomain of example.com.")
-        name = t.lower().rstrip(".")
         try:
-            name = _idna(name)
+            name = _idna(t.rstrip("."))
         except UnicodeError:
             raise ValueError(f"{t[:80]!r} is not a valid DNS name.")
         if len(name) > 253:
@@ -100,6 +116,8 @@ def parse_root_domains(value: str | list[str]) -> list[str]:
         labels = name.split(".")
         if not all(_ROOT_LABEL_RE.match(lab) for lab in labels) or labels[-1].isdigit():
             raise ValueError(f"{t[:80]!r} is not a valid DNS name.")
+        if name in PUBLIC_SUFFIXES:
+            raise ValueError(f"{t!r} is a public suffix shared by many owners; enter your own domain under it.")
         if name not in out:
             out.append(name)
     if not out:
@@ -113,9 +131,8 @@ def normalize_hostname(value) -> str | None:
     """A host name reported by a tool, normalised (lowercase, no trailing dot), or None when it is not a DNS name."""
     if not isinstance(value, str):
         return None
-    name = value.strip().lower().rstrip(".")
     try:
-        name = _idna(name)
+        name = _idna(value.strip().rstrip("."))
     except UnicodeError:
         return None
     if not name or len(name) > 253 or _is_ip_or_cidr(name):
@@ -237,15 +254,17 @@ def parse_httpx_jsonl(text: str) -> dict[str, dict]:
 
 def build_subfinder_argv(subfinder_bin: str, domains_file: str, provider_config: str | None = None) -> list[str]:
     """Default sources only: ``-all`` is slow and noisy. Keys are never on the command line, only the config path."""
-    argv = [subfinder_bin, "-dL", domains_file, "-silent", "-json"]
+    argv = [subfinder_bin, "-dL", domains_file, "-silent", "-json", "-duc"]
     if provider_config:
         argv += ["-pc", provider_config]
     return argv
 
 
 def build_httpx_argv(httpx_bin: str, hosts_file: str) -> list[str]:
+    """Redirects are followed on the same host only (at most 3): a probed name must not make httpx fetch a page
+    on a host nobody authorised."""
     return [httpx_bin, "-l", hosts_file, "-silent", "-json", "-title", "-status-code", "-tech-detect", "-web-server",
-            "-ip", "-follow-redirects", "-no-color", "-rate-limit", str(HTTPX_RATE_LIMIT)]
+            "-ip", "-follow-host-redirects", "-maxr", "3", "-no-color", "-duc", "-rate-limit", str(HTTPX_RATE_LIMIT)]
 
 
 # ----------------------------------------------------------------- ingest
@@ -277,16 +296,12 @@ def _rescope(db: Session, compiled, a: DiscoveredAsset) -> None:
     a.scope_id = scope.id if scope else None
 
 
-def covered_roots(db: Session, job: Job) -> set[str]:
-    """Root domains an earlier, successful discovery job already enumerated (the rest are this job's baseline)."""
-    out: set[str] = set()
-    for raw in db.scalars(select(Job.params_json).where(Job.kind == "discovery", Job.status == "done", Job.id != job.id)):
-        try:
-            domains = json.loads(raw or "{}").get("domains") or []
-        except (json.JSONDecodeError, AttributeError):
-            continue
-        out.update(d for d in domains if isinstance(d, str))
-    return out
+def roots_with_assets(db: Session, roots: list[str]) -> set[str]:
+    """Roots that already have discovered assets. The others are a silent baseline: a run that found nothing
+    (an outage of every source, a typo later fixed) must not make the next real run notify everything."""
+    if not roots:
+        return set()
+    return set(db.scalars(select(DiscoveredAsset.root_domain).where(DiscoveredAsset.root_domain.in_(roots)).distinct()))
 
 
 def complete_discovery(db: Session, job: Job, output: str) -> dict:
@@ -294,7 +309,7 @@ def complete_discovery(db: Session, job: Job, output: str) -> dict:
     ``surface.changed`` notification for them. Roots no earlier job covered are a silent baseline."""
     roots = [r for r in _params(job).get("domains") or [] if isinstance(r, str)]
     found = parse_subfinder_jsonl(output, roots)
-    baseline = set(roots) - covered_roots(db, job)
+    baseline = set(roots) - roots_with_assets(db, roots)  # before this ingest adds rows
     now, compiled = utcnow(), compile_scopes(db)
     existing = _load(db, sorted(found))
     changes: list[tuple[SurfaceChange, str]] = []
@@ -325,7 +340,18 @@ def complete_discovery(db: Session, job: Job, output: str) -> dict:
         except Exception:  # noqa: BLE001 - a notification problem must never fail the ingest
             log.exception("discovery notification for job %s failed", job.id)
     return {"hosts": len(found), "new": len(changes), "baseline": bool(baseline), "notified": len(to_notify),
-            "hostnames": sorted(found)}
+            "hostnames": sorted(found), "new_hostnames": sorted(c.hostname for c, _ in changes)}
+
+
+def probe_order(db: Session, hostnames: list[str], new: set[str]) -> list[str]:
+    """Hosts to probe, most useful first: new this run, then never probed, then the longest since the last probe.
+    Ignored hosts are left out. Under the probe cap the remainder rotates to the front of the next run."""
+    rows = [a for a in _load(db, list(hostnames)).values() if not a.ignored]
+
+    def key(a: DiscoveredAsset):
+        rank = 0 if a.hostname in new else (1 if a.last_probed_at is None else 2)
+        return rank, a.last_probed_at or a.first_seen, a.hostname
+    return [a.hostname for a in sorted(rows, key=key)]
 
 
 def ingest_probe(db: Session, job: Job, hosts: list[str], results: dict[str, dict]) -> dict:
@@ -341,7 +367,7 @@ def ingest_probe(db: Session, job: Job, hosts: list[str], results: dict[str, dic
         a.last_probed_at = now
         r = results.get(host)
         if r is None:
-            a.web = False
+            a.web, a.status_code = False, None   # url / title stay as history; never shown or used while web is off
         else:
             web += 1
             a.web, a.url, a.status_code = True, r["url"], r["status_code"]
@@ -412,21 +438,61 @@ def write_provider_config(settings: Settings, job_id: int, keys: dict[str, str])
 
 
 # ----------------------------------------------------------------- jobs
+def _is_python_httpx(path: str) -> bool:
+    """The Python httpx package installs an ``httpx`` script into this interpreter's prefix: not the web prober."""
+    try:
+        return Path(path).resolve().is_relative_to(Path(sys.prefix).resolve())
+    except OSError:
+        return False
+
+
 def tools_status(settings: Settings) -> dict[str, bool]:
+    httpx_path = shutil.which(settings.httpx_bin)
     return {"subfinder": shutil.which(settings.subfinder_bin) is not None,
-            "httpx": shutil.which(settings.httpx_bin) is not None}
+            "httpx": httpx_path is not None and not _is_python_httpx(httpx_path)}
 
 
 def missing_tool_message(settings: Settings, tool: str) -> str:
-    path = settings.subfinder_bin if tool == "subfinder" else settings.httpx_bin
-    return (f"{tool} is not installed ({path} not found). It ships in the Docker image; "
-            f"set {tool.upper()}_BIN when running outside it.")
+    if tool == "httpx":
+        return (f"httpx is not installed ({settings.httpx_bin} is missing, or it is the Python httpx client's script, "
+                "not ProjectDiscovery httpx). It ships in the Docker image; set HTTPX_BIN to the ProjectDiscovery "
+                "binary when running outside it.")
+    return (f"subfinder is not installed ({settings.subfinder_bin} not found). It ships in the Docker image; "
+            "set SUBFINDER_BIN when running outside it.")
+
+
+def _write_tmp(path: Path, lines: list[str]) -> None:
+    path.write_text("\n".join(lines) + "\n")
+
+
+def _tmp_error(e: OSError) -> str:
+    return f"Cannot write a temporary file in the data directory (DATA_DIR/tmp): {e.strerror or type(e).__name__}."
+
+
+def _fail(db: Session, job: Job, message: str) -> None:
+    job.status, job.finished_at = "failed", utcnow()
+    job.log = (job.log + "\n" if job.log else "") + message
+    db.commit()
+
+
+def secret_variants(keys: dict[str, str]) -> list[str]:
+    """Strings to scrub from job logs: each key as stored and as JSON-escaped in the provider config, and the
+    parts of two-part keys (a tool may print the token alone)."""
+    out: set[str] = set()
+    for value in keys.values():
+        for v in (value, json.dumps(value)[1:-1]):
+            out.add(v)
+            out.update(part for part in v.split(":") if len(part) >= 6)
+    return sorted((v for v in out if len(v) >= 4), key=len, reverse=True)
 
 
 def _unlink(*paths) -> None:
     for p in paths:
         if p is not None:
-            Path(p).unlink(missing_ok=True)
+            try:
+                Path(p).unlink(missing_ok=True)
+            except OSError:
+                log.warning("could not remove temporary file %s", p)
 
 
 def sweep_tmp(settings: Settings) -> int:
@@ -453,21 +519,19 @@ def launch_discovery(db: Session, settings: Settings, runner, box, roots: list[s
                             params={"domains": roots, "probe": bool(probe), **(extra_params or {})})
     job.schedule_id = schedule_id
     domains_file = settings.tmp_dir / f"discovery-{job.id}-domains.txt"
-    domains_file.write_text("\n".join(roots) + "\n")
     keys = get_source_keys(db, box)
     try:
+        _write_tmp(domains_file, roots)
         pc = write_provider_config(settings, job.id, keys) if keys else None
     except OSError as e:
         _unlink(domains_file, settings.tmp_dir / f"subfinder-{job.id}.yaml")
-        job.status, job.finished_at = "failed", utcnow()
-        job.log = f"[discovery] cannot write the subfinder provider config: {e.strerror or type(e).__name__}"
-        db.commit()
-        raise ValueError("Cannot write the subfinder provider config in the data directory (see the job log).")
+        _fail(db, job, "[discovery] " + _tmp_error(e))
+        raise ValueError(_tmp_error(e) + f" Job #{job.id} was marked failed.")
     argv = build_subfinder_argv(settings.subfinder_bin, str(domains_file), str(pc) if pc else None)
     job.command = quote_argv(argv)
     db.commit()
     runner.start(job.id, argv, on_complete=_discovery_hook(settings, runner, bool(probe)), stdout_to_log=False,
-                 cleanup=lambda: _unlink(domains_file, pc))
+                 cleanup=lambda: _unlink(domains_file, pc), redact=secret_variants(keys))
     return job
 
 
@@ -479,14 +543,27 @@ def _discovery_hook(settings: Settings, runner, probe: bool):
         note = (f"[discovery] {stats['hosts']} subdomain(s) found, {stats['new']} new"
                 + (" (first run for some roots: baseline, not notified)" if stats["baseline"] and stats["new"] else ""))
         if probe and hostnames:
-            ignored = set(db.scalars(select(DiscoveredAsset.hostname).where(DiscoveredAsset.ignored.is_(True))))
-            hosts = [h for h in hostnames if h not in ignored]
+            hosts = probe_order(db, hostnames, set(stats["new_hostnames"]))
             if hosts:
-                probe_job, skipped = start_probe(db, settings, runner, job, hosts)
-                result["probe_job"] = probe_job.id
-                note += f"; httpx probe of {min(len(hosts), MAX_PROBE_HOSTS)} host(s) started as job #{probe_job.id} (/jobs/{probe_job.id})"
-                if skipped:
-                    note += f". {skipped} host(s) over the {MAX_PROBE_HOSTS}-host probe cap were not probed"
+                # The ingest is complete: commit it first, so nothing below can turn this job into a failure.
+                _merge_params(job, result=result)
+                db.commit()
+                try:
+                    probe_job, skipped = start_probe(db, settings, runner, job, hosts)
+                except ProbeStartError as e:
+                    result["probe_job"] = e.job_id
+                    note += f"; web probe could not start (job #{e.job_id}): {e}"
+                except Exception as e:  # noqa: BLE001
+                    db.rollback()
+                    log.exception("discovery job %s: starting the web probe failed", job.id)
+                    note += f"; web probe could not start: {type(e).__name__}"
+                else:
+                    result["probe_job"] = probe_job.id
+                    note += (f"; httpx probe of {min(len(hosts), MAX_PROBE_HOSTS)} host(s) started as job "
+                             f"#{probe_job.id} (/jobs/{probe_job.id})")
+                    if skipped:
+                        note += (f". {skipped} host(s) over the {MAX_PROBE_HOSTS}-host probe cap were not probed; "
+                                 "the next discovery run probes them first")
         elif not probe:
             note += "; web probe off"
         _merge_params(job, result=result)
@@ -494,16 +571,30 @@ def _discovery_hook(settings: Settings, runner, probe: bool):
     return hook
 
 
+class ProbeStartError(Exception):
+    def __init__(self, job_id: int, message: str):
+        super().__init__(message)
+        self.job_id = job_id
+
+
 def start_probe(db: Session, settings: Settings, runner, parent: Job, hosts: list[str]) -> tuple[Job, int]:
-    """Chained ``discovery_probe`` job over at most MAX_PROBE_HOSTS hosts. Returns (job, hosts left out)."""
+    """Chained ``discovery_probe`` job over the first MAX_PROBE_HOSTS of ``hosts`` (already in probe order).
+    Returns (job, hosts left out). Raises ProbeStartError, with the probe job marked failed, when its host list
+    cannot be written. Runs in the runner's worker thread: ``runner.start`` hands the job to the event loop."""
     selected, skipped = hosts[:MAX_PROBE_HOSTS], max(0, len(hosts) - MAX_PROBE_HOSTS)
     params: dict = {"parent_job": parent.id, "hosts": len(selected)}
     if skipped:
-        params["warnings"] = [f"{skipped} host(s) over the {MAX_PROBE_HOSTS}-host probe cap were not probed."]
+        params["warnings"] = [f"{skipped} host(s) over the {MAX_PROBE_HOSTS}-host probe cap were not probed; "
+                              "the next discovery run probes them first."]
     job = runner.create_job(db, "discovery_probe", [settings.httpx_bin], params=params)
     job.schedule_id = parent.schedule_id
     hosts_file = settings.tmp_dir / f"httpx-{job.id}-hosts.txt"
-    hosts_file.write_text("\n".join(selected) + "\n")
+    try:
+        _write_tmp(hosts_file, selected)
+    except OSError as e:
+        _unlink(hosts_file)
+        _fail(db, job, "[discovery] web probe could not start: " + _tmp_error(e))
+        raise ProbeStartError(job.id, _tmp_error(e))
     argv = build_httpx_argv(settings.httpx_bin, str(hosts_file))
     job.command = quote_argv(argv)
     db.commit()
@@ -549,9 +640,9 @@ def query(root: str = "", q: str = "", web: str = "any", state: str = "active", 
 
 
 def nuclei_target(a: DiscoveredAsset) -> str:
-    """The probed URL when it is a valid nuclei target, else the host name."""
+    """The probed URL while the host answers over HTTP(S) and the URL is a valid nuclei target, else the host name."""
     from .validation import parse_nuclei_targets
-    if a.link:
+    if a.web and a.link:
         try:
             return parse_nuclei_targets(a.link)[0]
         except ValueError:

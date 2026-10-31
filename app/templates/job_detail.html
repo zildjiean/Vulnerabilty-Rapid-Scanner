@@ -22,7 +22,7 @@
 {% endif %}
 {% set warnings = job_warnings(job) %}
 {% if job.status == 'done' and warnings %}
-<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Done with warnings — coverage is incomplete.</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul><p class="small" style="margin:8px 0 0">Re-run with the <a href="/nuclei">Gentle profile</a>, a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.</p></div></div>
+<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Done with warnings — coverage is incomplete.</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% if job.kind == 'nuclei' %}<p class="small" style="margin:8px 0 0">Re-run with the <a href="/nuclei">Gentle profile</a>, a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.</p>{% endif %}</div></div>
 {% endif %}
 <div class="card mb">
   <div class="card-body">
