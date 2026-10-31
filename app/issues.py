@@ -241,13 +241,19 @@ def finding_raw(f: Finding) -> dict:
     return raw
 
 
-def finding_on_issue_asset(f: Finding, issue: Issue) -> bool:
-    """Did this finding hit the issue's asset? Same address (or hostname) and, when the issue has one, the same port."""
-    address, port, hostname = asset_from_raw(finding_raw(f))
-    names = {issue.address, issue.hostname} - {""}
-    if address not in names and (not hostname or hostname not in names):
+def finding_hits_target(f: Finding, target: str) -> bool:
+    """Did the finding come from this scan target? nuclei reports the target as given, so compare host names and
+    ports (a URL without a port means the scheme's default port; a target without a port matches any port)."""
+    raw = finding_raw(f)
+    loc = str(raw.get("host") or "").strip() or str(raw.get("matched-at") or "").strip()
+    name, port = _from_location(loc)
+    if not port and raw.get("matched-at"):
+        port = _from_location(str(raw["matched-at"]).strip())[1]
+    port = str(raw.get("port") or "").strip() or port
+    t_name, t_port = _from_location(target.strip())
+    if not name or name.lower() != t_name.lower():
         return False
-    return not issue.port or port == issue.port
+    return not t_port or port == t_port
 
 
 def issues_from_findings(db: Session, findings: list[Finding], job=None) -> int:

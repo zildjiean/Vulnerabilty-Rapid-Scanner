@@ -112,7 +112,9 @@ def _full(part: dict | None, limit: int | None) -> dict | None:
         return None
     text = part["text"] + part["rest"]
     shown = text if limit is None else text[:limit]
-    return {"text": shown, "length": len(text), "truncated": len(shown) < len(text)}
+    truncated = len(shown) < len(text) or (limit is not None and part["omitted"] > 0)
+    return {"text": shown, "length": len(text) + part["omitted"], "truncated": truncated,
+            "omitted": 0 if truncated else part["omitted"]}
 
 
 def issue_proof(db: Session, issue: Issue, limit: int | None = None) -> dict | None:

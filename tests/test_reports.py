@@ -200,3 +200,12 @@ def test_evidence_appendix_lists_only_verified_issues(auth):
         cid = c.id
     page = auth.get(f"/reports/campaigns/{cid}").text
     assert "GET /cgi-bin" not in page and "No verified issues" in page
+
+
+def test_huge_proof_is_capped_on_the_issue_page_and_report(auth):
+    from app.proof import REPORT_FULL_LIMIT
+    iid = proven_issue(auth, response="Q" * (REPORT_FULL_LIMIT + 50))
+    for url in (f"/issues/{iid}", f"/reports/issues/{iid}"):
+        page = auth.get(url).text
+        assert "… 50 more characters not shown" in page, url
+        assert REPORT_FULL_LIMIT <= page.count("Q") < REPORT_FULL_LIMIT + 50, url   # the page splits it at 4,000

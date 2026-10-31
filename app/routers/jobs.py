@@ -24,6 +24,14 @@ def recent_jobs(db: Session, kind: str | None = None, limit: int = 20) -> list[J
     return list(db.scalars(stmt))
 
 
+def _result_value(value) -> str:
+    """A bulk verification result {"reproduced": 1, "not_reproduced": 2} reads "reproduced 1, not reproduced 2"."""
+    if isinstance(value, dict):
+        from ..proof import VERIFY_LABELS
+        return ", ".join(f"{VERIFY_LABELS.get(k, k)} {n}" for k, n in value.items())
+    return str(value)
+
+
 def job_summary(job: Job) -> str:
     try:
         p = json.loads(job.params_json or "{}")
@@ -56,7 +64,7 @@ def job_summary(job: Job) -> str:
         parts.append("scheduled: " + str(p["schedule"]))
     result = p.get("result")
     if isinstance(result, dict):
-        parts.append(", ".join(f"{k} {v}" for k, v in result.items()))
+        parts.append(", ".join(f"{k} {_result_value(v)}" for k, v in result.items()))
     return " · ".join(parts)
 
 

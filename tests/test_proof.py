@@ -42,6 +42,12 @@ def test_non_http_finding_only_has_metadata():
     assert p["matched_at"] == "203.0.113.40:6379" and p["type"] == "tcp"
 
 
+def test_huge_response_is_capped_with_a_count_of_what_is_not_shown():
+    p = proof_from_finding(finding({"response": "A" * (proof.REPORT_FULL_LIMIT + 123), "request": "GET /"}))
+    assert len(p["response"]["text"]) + len(p["response"]["rest"]) == proof.REPORT_FULL_LIMIT
+    assert p["response"]["omitted"] == 123 and p["request"]["omitted"] == 0
+
+
 def test_long_response_is_split_at_the_limit_and_bad_json_is_tolerated():
     p = proof_from_finding(finding({"response": "A" * (PROOF_LIMIT + 10)}))
     assert len(p["response"]["text"]) == PROOF_LIMIT and p["response"]["rest"] == "A" * 10
@@ -311,14 +317,20 @@ def test_start_verify_many_skips_by_reason_and_limit(env, held, monkeypatch):
     assert text.startswith("Started 0 job(s) for 0 issue(s); skipped") and "1 (already running)" in text
     assert "1 (no template)" in text and "1 (template not indexed)" in text
     monkeypatch.setattr(proof, "BULK_LIMIT", 1)
+    extra = php_detect_issue(env)
     with env.app.state.SessionLocal() as db:
         db.get(Issue, ids[CVE]).verify_job_id = None
         db.commit()
-    res = start_many(env, [ids[CVE], ids["exposed-panel"]])
-    assert len(res.jobs) == 1 and res.skipped == {"over_limit": 1} and "1 (over limit)" in res.summary()
+    # skipped issues do not use up the limit; duplicates count once
+    res = start_many(env, [no_template, ids["exposed-panel"], ids[CVE], ids[CVE], extra])
+    assert len(res.jobs) == 1 and res.issues == 1
+    assert res.skipped == {"no_template": 1, "not_indexed": 1, "over_limit": 1} and "1 (over limit)" in res.summary()
+    with env.app.state.SessionLocal() as db:
+        p = json.loads(db.get(Job, res.jobs[0]).params_json)
+    assert p["verify_issues"] == [ids[CVE]] and p["verify_targets"] == {str(ids[CVE]): "http://192.168.1.10:8080"}
 
 
-def test_complete_verify_many_matches_each_issue_on_its_own_asset(env):
+def test_complete_verify_many_info_fallback_matches_the_issues_own_target(env):
     ids = seed(env, SPECS)
     seed(env, [(CVE, "critical", "10.0.0.6", "8443", None)])   # same template, another asset
     with env.app.state.SessionLocal() as db:
@@ -326,12 +338,13 @@ def test_complete_verify_many_matches_each_issue_on_its_own_asset(env):
         b = db.scalar(select(Issue.id).where(Issue.template_id == CVE, Issue.address == "10.0.0.6"))
         db.get(Issue, a).confidence = "confirmed"
         db.get(Issue, b).confidence, db.get(Issue, b).verified_finding_id = "verified", None
-        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issues": [a, b]}))
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({
+            "verify_issues": [a, b], "verify_targets": {str(a): "http://192.168.1.10:8080", str(b): "https://10.0.0.6:8443"}}))
         db.add(job)
         db.flush()
         db.get(Issue, a).verify_job_id = job.id
         db.get(Issue, b).verify_job_id = job.id
-        # the job found the template on asset a only
+        # the job found the template on asset a only (unlinked, like an info template)
         f = Finding(job_id=job.id, template_id=CVE, template_name="PHP", severity="critical", issue_id=None,
                     host="http://192.168.1.10:8080", matched_at="http://192.168.1.10:8080/", raw_json="{}")
         db.add(f)
@@ -345,6 +358,53 @@ def test_complete_verify_many_matches_each_issue_on_its_own_asset(env):
     assert ia.verify_job_id is None and ia.last_verified_at is not None
     assert ib.verify_result == "not_reproduced" and ib.confidence == "confirmed" and ib.verify_job_id is None
     assert any(f"job #{jid} did not reproduce" in body for kind, body in events(env, b) if kind == "verify")
+
+
+def test_complete_verify_many_ignores_a_finding_linked_to_another_issue(env):
+    """Reviewer probe: issue A keyed www.x.com:443, issue B 10.0.0.2:443 with hostname www.x.com. Only www.x.com
+    answered (resolving to 10.0.0.1), so ingest linked the finding to a third issue; neither A nor B is reproduced."""
+    from app.db import utcnow
+    from app.issues import upsert_issue
+    with env.app.state.SessionLocal() as db:
+        def mk(address, hostname):
+            i, _ = upsert_issue(db, address=address, port="443", hostname=hostname, vuln_id=CVE, cve_id=CVE,
+                                template_id=CVE, rule_id=None, title="PHP", severity="critical", confidence="confirmed",
+                                seen_at=utcnow(), source="test", count_sighting=True, reopen=True)
+            return i
+        ia, ib, ic = mk("www.x.com", ""), mk("10.0.0.2", "www.x.com"), mk("10.0.0.1", "www.x.com")
+        db.flush()
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({
+            "verify_issues": [ia.id, ib.id], "verify_targets": {str(ia.id): "https://www.x.com:443",
+                                                                 str(ib.id): "https://10.0.0.2:443"}}))
+        db.add(job)
+        db.flush()
+        ia.verify_job_id = ib.verify_job_id = job.id
+        db.add(Finding(job_id=job.id, template_id=CVE, severity="critical", issue_id=ic.id, host="https://www.x.com",
+                       matched_at="https://www.x.com/", raw_json=json.dumps({"ip": "10.0.0.1"})))
+        db.flush()
+        assert proof.complete_verify_many(db, job, []) == {"not_reproduced": 2}
+        db.commit()
+        a, b = ia.id, ib.id
+    for iid in (a, b):
+        i = get(env, iid)
+        assert i.verify_result == "not_reproduced" and i.verified_finding_id is None and i.confidence == "confirmed"
+
+
+def test_complete_verify_many_counts_the_finding_ingest_linked_to_the_issue(env):
+    ids = seed(env, SPECS)
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issues": [ids[CVE]], "verify_targets": {}}))
+        db.add(job)
+        db.flush()
+        db.get(Issue, ids[CVE]).verify_job_id = job.id
+        f = Finding(job_id=job.id, template_id=CVE, severity="critical", issue_id=ids[CVE], host="http://elsewhere:1",
+                    matched_at="http://elsewhere:1/", raw_json="{}")
+        db.add(f)
+        db.flush()
+        assert proof.complete_verify_many(db, job, []) == {"reproduced": 1}
+        db.commit()
+        fid = f.id
+    assert get(env, ids[CVE]).verified_finding_id == fid
 
 
 def test_complete_verify_many_inconclusive_and_stale_and_end_to_end(env):

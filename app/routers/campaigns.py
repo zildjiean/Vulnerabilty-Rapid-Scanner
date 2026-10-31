@@ -172,9 +172,9 @@ async def campaign_verify_issues(request: Request, cid: int, db: Session = Depen
     c = _get(db, cid)
     if c.status != "active":
         return _redirect(f"/campaigns/{cid}", err="Only an active campaign can verify its issues.")
-    issues = [i for i in camp.campaign_issues(db, c) if i.status not in CLOSED]
+    issues = _proof_candidates(camp.campaign_issues(db, c))
     if not issues:
-        return _redirect(f"/campaigns/{cid}", err="This campaign has no open issues to verify.")
+        return _redirect(f"/campaigns/{cid}", err="This campaign has no open issues with a verification template.")
     return bulk_verify(request, db, issues, f"/campaigns/{cid}", "campaign.verify_issues", c.name, campaign_id=c.id)
 
 

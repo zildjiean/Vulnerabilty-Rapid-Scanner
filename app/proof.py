@@ -10,12 +10,16 @@ from sqlalchemy.orm import Session
 from .db import Finding, Issue, IssueEvent, Job, TemplateIndex, utcnow
 
 PROOF_LIMIT = 4000   # characters shown before "Show full"
+REPORT_FULL_LIMIT = 200_000   # characters of a request / response kept at all on the issue page and report
 VERIFY_LABELS = {"reproduced": "reproduced", "not_reproduced": "not reproduced", "inconclusive": "inconclusive"}
 
 
 def _part(value) -> dict | None:
     text = str(value or "")
-    return {"text": text[:PROOF_LIMIT], "rest": text[PROOF_LIMIT:]} if text else None
+    if not text:
+        return None
+    return {"text": text[:PROOF_LIMIT], "rest": text[PROOF_LIMIT:REPORT_FULL_LIMIT],
+            "omitted": max(0, len(text) - REPORT_FULL_LIMIT)}
 
 
 def proof_from_finding(finding: Finding | None) -> dict | None:
@@ -108,22 +112,29 @@ def start_verify_many(db: Session, app, issues: list[Issue], actor) -> BulkResul
 
     paths: dict[str, str | None] = {}
     by_path: dict[str, list[Issue]] = {}
-    for n, issue in enumerate(issues):
-        if n >= BULK_LIMIT:
-            skip("over_limit")
-        elif not issue.template_id:
+    seen: set[int] = set()
+    eligible = 0
+    for issue in issues:
+        if issue.id in seen:
+            continue
+        seen.add(issue.id)
+        if not issue.template_id:
             skip("no_template")
-        elif live_verify_job(db, issue) is not None:
+            continue
+        if live_verify_job(db, issue) is not None:
             skip("running")
+            continue
+        if issue.template_id not in paths:
+            paths[issue.template_id] = db.scalar(select(TemplateIndex.path).where(
+                TemplateIndex.template_id == issue.template_id).limit(1))
+        path = paths[issue.template_id]
+        if path is None:
+            skip("not_indexed")
+        elif eligible >= BULK_LIMIT:   # the limit counts issues that would really be scanned
+            skip("over_limit")
         else:
-            if issue.template_id not in paths:
-                paths[issue.template_id] = db.scalar(select(TemplateIndex.path).where(
-                    TemplateIndex.template_id == issue.template_id).limit(1))
-            path = paths[issue.template_id]
-            if path is None:
-                skip("not_indexed")
-            else:
-                by_path.setdefault(path, []).append(issue)
+            eligible += 1
+            by_path.setdefault(path, []).append(issue)
     prof = PROFILES["normal"]
     for path, group in by_path.items():
         targets: list[str] = []
@@ -133,7 +144,8 @@ def start_verify_many(db: Session, app, issues: list[Issue], actor) -> BulkResul
             if target_of[issue.id] not in targets:
                 targets.append(target_of[issue.id])
         params = {"targets": targets, "template_ids": [group[0].template_id], "mode": "selected", "profile": "normal",
-                  "verify_issues": [i.id for i in group]}
+                  "verify_issues": [i.id for i in group],
+                  "verify_targets": {str(i.id): target_of[i.id] for i in group}}
         job = launch_nuclei(db, app.state.settings, app.state.job_runner, targets, [path], params,
                             rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
         for issue in group:
@@ -163,21 +175,28 @@ def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
 
 
 def complete_verify_many(db: Session, job: Job, warnings: list[str]) -> dict[str, int]:
-    """The bulk counterpart: one job verified several issues of one template. Returns {verify_result: count}."""
-    from .issues import finding_on_issue_asset
+    """The bulk counterpart: one job verified several issues of one template. Returns {verify_result: count}.
+
+    A finding counts for an issue only when ingest linked it to that issue. Unlinked findings (info templates, which
+    issues_from_findings skips) count when they hit the scan target started for that issue."""
+    from .issues import finding_hits_target
     try:
-        ids = json.loads(job.params_json or "{}").get("verify_issues") or []
+        params = json.loads(job.params_json or "{}")
     except json.JSONDecodeError:
         return {}
-    ids = [i for i in ids if isinstance(i, int)]
+    if not isinstance(params, dict):
+        return {}
+    ids = [i for i in params.get("verify_issues") or [] if isinstance(i, int)]
+    targets = params.get("verify_targets") if isinstance(params.get("verify_targets"), dict) else {}
     counts: dict[str, int] = {}
     for issue in db.scalars(select(Issue).where(Issue.id.in_(ids)).order_by(Issue.id)) if ids else []:
         if issue.verify_job_id != job.id:
             continue
-        # The job scanned many assets, so a finding only counts for the issue whose asset it hit.
-        finding = next((f for f in db.scalars(select(Finding).where(
-            Finding.job_id == job.id, Finding.template_id == issue.template_id).order_by(Finding.id.desc()))
-            if finding_on_issue_asset(f, issue)), None)
+        findings = list(db.scalars(select(Finding).where(
+            Finding.job_id == job.id, Finding.template_id == issue.template_id).order_by(Finding.id.desc())))
+        target = str(targets.get(str(issue.id)) or "")
+        finding = next((f for f in findings if f.issue_id == issue.id), None) or next(
+            (f for f in findings if f.issue_id is None and target and finding_hits_target(f, target)), None)
         result = _record_result(db, job, issue, finding, warnings)
         counts[result] = counts.get(result, 0) + 1
     return counts

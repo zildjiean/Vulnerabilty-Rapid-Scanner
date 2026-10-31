@@ -63,9 +63,10 @@
         {% if proof.has_http %}
         {% for label, part in [('Request', proof.request), ('Response', proof.response)] if part %}
         <details class="proof"{{ ' open' if label == 'Request' }}>
-          <summary>{{ label }} <span class="small text-2">({{ (part.text|length) + (part.rest|length) }} chars)</span></summary>
+          <summary>{{ label }} <span class="small text-2">({{ (part.text|length) + (part.rest|length) + part.omitted }} chars)</span></summary>
           <pre class="code proof-text">{{ part.text }}<span class="proof-rest" hidden>{{ part.rest }}</span></pre>
           {% if part.rest %}<button type="button" class="sm ghost" data-proof-more>Show full {{ label|lower }}</button>{% endif %}
+          {% if part.omitted %}<div class="small text-2">… {{ part.omitted }} more characters not shown</div>{% endif %}
         </details>
         {% endfor %}
         {% else %}<p class="small text-2">nuclei did not record a request/response for this template type ({{ proof.type or 'unknown' }}); the matched location above is the evidence.</p>{% endif %}

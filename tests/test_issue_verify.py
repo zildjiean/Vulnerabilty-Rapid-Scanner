@@ -261,13 +261,16 @@ def test_bulk_verify_starts_jobs_flashes_and_audits(env, held):
         assert db.get(Issue, ids[CVE]).verify_job_id == held[0]
         assert json.loads(db.get(Job, held[0]).params_json)["verify_issues"] == [ids[CVE]]
         a = db.scalar(select(AuditLog).where(AuditLog.action == "issue.bulk_verify"))
-        assert a is not None
+        assert a is not None and str(held[0]) in a.details
     r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "issue_ids": [ids[CVE]]},
                  follow_redirects=False)
     assert "err=" in r.headers["location"] and "already+running" in r.headers["location"] and len(held) == 1
     r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "back": "//evil.example"},
                  follow_redirects=False)
     assert r.headers["location"].startswith("/issues?err=Select")
+    for bad in ("/\t/evil.example", "/\n/evil.example", "http://evil.example/", "/%0a/x\r"):
+        r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "back": bad}, follow_redirects=False)
+        assert r.headers["location"].startswith("/issues?err=Select"), bad
 
 
 def test_bulk_verify_needs_scan_run_and_csrf(env, held):
@@ -308,3 +311,9 @@ def test_campaign_verify_all_with_proof(env, held):
     login_as(env, "vera")
     r = env.post(f"/campaigns/{cid}/verify-issues", data={"csrf": get_csrf(env, f"/campaigns/{cid}")})
     assert r.status_code == 403
+
+
+def test_bulk_verify_result_is_readable_in_the_job_list():
+    from app.routers.jobs import job_summary
+    job = Job(kind="nuclei", params_json=json.dumps({"result": {"findings": 3, "verify": {"reproduced": 1, "not_reproduced": 2}}}))
+    assert "reproduced 1, not reproduced 2" in job_summary(job)

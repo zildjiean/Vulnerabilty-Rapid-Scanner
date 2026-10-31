@@ -11,6 +11,7 @@
 <div class="report-proof-part">
   <div class="small text-2">{{ label }} ({{ part.length }} chars)</div>
   <pre class="code report-proof">{{ part.text }}</pre>
+  {% if part.omitted %}<div class="small text-2">… {{ part.omitted }} more characters not shown</div>{% endif %}
   {% if part.truncated %}<div class="small text-2"><a href="/reports/issues/{{ issue.id }}">… truncated, see the issue report</a> for the full {{ label|lower }}.</div>{% endif %}
 </div>
 {% endfor %}

@@ -153,7 +153,13 @@ def _redirect(url: str, **q) -> RedirectResponse:
 
 
 def _same_site(back: str, default: str) -> str:
-    return back if back.startswith("/") and not back.startswith(("//", "/\\")) else default
+    """``back`` when it is a plain same-site path; browsers drop tabs / newlines, so "/\\t/evil" would become "//evil"."""
+    if not back.startswith("/") or back.startswith(("//", "/\\")):
+        return default
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in back):
+        return default
+    parts = urlsplit(back)
+    return back if not parts.scheme and not parts.netloc else default
 
 
 def _safe_back(back: str, issue: Issue) -> str:
@@ -215,7 +221,7 @@ def bulk_verify(request: Request, db: Session, issues: list[Issue], back: str, a
     """Start verification for many issues (Verify selected, campaign Verify all) and redirect with the summary.
     Must be called from an async route."""
     res = proof.start_verify_many(db, request.app, issues, _actor(request, db))
-    audit(db, request, audit_action, target=target, jobs=len(res.jobs), issues=res.issues,
+    audit(db, request, audit_action, target=target, jobs=len(res.jobs), job_ids=res.jobs, issues=res.issues,
           skipped=sum(res.skipped.values()), **extra)
     return _redirect(back, **({"msg": res.summary()} if res.jobs else {"err": res.summary()}))
 
