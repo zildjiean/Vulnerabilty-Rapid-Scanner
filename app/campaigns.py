@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .db import Campaign, CampaignTemplate, Host, Issue, Rule, Service, TemplateIndex, utcnow
 from .issues import CLOSED, ISSUE_SEVERITIES, SCAN_CONFIRMED, STATUSES
-from .rules import evaluate_rules, validate_rule
+from .rules import UNREVIEWED, evaluate_rules, validate_rule
 
 REMEDIATED = ("fixed", "verified", "false_positive", "accepted_risk")
 
@@ -52,10 +52,12 @@ def add_rule(db: Session, c: Campaign, product_pattern: str, version_constraint:
     if err:
         raise ValueError(err)
     rule = Rule(name=c.name[:255], product_pattern=product_pattern, version_constraint=version_constraint,
-                cve_id=c.cve_id, severity=c.severity, description=f"Campaign: {c.name}", enabled=True, campaign_id=c.id)
+                cve_id=c.cve_id, severity=c.severity, description=f"Campaign: {c.name}",
+                enabled=c.status not in UNREVIEWED, campaign_id=c.id)   # a draft's rules wait for Activate
     db.add(rule)
     db.flush()
-    evaluate_rules(db)
+    if rule.enabled:
+        evaluate_rules(db)
     return rule
 
 
@@ -97,8 +99,11 @@ def suggested_templates(db: Session, c: Campaign) -> list[TemplateIndex]:
 
 def create_campaign(db: Session, *, name: str, cve_id: str, description: str, severity: str, product_pattern: str,
                     version_constraint: str, attach_templates: bool, intel: tuple[dict, list[str]] | None,
-                    created_by: str) -> Campaign:
-    """Validate, create, attach rule + templates and evaluate. Raises ValueError with a user-facing message."""
+                    created_by: str, status: str = "active") -> Campaign:
+    """Validate, create, attach rule + templates and evaluate. Raises ValueError with a user-facing message.
+    ``status="draft"`` (0-day watch) creates the campaign for review: its rules stay disabled until activated."""
+    if status not in ("active", "draft"):
+        raise ValueError("Unknown campaign status.")
     name = name.strip() or cve_id
     if not name:
         raise ValueError("Give the campaign a name or a CVE id.")
@@ -108,7 +113,7 @@ def create_campaign(db: Session, *, name: str, cve_id: str, description: str, se
         err = validate_rule(product_pattern.strip(), version_constraint.strip())
         if err:
             raise ValueError(f"Version rule: {err}")
-    c = Campaign(name=name[:255], cve_id=cve_id, description=description.strip(), status="active", created_by=created_by,
+    c = Campaign(name=name[:255], cve_id=cve_id, description=description.strip(), status=status, created_by=created_by,
                  severity=severity if severity != "auto" else "high")
     db.add(c)
     db.flush()
@@ -123,6 +128,29 @@ def create_campaign(db: Session, *, name: str, cve_id: str, description: str, se
         add_rule(db, c, product_pattern, version_constraint)
     db.flush()
     return c
+
+
+def activate_campaign(db: Session, c: Campaign) -> int:
+    """Draft -> active: enable the campaign's rules and evaluate them. Returns the number of rules enabled."""
+    if c.status != "draft":
+        raise ValueError("Only a draft campaign can be activated.")
+    c.status, c.closed_at = "active", None
+    rules = list(db.scalars(select(Rule).where(Rule.campaign_id == c.id)))
+    for r in rules:
+        r.enabled = True
+    db.flush()
+    evaluate_rules(db)
+    return len(rules)
+
+
+def dismiss_campaign(db: Session, c: Campaign) -> None:
+    """Draft -> dismissed: the rules stay disabled and the 0-day watch never drafts this CVE again."""
+    if c.status != "draft":
+        raise ValueError("Only a draft campaign can be dismissed.")
+    c.status = "dismissed"
+    for r in db.scalars(select(Rule).where(Rule.campaign_id == c.id)):
+        r.enabled = False
+    db.flush()
 
 
 def campaign_issues(db: Session, c: Campaign) -> list[Issue]:

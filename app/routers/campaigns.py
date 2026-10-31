@@ -2,16 +2,17 @@
 from __future__ import annotations
 
 import asyncio
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .. import campaigns as camp
 from ..audit import audit
 from ..authz import require
-from ..db import Campaign, CampaignTemplate, Job, Rule, utcnow
+from ..db import Campaign, CampaignTemplate, Job, Rule, WatchHit, utcnow
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..intel import enrich, http_get_json, normalize_cve
 from ..risk import intel_for
@@ -23,7 +24,7 @@ from .jobs import job_summary
 from .nuclei import launch_nuclei
 
 router = APIRouter()
-VIEWS = ("active", "closed", "all")
+VIEWS = ("active", "draft", "closed", "all")
 MANAGE = [Depends(require("campaigns.manage")), Depends(verify_csrf)]
 
 
@@ -47,7 +48,8 @@ def campaigns_page(request: Request, view: str = "active", db: Session = Depends
     if view != "all":
         stmt = stmt.where(Campaign.status == view)
     rows = [(c, camp.progress(camp.campaign_issues(db, c))) for c in db.scalars(stmt)]
-    return render(request, "campaigns.html", active="campaigns", rows=rows, view=view)
+    drafts = db.scalar(select(func.count(Campaign.id)).where(Campaign.status == "draft")) or 0
+    return render(request, "campaigns.html", active="campaigns", rows=rows, view=view, drafts=drafts)
 
 
 def _new_form(request: Request, status_code: int = 200, error: str | None = None, form: dict | None = None,
@@ -107,7 +109,9 @@ def _detail(request: Request, db: Session, c: Campaign, status_code: int = 200, 
     issues = camp.campaign_issues(db, c)
     jobs = list(db.scalars(select(Job).where(Job.campaign_id == c.id).order_by(Job.id.desc()).limit(20)))
     rules = list(db.scalars(select(Rule).where(Rule.campaign_id == c.id).order_by(Rule.id)))
-    return render(request, "campaign_detail.html", status_code=status_code, active="campaigns", c=c, error=error,
+    from ..watch import hit_matches
+    hit = db.scalar(select(WatchHit).where(WatchHit.campaign_id == c.id))
+    return render(request, "campaign_detail.html", watch_hit=hit, watch_matches=hit_matches(hit), status_code=status_code, active="campaigns", c=c, error=error,
                   issues=issues, p=camp.progress(issues), rules=rules, suggestions=camp.suggested_templates(db, c),
                   jobs=jobs, job_summary=job_summary, targets=camp.verify_targets(db, c), profiles=PROFILES,
                   default_profile=DEFAULT_PROFILE, refs=camp.references(c),
@@ -121,6 +125,8 @@ def campaign_detail(request: Request, cid: int, db: Session = Depends(get_db)):
 
 def start_verify(request: Request, db: Session, settings, runner, c: Campaign, profile: str, extra_targets: str) -> Job:
     """Validate and launch a campaign verification job. Raises ValueError with a user-facing message."""
+    if c.status in ("draft", "dismissed"):
+        raise ValueError("Activate this draft campaign before verifying it.")
     if not c.templates:
         raise ValueError("Attach at least one nuclei template before verifying.")
     paths = validate_template_paths(settings, [t.path for t in c.templates])
@@ -204,6 +210,10 @@ def campaign_template_remove(request: Request, cid: int, tid: int, db: Session =
 @router.post("/campaigns/{cid}/status", dependencies=MANAGE)
 def campaign_toggle_status(request: Request, cid: int, db: Session = Depends(get_db)):
     c = _get(db, cid)
+    if c.status == "draft":
+        return RedirectResponse(f"/campaigns/{cid}?err=Activate+or+dismiss+this+draft+first", status_code=303)
+    if c.status == "dismissed":
+        return campaign_reopen(request, cid, db)
     if c.status == "active":
         c.status, c.closed_at, action = "closed", utcnow(), "campaign.closed"
     else:
@@ -211,6 +221,47 @@ def campaign_toggle_status(request: Request, cid: int, db: Session = Depends(get
     db.commit()
     audit(db, request, action, target=c.name, campaign_id=c.id)
     return RedirectResponse(f"/campaigns/{cid}?msg=Campaign+{c.status}", status_code=303)
+
+
+@router.post("/campaigns/{cid}/activate", dependencies=MANAGE)
+def campaign_activate(request: Request, cid: int, db: Session = Depends(get_db)):
+    """Draft (0-day watch) -> active: enable its rules, evaluate them and announce the campaign."""
+    c = _get(db, cid)
+    try:
+        enabled = camp.activate_campaign(db, c)
+    except ValueError as e:
+        db.rollback()
+        return RedirectResponse(f"/campaigns/{cid}?err={quote_plus(str(e))}", status_code=303)
+    from ..notifications import campaign_message, notify
+    notify(db, "campaign.created", message=campaign_message(db, c), severity=c.severity)
+    db.commit()
+    audit(db, request, "campaign.activated", target=c.name, campaign_id=c.id, cve=c.cve_id, rules=enabled)
+    return RedirectResponse(f"/campaigns/{cid}?msg=Campaign+activated:+rules+enabled+and+evaluated", status_code=303)
+
+
+@router.post("/campaigns/{cid}/dismiss", dependencies=MANAGE)
+def campaign_dismiss(request: Request, cid: int, db: Session = Depends(get_db)):
+    c = _get(db, cid)
+    try:
+        camp.dismiss_campaign(db, c)
+    except ValueError as e:
+        db.rollback()
+        return RedirectResponse(f"/campaigns/{cid}?err={quote_plus(str(e))}", status_code=303)
+    db.commit()
+    audit(db, request, "campaign.dismissed", target=c.name, campaign_id=c.id, cve=c.cve_id)
+    return RedirectResponse(f"/campaigns/{cid}?msg=Draft+dismissed", status_code=303)
+
+
+@router.post("/campaigns/{cid}/reopen", dependencies=MANAGE)
+def campaign_reopen(request: Request, cid: int, db: Session = Depends(get_db)):
+    """Dismissed -> draft (closed -> active stays on /status)."""
+    c = _get(db, cid)
+    if c.status != "dismissed":
+        return RedirectResponse(f"/campaigns/{cid}?err=Only+a+dismissed+draft+can+be+reopened+here", status_code=303)
+    c.status = "draft"
+    db.commit()
+    audit(db, request, "campaign.reopened", target=c.name, campaign_id=c.id, to="draft")
+    return RedirectResponse(f"/campaigns/{cid}?msg=Draft+reopened", status_code=303)
 
 
 @router.post("/campaigns/{cid}/refresh", dependencies=MANAGE)

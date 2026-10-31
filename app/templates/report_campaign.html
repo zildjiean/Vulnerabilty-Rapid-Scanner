@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_campaign_macros.html" import kev_badge, progress_bar %}
+{% from "_campaign_macros.html" import kev_badge, progress_bar, campaign_status %}
 {% from "_issue_macros.html" import status_badge, confidence_badge %}
 {% set section = "Reports" %}
 {% set page_title = "Campaign report: " ~ c.name %}
@@ -7,7 +7,7 @@
 {% block page_actions %}<a class="btn ghost no-print" href="/campaigns/{{ c.id }}">Open campaign</a><button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>Print / Save as PDF</button>{% endblock %}
 {% block content %}
 <div class="card mb"><div class="card-body stack">
-  <div class="row center" style="gap:8px">{% if c.cve_id %}<span class="cell-mono">{{ c.cve_id }}</span>{% endif %}<span class="badge sev-{{ c.severity }}">{{ c.severity }}</span>{{ kev_badge(c) }}{% if c.cvss_score is not none %}<span class="small">CVSS {{ c.cvss_version }} <b>{{ c.cvss_score }}</b></span>{% endif %}<span class="status {{ 'st-running' if c.status == 'active' else 'st-done' }}">{{ c.status }}</span></div>
+  <div class="row center" style="gap:8px">{% if c.cve_id %}<span class="cell-mono">{{ c.cve_id }}</span>{% endif %}<span class="badge sev-{{ c.severity }}">{{ c.severity }}</span>{{ kev_badge(c) }}{% if c.cvss_score is not none %}<span class="small">CVSS {{ c.cvss_version }} <b>{{ c.cvss_score }}</b></span>{% endif %}{{ campaign_status(c) }}</div>
   {% if c.description %}<p class="intel-desc">{{ c.description }}</p>{% endif %}
   {% if c.kev %}<p class="small">CISA KEV: added {{ c.kev_date_added }}, federal due date <b>{{ c.kev_due }}</b>{% if c.kev_ransomware %}, known ransomware use{% endif %}. {{ c.kev_action }}</p>{% endif %}
 </div></div>

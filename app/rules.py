@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import re
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-from .db import Rule, RuleMatch, Service, utcnow
+from .db import Campaign, Rule, RuleMatch, Service, utcnow
 from .version_compare import check_clauses, parse_constraint
+
+# Campaigns waiting for review (0-day watch drafts) or turned down: their rules never produce issues.
+UNREVIEWED = ("draft", "dismissed")
 
 
 def validate_rule(product_pattern: str, version_constraint: str) -> str | None:
@@ -32,7 +35,9 @@ def _service_version(svc: Service) -> str:
 
 
 def evaluate_rules(db: Session) -> int:
-    rules = list(db.scalars(select(Rule).where(Rule.enabled.is_(True))))
+    unreviewed = select(Campaign.id).where(Campaign.status.in_(UNREVIEWED))
+    rules = list(db.scalars(select(Rule).where(Rule.enabled.is_(True),
+                                               or_(Rule.campaign_id.is_(None), Rule.campaign_id.not_in(unreviewed)))))
     services = list(db.scalars(select(Service)))
     db.execute(delete(RuleMatch))
     now = utcnow()

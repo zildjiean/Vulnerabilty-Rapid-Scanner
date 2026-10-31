@@ -32,6 +32,8 @@ async def reindex_in_background(app) -> None:
         app.state.last_index_counts = await asyncio.to_thread(_work)
     finally:
         app.state.indexing = False
+    from ..watch import attach_templates_in_background
+    await attach_templates_in_background(app)   # new templates for draft / active campaigns that had none
 
 
 async def nuclei_validate(settings, path: Path) -> tuple[bool, str]:

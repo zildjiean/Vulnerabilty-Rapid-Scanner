@@ -43,6 +43,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     active_campaigns = [(c, camp.progress(camp.campaign_issues(db, c)))
                         for c in db.scalars(select(Campaign).where(Campaign.status == "active")
                                             .order_by(Campaign.created_at.desc()).limit(5))]
+    drafts = db.scalar(select(func.count(Campaign.id)).where(Campaign.status == "draft")) or 0
     return render(request, "dashboard.html", active="dashboard", stats=stats, sev_counts=sev_counts, kpis=issue_kpis(db),
-                  active_campaigns=active_campaigns, top_risks=top_risks(db),
+                  active_campaigns=active_campaigns, drafts_waiting=drafts, top_risks=top_risks(db),
                   jobs=recent_jobs(db, limit=10), job_summary=job_summary)

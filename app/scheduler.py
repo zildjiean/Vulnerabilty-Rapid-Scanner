@@ -246,3 +246,8 @@ async def scheduler_loop(app, interval: int = LOOP_SECONDS) -> None:
             await maybe_refresh_intel(app)
         except Exception:  # noqa: BLE001
             log.exception("threat intel refresh failed")
+        try:
+            from .watch import maybe_watch
+            await maybe_watch(app)
+        except Exception:  # noqa: BLE001
+            log.exception("0-day watch failed")

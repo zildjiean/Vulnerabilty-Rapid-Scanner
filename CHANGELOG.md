@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **0-day watch**: every hour (first run 3 minutes after start) the scanner reads CVEs published or changed in NVD
+  since its last check (CVE API 2.0 `lastMod` window, paged, 6 s apart) and new CISA KEV entries (KEV CVEs without
+  NVD product ranges are looked up one by one, at most 5 per run), keeps those at or above the minimum CVSS
+  (default 7.0) or known exploited, and matches their vulnerable CPE ranges against the inventory: nmap CPE, an
+  alias table of common nmap product names and name similarity. A match is *confirmed* when the service version
+  is inside the range and *possible* when it cannot be checked.
+- For each new hit a **draft campaign** is prepared: intel from NVD / KEV, up to 5 version rules (created
+  disabled), matching nuclei templates, and a `campaign.draft` notification. The draft page shows the matched
+  assets with quality badges; **Activate** enables the rules, opens suspected issues and sends `campaign.created`;
+  **Dismiss** turns it down for good (it can be reopened as a draft). A CVE that already has a campaign, in any
+  status, is never drafted again.
+- Templates are attached automatically to draft and active campaigns that have none, after every watch run and
+  every template re-index (for example after a nuclei-templates update).
+- **0-day watch** page (sidebar, after Campaigns): last run, settings (enabled, minimum CVSS, always include KEV,
+  include possible matches; administrators), **Check now** (campaign managers) and the 100 most recent hits with
+  CVSS, KEV, EPSS, matched assets and their campaign.
+- Campaigns list gains a **Draft** tab with a count; the dashboard shows **Drafts waiting** when there are any;
+  the API `GET /campaigns` accepts `status=draft|dismissed`.
+
+### Changed
+- Draft and dismissed campaigns never produce issues: their rules are skipped by rule evaluation even when enabled,
+  verification is refused until the campaign is activated, and they are not counted as active anywhere.
+
 ## [1.3.0] - 2026-10-31
 
 ### Added
