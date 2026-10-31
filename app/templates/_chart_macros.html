@@ -7,7 +7,7 @@
   {% if g.empty %}<p class="chart-empty small text-2">No data in this period</p>
   {% else %}
   <svg class="chart-svg" viewBox="0 0 {{ g.w }} {{ g.h }}" role="group" aria-roledescription="chart" aria-labelledby="{{ id }}-t {{ id }}-d" focusable="false">
-    <title id="{{ id }}-t">{{ c.title }}</title><desc id="{{ id }}-d">{{ c.desc }}</desc>
+    <title id="{{ id }}-t">{{ c.title }}</title><desc id="{{ id }}-d">{{ c.desc }} Use the arrow keys to move between periods.</desc>
     <g class="chart-grid" aria-hidden="true">{% for t in g.ticks %}<line x1="{{ g.left }}" x2="{{ g.right }}" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}</g>
     <g class="chart-axis" aria-hidden="true">{% for t in g.ticks %}<text x="{{ g.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.label }}</text>{% endfor %}
       {% for x in g.xlabels %}<text x="{{ x.x }}" y="{{ x.y }}" text-anchor="middle">{{ x.label }}</text>{% endfor %}</g>

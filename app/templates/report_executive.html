@@ -24,7 +24,7 @@
 </div>
 {% from "_chart_macros.html" import chart %}
 <section class="card mb" id="trends-card" aria-labelledby="trends-title">
-  <div class="card-head"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>Trends</h2>{% set first = trend.points[0].start %}<span class="small text-2">Charts cover {{ first.strftime('%b') }} {{ first.day }} – {{ trend.points[-1].label }}{% if trend.days != r.days %} (nearest chart period to {{ r.days }} days){% endif %}</span></div>
+  <div class="card-head"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>Trends</h2>{% set first = trend.points[0].start %}<span class="small text-2">Charts cover {{ first.strftime('%b') }} {{ first.day }}{% if first.year != trend.points[-1].end.year %}, {{ first.year }}{% endif %} – {{ trend.points[-1].label }}{% if first.year != trend.points[-1].end.year %}, {{ trend.points[-1].end.year }}{% endif %}{% if trend.days != r.days %} (nearest chart period to {{ r.days }} days){% endif %}</span></div>
   <div class="card-body"><div class="chart-grid-2">{% for c in trend_charts %}{{ chart(c) }}{% endfor %}</div></div>
 </section>
 <div class="card mb">

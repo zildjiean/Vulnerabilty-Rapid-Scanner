@@ -113,4 +113,4 @@ def test_dashboard_trends_rendered_values(auth):
 def test_dashboard_trends_form(auth):
     r = auth.get("/")
     assert 'action="/#trends-card"' in r.text and "data-autosubmit" in r.text
-    assert '<button type="submit" class="sm" data-trend-apply>Apply</button>' in r.text     # visible for keyboards
+    assert '<button type="submit" class="sm" id="trend-apply" data-trend-apply>Apply</button>' in r.text     # visible for keyboards

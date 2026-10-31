@@ -101,7 +101,7 @@ def trends(db: Session, days=DEFAULT_DAYS, scope_id: int | None = None, now: dat
                 d[k1 + 1] -= 1
         if is_res and (k := bucket_of(res)) is not None:
             resolved[k] += 1
-            if status in REMEDIATED:                             # MTTR / SLA as in app.reports
+            if status in REMEDIATED:                             # same definitions as reports.mttr_days / sla_percent (pinned by a test)
                 remediated[k] += 1
                 secs[k] += (res - first).total_seconds()
                 if due:

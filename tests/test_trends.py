@@ -264,3 +264,13 @@ def test_scope_id_parsing(db):
     assert trend_scope(db, str(sc.id)) == sc.id
     assert trend_scope(db, "999") is None and trend_scope(db, "99999999999999999999999") is None
     assert trend_scope(db, "²") is None
+
+
+def test_mttr_and_sla_match_report_helpers(db):
+    rem = [add(db, 1, status="fixed", first=day(9), resolved=day(1), due=day(3)),
+           add(db, 2, status="verified", first=day(20), resolved=day(1, 15), due=day(5)),
+           add(db, 3, status="fixed", first=day(4), resolved=day(1, 18))]
+    db.commit()
+    b = trends.trends(db, 30, now=NOW)["points"][-2]
+    assert b["mttr_days"] == round(reports.mttr_days(rem), 1)
+    assert b["sla_pct"] == reports.sla_percent(rem)

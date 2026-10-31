@@ -37,7 +37,7 @@
       <select id="trend-days" name="trend_days" class="sm">{% for d, label in trend_periods.items() %}<option value="{{ d }}"{{ ' selected' if d == trend.days }}>{{ label }}</option>{% endfor %}</select>
       <label class="small text-2" for="trend-scope">Scope</label>
       <select id="trend-scope" name="trend_scope" class="sm"><option value=""{{ ' selected' if trend.scope_id is none }}>All scopes</option>{% for s in trend_scopes %}<option value="{{ s.id }}"{{ ' selected' if s.id == trend.scope_id }}>{{ s.name }}</option>{% endfor %}</select>
-      <button type="submit" class="sm" data-trend-apply>Apply</button>
+      <button type="submit" class="sm" id="trend-apply" data-trend-apply>Apply</button>
     </form></div>
   <div class="card-body"><div class="chart-grid-2">{% for c in trend_charts %}{{ chart(c) }}{% endfor %}</div></div>
 </section>

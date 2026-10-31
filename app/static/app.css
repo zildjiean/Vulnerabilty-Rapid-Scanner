@@ -446,7 +446,7 @@ table.risk-parts td.num{text-align:right;font-variant-numeric:tabular-nums;font-
 .trend-controls{gap:8px;flex-wrap:wrap;margin:0}
 .trend-controls select{width:auto;min-height:32px;padding:4px 28px 4px 8px}
 @media (forced-colors:active){
-  .chart-marks path,.chart-marker{stroke:CanvasText;stroke-width:1}
+  .chart-marks path,.chart-marks .c-low,.chart-marker{stroke:CanvasText;stroke-width:1}
   .chart-line{stroke:CanvasText}
   .chart-legend i{border:1px solid CanvasText}
   .chart-hit.is-active,.chart-hit:focus-visible{fill:Highlight}

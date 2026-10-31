@@ -235,14 +235,11 @@
       tip.style.top = Math.max(0, r.top - f.top - tip.offsetHeight - 6) + "px";
     };
     const focused = () => hits.find((h) => h === document.activeElement);
-    const move = (to) => {
-      hits.forEach((h) => h.setAttribute("tabindex", h === to ? "0" : "-1"));
-      to.focus();
-      show(to);
-    };
+    const rove = (to) => hits.forEach((h) => h.setAttribute("tabindex", h === to ? "0" : "-1"));
+    const move = (to) => { rove(to); to.focus(); };
     hits.forEach((hit, i) => {
       hit.addEventListener("mouseenter", () => show(hit));
-      hit.addEventListener("focus", () => show(hit));
+      hit.addEventListener("focus", () => { rove(hit); show(hit); });
       hit.addEventListener("mouseleave", () => { const f = focused(); if (f) show(f); else hide(); });
       hit.addEventListener("blur", hide);
       hit.addEventListener("keydown", (e) => {
