@@ -21,7 +21,7 @@ from . import surface
 from .config import Settings
 from .db import AppSetting, DiscoveredAsset, Job, SurfaceChange, utcnow
 from .jobs import quote_argv
-from .scopes import compile_scopes, resolve_scope
+from .scopes import compile_scopes, scope_for_asset
 
 log = logging.getLogger(__name__)
 
@@ -271,9 +271,9 @@ def _load(db: Session, hostnames: list[str]) -> dict[str, DiscoveredAsset]:
     return out
 
 
-def _rescope(compiled, a: DiscoveredAsset) -> None:
+def _rescope(db: Session, compiled, a: DiscoveredAsset) -> None:
     ips = a.ip_list
-    scope = resolve_scope(compiled, ips[0] if ips else "", a.hostname)
+    scope = scope_for_asset(db, ips[0] if ips else "", a.hostname, compiled)
     a.scope_id = scope.id if scope else None
 
 
@@ -309,7 +309,7 @@ def complete_discovery(db: Session, job: Job, output: str) -> dict:
         old = [x for x in a.sources.split(",") if x]
         a.sources = _join_capped(old + [x for x in info["sources"] if x not in old], 500)
         a.last_seen, a.last_job_id = now, job.id
-        _rescope(compiled, a)
+        _rescope(db, compiled, a)
         if is_new:
             c = SurfaceChange(job_id=job.id, address=host, hostname=host, kind="subdomain_new",
                               after=", ".join(info["sources"])[:surface.MAX_TEXT],
@@ -348,7 +348,7 @@ def ingest_probe(db: Session, job: Job, hosts: list[str], results: dict[str, dic
             a.title, a.webserver, a.tech = r["title"], r["webserver"], _join_capped(r["tech"], 1000)
             if r["ips"]:
                 a.ips = _join_capped(r["ips"], 1000)
-        _rescope(compiled, a)
+        _rescope(db, compiled, a)
     db.flush()
     return {"probed": probed, "web": web}
 

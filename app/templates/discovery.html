@@ -18,7 +18,7 @@
         <span class="hint" id="domains-hint">One per line, up to {{ max_roots }}. Domain names only: no scheme, path, wildcard or IP range.</span>
       </div>
       <label class="check"><input type="checkbox" name="probe" value="true" {{ 'checked' if form.probe }} aria-describedby="probe-hint"> Probe web services with httpx</label>
-      <span class="hint" id="probe-hint" style="margin-top:-6px">subfinder only queries public sources. The httpx probe contacts every host found (HTTP/HTTPS, 50 requests/s) to record status, title, server and technologies.</span>
+      <p class="small text-2" id="probe-hint" style="margin:-6px 0 0">subfinder only queries public sources. The httpx probe contacts every host found (HTTP/HTTPS, 50 requests/s) to record status, title, server and technologies.</p>
       <div><button class="primary" type="submit" {{ 'disabled' if not tools.subfinder }}><svg class="icon"><use href="#i-play"/></svg>Start discovery</button></div>
     </div>
   </form>
