@@ -62,8 +62,11 @@ class JobRunner:
         return job
 
     def start(self, job_id: int, argv: list[str], on_complete: Optional[CompletionHook] = None,
-              env: dict | None = None, stdout_to_log: bool = True) -> asyncio.Task:
-        task = asyncio.get_running_loop().create_task(self._run(job_id, argv, on_complete, env, stdout_to_log))
+              env: dict | None = None, stdout_to_log: bool = True,
+              cleanup: Optional[Callable[[], None]] = None) -> asyncio.Task:
+        """``cleanup`` runs once the job has ended, whatever the outcome (done, failed, cancelled, cannot start)."""
+        task = asyncio.get_running_loop().create_task(self._run_and_clean(job_id, argv, on_complete, env, stdout_to_log,
+                                                                          cleanup))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return task
@@ -144,6 +147,17 @@ class JobRunner:
                 collect.append(text)
             if to_log:
                 self._publish(job_id, text)
+
+    async def _run_and_clean(self, job_id: int, argv: list[str], on_complete, env, stdout_to_log: bool,
+                             cleanup) -> None:
+        try:
+            await self._run(job_id, argv, on_complete, env, stdout_to_log)
+        finally:
+            if cleanup is not None:
+                try:
+                    cleanup()
+                except Exception:  # noqa: BLE001 - never let cleanup mask the job result
+                    pass
 
     async def _run(self, job_id: int, argv: list[str], on_complete, env, stdout_to_log: bool) -> None:
         with self.session_factory() as db:
