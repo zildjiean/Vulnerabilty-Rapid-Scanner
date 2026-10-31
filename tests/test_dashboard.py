@@ -61,7 +61,8 @@ def test_dashboard_trends_card(auth):
 
 def test_dashboard_trends_bad_params_fall_back(auth):
     _seed_trend(auth)
-    for q in ("trend_days=abc", "trend_days=7", "trend_scope=999", "trend_scope=x", "trend_days=&trend_scope="):
+    for q in ("trend_days=abc", "trend_days=7", "trend_scope=999", "trend_scope=x", "trend_days=&trend_scope=",
+              "trend_scope=99999999999999999999999", "trend_scope=%C2%B2", "trend_scope=-1", "trend_days=99999999999999999999"):
         r = auth.get("/?" + q)
         assert r.status_code == 200 and r.text.count('class="chart-hit"') == 5 * 13, q
 
@@ -86,3 +87,30 @@ def test_dashboard_trends_empty_state(auth):
     r = auth.get("/")
     assert r.text.count("No data in this period") == 5 and 'class="chart-hit"' not in r.text
     assert r.text.count("<summary>Show data</summary>") == 5
+
+
+def test_dashboard_trends_rendered_values(auth):
+    import re
+
+    from app import trends
+    from app.db import utcnow
+    _seed_trend(auth)
+    r = auth.get("/")
+    last = trends.buckets(90, utcnow())[-1]["range"]
+    # the latest open-exposure bucket: issue 0 (critical) and issue 2 (medium) are open
+    label = f"{last}: 1 critical, 0 high, 1 medium, 0 low (2 total)"
+    assert f'aria-label="{label}" data-tip="{label}"' in r.text
+    assert re.search(r'<rect class="chart-hit" role="img" tabindex="0"[^>]*aria-label="' + re.escape(label), r.text)
+    cells = "".join(f'<td class="num">{v}</td>' for v in (1, 0, 1, 0, 0, 2))
+    assert f'<th scope="row">{last}</th>{cells}' in r.text
+    # one tab stop per chart (roving tabindex), the rest are reached with the arrow keys
+    assert len(re.findall(r'class="chart-hit" role="img" tabindex="0"', r.text)) == 5
+    assert len(re.findall(r'class="chart-hit" role="img" tabindex="-1"', r.text)) == 5 * 12
+    assert 'role="group" aria-roledescription="chart"' in r.text and 'role="img" aria-labelledby' not in r.text
+    assert '<g class="chart-marks" aria-hidden="true">' in r.text and '<g class="chart-axis" aria-hidden="true">' in r.text
+
+
+def test_dashboard_trends_form(auth):
+    r = auth.get("/")
+    assert 'action="/#trends-card"' in r.text and "data-autosubmit" in r.text
+    assert '<button type="submit" class="sm" data-trend-apply>Apply</button>' in r.text     # visible for keyboards

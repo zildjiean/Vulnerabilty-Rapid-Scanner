@@ -219,10 +219,13 @@ def changes_list(days: str = "", kind: str = "", job: str = "", state: str = "op
 # ----------------------------------------------------------------- trends
 @router.get("/trends", dependencies=VIEW)
 def trends_series(days: str = "", scope: str = "", db: Session = Depends(get_db)):
-    """Dashboard trend series: ``days`` 30 / 90 / 180 / 365 (default 90), optional ``scope`` id."""
+    """Dashboard trend series: ``days`` 30 / 90 / 180 / 365 (default 90), optional ``scope`` id (404 if unknown)."""
     from .. import trends
     from .dashboard import trend_scope
-    t = trends.trends(db, trends.parse_days(days), trend_scope(db, scope))
+    sid = trend_scope(db, scope)
+    if scope and sid is None:
+        raise HTTPException(404, "Scope not found.")
+    t = trends.trends(db, trends.parse_days(days), sid)
     t["points"] = [{**p, "start": _ts(p["start"]), "end": _ts(p["end"])} for p in t["points"]]
     return t
 

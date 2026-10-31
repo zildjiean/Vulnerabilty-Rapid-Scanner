@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -24,10 +26,15 @@ def top_risks(db: Session, limit: int = 5) -> list:
     return [(i, scores[i.id]) for i in active[:limit]]
 
 
+def parse_scope_id(value) -> int | None:
+    """A scope id from a query string: ASCII digits only and short enough for SQLite, else None."""
+    return int(value) if isinstance(value, str) and re.fullmatch(r"[0-9]{1,18}", value) else None
+
+
 def trend_scope(db: Session, value: str) -> int | None:
-    """A scope id from a query string, or None (all scopes) when it is not a number or not a scope."""
-    value = (value or "").strip()
-    return int(value) if value.isdigit() and db.get(Scope, int(value)) is not None else None
+    """The scope id to chart, or None (all scopes) when it is malformed or not a scope."""
+    sid = parse_scope_id(value)
+    return sid if sid is not None and db.get(Scope, sid) is not None else None
 
 
 @router.get("/")
