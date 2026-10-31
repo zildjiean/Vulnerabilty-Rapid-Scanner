@@ -1,0 +1,40 @@
+{# Proof blocks for printable reports. `p` is app.reports.issue_proof(): request / response are {text, length, truncated}. #}
+{% macro proof_block(p, issue) -%}
+<dl class="kv">
+  <dt>Template</dt><dd class="cell-mono">{{ p.template_id }} · job #{{ p.job_id }}</dd>
+  <dt>Matched at</dt><dd class="cell-mono">{{ p.matched_at }}</dd>
+  {% if p.timestamp %}<dt>Recorded</dt><dd class="cell-mono">{{ p.timestamp }}</dd>{% endif %}
+  {% if p.matcher %}<dt>Matcher</dt><dd class="cell-mono">{{ p.matcher }}{% if not p.matcher_status %} <span class="small text-2">(matcher-status false)</span>{% endif %}</dd>{% endif %}
+  {% if p.extracted %}<dt>Extracted</dt><dd class="cell-mono">{{ p.extracted|join(', ') }}</dd>{% endif %}
+</dl>
+{% for label, part in [('Request', p.request), ('Response', p.response)] if part %}
+<div class="report-proof-part">
+  <div class="small text-2">{{ label }} ({{ part.length }} chars)</div>
+  <pre class="code report-proof">{{ part.text }}</pre>
+  {% if part.truncated %}<div class="small text-2"><a href="/reports/issues/{{ issue.id }}">… truncated, see the issue report</a> for the full {{ label|lower }}.</div>{% endif %}
+</div>
+{% endfor %}
+{% if not p.has_http %}<p class="small text-2">nuclei did not record a request/response for this template type ({{ p.type or 'unknown' }}); the matched location above is the evidence.</p>{% endif %}
+{% if p.curl %}<div class="report-proof-part"><div class="small text-2">curl</div><pre class="code report-proof">{{ p.curl }}</pre></div>{% endif %}
+{%- endmacro %}
+
+{% macro proof_toggle(show_proof) -%}
+<form method="get" class="no-print report-toggle"><input type="hidden" name="proof" value="0"><label class="check"><input type="checkbox" name="proof" value="1" {{ 'checked' if show_proof }} onchange="this.form.submit()"> Include proof</label> <noscript><button type="submit" class="sm ghost">Apply</button></noscript></form>
+{%- endmacro %}
+
+{% macro evidence_appendix(evidence) -%}
+<section class="card report-evidence" id="evidence">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>Evidence <span class="chip num">{{ evidence|length }}</span></h2><span class="small text-2">verified issues, request/response up to 2,000 characters each</span></div>
+  <div class="card-body stack">
+  {% for i, p in evidence %}
+    <article class="report-evidence-item">
+      <h3><a href="/reports/issues/{{ i.id }}">#{{ i.id }}</a> {{ i.title or i.vuln_id }} <span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></h3>
+      <div class="small text-2"><span class="cell-mono">{{ i.asset }}</span>{% if i.hostname and i.hostname != i.address %} · {{ i.hostname }}{% endif %}{% if i.last_verified_at %} · verified {{ i.last_verified_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}</div>
+      {% if p %}{{ proof_block(p, i) }}{% else %}<p class="small text-2">No scan evidence yet.</p>{% endif %}
+    </article>
+  {% else %}
+    <div class="empty"><b>No verified issues</b>Run Verify now on an issue to capture its proof.</div>
+  {% endfor %}
+  </div>
+</section>
+{%- endmacro %}

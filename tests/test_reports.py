@@ -114,3 +114,89 @@ def test_exports_carry_verified_confidence(data):
     assert [(int(r["id"]), r["confidence"]) for r in rows] == [(iid, "verified")]
     j = data.get("/reports/issues.json?view=all&confidence=verified").json()
     assert j["count"] == 1 and j["issues"][0]["confidence"] == "verified"
+
+
+# ----------------------------------------------------------------- proof in reports
+PROOF_CVE = "CVE-2021-41773"
+
+
+def proven_issue(client, response="HTTP/1.1 200 OK\r\n\r\nroot:x:0:0", verified=True):
+    """One issue with an HTTP proof; marked verified with that finding unless verified=False."""
+    from app.db import Finding
+    from tests.test_issue_routes import seed
+    iid = seed(client, [(PROOF_CVE, "critical", "10.0.0.5", "443", PROOF_CVE)])[PROOF_CVE]
+    with client.app.state.SessionLocal() as db:
+        f = db.scalar(select(Finding).where(Finding.issue_id == iid))
+        raw = json.loads(f.raw_json)
+        raw.update({"request": "GET /cgi-bin/.%2e/etc/passwd HTTP/1.1\r\nHost: 10.0.0.5", "response": response,
+                    "curl-command": "curl -k https://10.0.0.5/cgi-bin/<x>", "matcher-name": "passwd",
+                    "timestamp": "2026-10-31T09:00:00Z"})
+        f.raw_json = json.dumps(raw)
+        i = db.get(Issue, iid)
+        if verified:
+            i.confidence, i.verified_finding_id, i.last_verified_at = "verified", f.id, NOW
+        db.commit()
+    return iid
+
+
+def test_issue_evidence_report_shows_proof_risk_and_timeline(auth):
+    iid = proven_issue(auth, response="HTTP/1.1 200 OK\r\n\r\n" + "R" * 5000 + "<script>x</script>")
+    r = auth.get(f"/reports/issues/{iid}")
+    assert r.status_code == 200
+    page = r.text
+    assert "Evidence report" in page and PROOF_CVE in page and "10.0.0.5:443" in page
+    assert "GET /cgi-bin/.%2e/etc/passwd HTTP/1.1" in page and "passwd" in page
+    assert "R" * 5000 in page                                     # full response, not truncated
+    assert "&lt;script&gt;x&lt;/script&gt;" in page and "<script>x</script>" not in page
+    assert "curl -k https://10.0.0.5/cgi-bin/&lt;x&gt;" in page
+    assert 'aria-label="Risk score breakdown"' in page and "EPSS" in page and "CISA KEV" in page
+    assert "conf-verified" in page and "Timeline" in page and "Print / Save as PDF" in page
+    assert 'href="/reports/issues/' in auth.get(f"/issues/{iid}").text and "Print proof" in auth.get(f"/issues/{iid}").text
+    assert auth.get("/reports/issues/99999").status_code == 404
+    make_user(auth, "vee", "viewer")
+    login_as(auth, "vee")
+    assert auth.get(f"/reports/issues/{iid}").status_code == 200
+
+
+def test_issue_evidence_report_without_findings(auth):
+    with auth.app.state.SessionLocal() as db:
+        i = add(db, "10.0.0.9:22", "medium", "triaged", 3)
+        db.commit()
+        iid = i.id
+    page = auth.get(f"/reports/issues/{iid}").text
+    assert "No scan evidence yet" in page
+
+
+def test_campaign_and_scope_reports_have_an_evidence_appendix(auth):
+    iid = proven_issue(auth, response="Z" * 2500)
+    with auth.app.state.SessionLocal() as db:
+        from app.campaigns import create_campaign
+        c = create_campaign(db, name="Apache traversal", cve_id=PROOF_CVE, description="", severity="critical",
+                            product_pattern="", version_constraint="", attach_templates=False, intel=None, created_by="admin")
+        s = Scope(name="Edge", targets="10.0.0.0/24", criticality="high")
+        db.add(s)
+        db.flush()
+        db.get(Issue, iid).scope_id = s.id
+        db.commit()
+        cid, sid = c.id, s.id
+    for url in (f"/reports/campaigns/{cid}", f"/reports/scopes/{sid}"):
+        page = auth.get(url).text
+        assert 'id="evidence"' in page and "GET /cgi-bin/.%2e/etc/passwd" in page, url
+        assert "Z" * 2000 in page and "Z" * 2001 not in page, url        # truncated to 2,000 characters
+        assert "truncated, see the issue report" in page and f'href="/reports/issues/{iid}"' in page, url
+        assert "Include proof" in page and 'class="no-print' in page, url
+        hidden = auth.get(url + "?proof=0").text
+        assert 'id="evidence"' not in hidden and "GET /cgi-bin" not in hidden, url
+        assert 'id="evidence"' in auth.get(url + "?proof=1").text, url
+
+
+def test_evidence_appendix_lists_only_verified_issues(auth):
+    proven_issue(auth, verified=False)
+    with auth.app.state.SessionLocal() as db:
+        from app.campaigns import create_campaign
+        c = create_campaign(db, name="Apache traversal", cve_id=PROOF_CVE, description="", severity="critical",
+                            product_pattern="", version_constraint="", attach_templates=False, intel=None, created_by="admin")
+        db.commit()
+        cid = c.id
+    page = auth.get(f"/reports/campaigns/{cid}").text
+    assert "GET /cgi-bin" not in page and "No verified issues" in page

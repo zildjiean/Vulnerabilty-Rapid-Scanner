@@ -37,24 +37,49 @@ def executive_report(request: Request, days: str = str(rep.DEFAULT_DAYS), db: Se
                   campaigns=campaigns, ai_summary=latest_note(db, "summary", "report", d))
 
 
+def _proof_on(value: str) -> bool:
+    return value != "0"
+
+
 @router.get("/reports/campaigns/{cid}")
-def campaign_report(request: Request, cid: int, db: Session = Depends(get_db)):
+def campaign_report(request: Request, cid: int, proof: str = "1", db: Session = Depends(get_db)):
     c = db.get(Campaign, cid)
     if c is None:
         raise HTTPException(404)
     issues = camp.campaign_issues(db, c)
+    show = _proof_on(proof)
     return render(request, "report_campaign.html", active="reports", c=c, issues=issues, p=camp.progress(issues),
-                  refs=camp.references(c), generated=utcnow())
+                  refs=camp.references(c), generated=utcnow(), show_proof=show,
+                  evidence=rep.evidence(db, issues) if show else [])
 
 
 @router.get("/reports/scopes/{sid}")
-def scope_report(request: Request, sid: int, db: Session = Depends(get_db)):
+def scope_report(request: Request, sid: int, proof: str = "1", db: Session = Depends(get_db)):
     s = db.get(Scope, sid)
     if s is None:
         raise HTTPException(404)
     issues = list(db.scalars(select(Issue).where(Issue.scope_id == sid, Issue.status.in_(ACTIVE))
                              .order_by(Issue.due_at)))
+    show = _proof_on(proof)
     return render(request, "report_scope.html", active="reports", s=s, issues=issues, hosts=scope_hosts(db, s),
+                  generated=utcnow(), show_proof=show, evidence=rep.evidence(db, issues) if show else [])
+
+
+@router.get("/reports/issues/{iid}")
+def issue_report(request: Request, iid: int, db: Session = Depends(get_db)):
+    """Printable evidence report for one issue: risk, intel, a short timeline and the full proof."""
+    issue = db.get(Issue, iid)
+    if issue is None:
+        raise HTTPException(404)
+    from ..campaigns import campaigns_for_issue
+    from ..db import IssueEvent
+    from ..proof import VERIFY_LABELS
+    from ..risk import scores_for
+    events = list(db.scalars(select(IssueEvent).where(IssueEvent.issue_id == issue.id)
+                             .order_by(IssueEvent.id.desc()).limit(15)))
+    return render(request, "report_issue.html", active="reports", issue=issue, proof=rep.issue_proof(db, issue),
+                  risk=scores_for(db, [issue])[issue.id],
+                  campaigns=campaigns_for_issue(db, issue), events=events, verify_labels=VERIFY_LABELS,
                   generated=utcnow())
 
 

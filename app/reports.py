@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db import Issue, Scope, utcnow
+from .db import Finding, Issue, Scope, utcnow
 from .issues import OPEN_WORK, RESOLVED, is_overdue
 
 SEVERITIES = ("critical", "high", "medium", "low")
@@ -92,3 +92,38 @@ def export_row(issue: Issue, base_url: str, risk=None) -> dict:
             "occurrences": issue.occurrences, "url": f"{base_url}/issues/{issue.id}",
             "risk_score": risk.total, "risk_band": risk.band, "epss": risk.epss, "epss_percentile": risk.epss_percentile,
             "kev": risk.kev}
+
+
+# ----------------------------------------------------------------- proof
+EVIDENCE_LIMIT = 2000   # characters of request / response per issue in the campaign and scope appendix
+
+
+def issue_finding(db: Session, issue: Issue) -> Finding | None:
+    """The finding that verified the issue, else its newest one."""
+    if issue.verified_finding_id:
+        f = db.get(Finding, issue.verified_finding_id)
+        if f is not None and f.issue_id == issue.id:
+            return f
+    return db.scalar(select(Finding).where(Finding.issue_id == issue.id).order_by(Finding.id.desc()).limit(1))
+
+
+def _full(part: dict | None, limit: int | None) -> dict | None:
+    if not part:
+        return None
+    text = part["text"] + part["rest"]
+    shown = text if limit is None else text[:limit]
+    return {"text": shown, "length": len(text), "truncated": len(shown) < len(text)}
+
+
+def issue_proof(db: Session, issue: Issue, limit: int | None = None) -> dict | None:
+    """proof_from_finding for the issue, with request / response joined back and cut at ``limit`` characters."""
+    from .proof import proof_from_finding
+    p = proof_from_finding(issue_finding(db, issue))
+    if p is not None:
+        p["request"], p["response"] = _full(p["request"], limit), _full(p["response"], limit)
+    return p
+
+
+def evidence(db: Session, issues: list[Issue]) -> list[tuple[Issue, dict | None]]:
+    """Appendix rows: each verified issue with its (truncated) proof."""
+    return [(i, issue_proof(db, i, EVIDENCE_LIMIT)) for i in issues if i.confidence == "verified"]
