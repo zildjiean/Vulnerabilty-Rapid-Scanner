@@ -164,7 +164,7 @@ def test_complete_verify_counts_an_info_template_match_as_reproduced(env):
     iid = ids[CVE]
     with env.app.state.SessionLocal() as db:
         issue = db.get(Issue, iid)
-        issue.template_id, issue.confidence = "php-detect", "suspected"
+        issue.template_id, issue.confidence, issue.status = "php-detect", "suspected", "fixed"
         job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issue": iid}))
         db.add(job)
         db.flush()
@@ -180,4 +180,6 @@ def test_complete_verify_counts_an_info_template_match_as_reproduced(env):
         assert db.get(Finding, fid).issue_id == iid
     i = get(env, iid)
     assert i.verify_result == "reproduced" and i.confidence == "confirmed"
+    assert i.status == "triaged" and i.resolved_at is None   # a closed issue that reproduces is reopened
     assert ("confirmed", f"verification job #{job.id}") in events(env, iid)
+    assert ("reopened", f"Seen again: verification job #{job.id}") in events(env, iid)

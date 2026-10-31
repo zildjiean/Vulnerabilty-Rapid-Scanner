@@ -339,6 +339,11 @@ dialog.confirm .actions{display:flex;justify-content:flex-end;gap:8px;margin-top
 .status.is-fixed{background:var(--success-soft);color:var(--success)}
 .status.is-verified{background:var(--success-soft);color:var(--success);font-weight:700}
 .status.is-false_positive,.status.is-accepted_risk{background:var(--surface-3);color:var(--text-2)}
+.status.verify-reproduced{background:var(--success-soft);color:var(--success)}
+.status.verify-not_reproduced{background:var(--surface-3);color:var(--text-2)}
+.status.verify-inconclusive{background:var(--warning-soft);color:var(--warning)}
+.status .icon.sm{width:12px;height:12px;margin-right:4px}
+.timeline li.ev-verify::before{border-color:var(--primary)}
 .badge.conf-confirmed{background:var(--danger-soft);color:var(--danger)}
 .badge.conf-suspected{background:var(--surface-3);color:var(--text-2);border:1px dashed var(--border-strong)}
 .due{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}

@@ -93,12 +93,14 @@ def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
     if finding is not None:
         result = "reproduced"
         if finding.issue_id is None:   # not ingested as an issue sighting (info severity); link it so the proof panel finds it
+            from .issues import _event as issue_event, _set_status
             finding.issue_id = issue.id
             if issue.confidence != "confirmed":
-                from .issues import _event as issue_event
                 issue_event(db, issue, "confirmed", from_value=issue.confidence, to_value="confirmed",
                             body=f"verification job #{job.id}")
                 issue.confidence = "confirmed"
+            if issue.status in ("fixed", "verified"):   # issues_from_findings would have reopened a non-info match
+                _set_status(db, issue, "triaged", None, kind="reopened", body=f"Seen again: verification job #{job.id}")
         p = proof_from_finding(finding)
         detail = f" (matcher {p['matcher']})" if p and p["matcher"] else ""
         body = f"Verified: job #{job.id} reproduced it{detail}. Proof captured."
