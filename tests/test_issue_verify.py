@@ -60,7 +60,7 @@ def test_completed_verification_shows_result_and_timeline(env):
         jid = db.scalar(select(Job.id).order_by(Job.id.desc()))
     wait_job(env, jid)
     page = env.get(f"/issues/{iid}").text
-    assert "reproduced" in page and "Verify now" in page and "Proof captured" in page
+    assert "verify-reproduced" in page and "Verify now" in page and "Proof captured" in page
 
 
 def test_verify_with_back_redirects_to_the_list_and_errors_go_to_err(env):
@@ -94,3 +94,27 @@ def test_viewer_sees_no_button_and_cannot_verify(env):
     assert "Verify now" not in env.get(f"/issues/{iid}").text
     r = env.post(f"/issues/{iid}/verify", data={"csrf": get_csrf(env, f"/issues/{iid}")})
     assert r.status_code == 403
+
+
+def test_proof_card_shows_request_response_and_curl(env):
+    iid = seed(env, SPECS)[CVE]
+    long_body = "B" * 4100
+    with env.app.state.SessionLocal() as db:
+        from app.db import Finding
+        f = db.scalar(select(Finding).where(Finding.issue_id == iid))
+        raw = json.loads(f.raw_json)
+        raw.update({"request": "GET /index.php HTTP/1.1\r\nHost: 192.168.1.10", "response": "HTTP/1.1 200 OK\r\n\r\n" + long_body,
+                    "curl-command": "curl -X GET http://192.168.1.10:8080/index.php", "matcher-name": "php-version"})
+        f.raw_json = json.dumps(raw)
+        db.commit()
+        first_id = f.id
+    page = env.get(f"/issues/{iid}").text
+    assert 'id="proof"' in page and "GET /index.php HTTP/1.1" in page and "php-version" in page
+    assert 'data-copy="curl -X GET http://192.168.1.10:8080/index.php"' in page
+    assert "data-proof-more" in page and 'class="proof-rest" hidden' in page        # 4,100 chars → split
+    assert f"?proof={first_id}#proof" in page                                       # evidence row link
+    # a second (non-HTTP) finding becomes the newest proof; ?proof= selects the old one
+    seed(env, [("CVE-2026-109619", "critical", "192.168.1.10", "8080", CVE)])
+    page = env.get(f"/issues/{iid}").text
+    assert "did not record a request/response" in page
+    assert "GET /index.php HTTP/1.1" in env.get(f"/issues/{iid}?proof={first_id}").text

@@ -409,6 +409,9 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
 
 /* ---------- API ---------- */
 pre.code{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;font-family:var(--font-mono);font-size:12.5px;white-space:pre-wrap;word-break:break-all}
+details.proof summary{cursor:pointer;font-weight:500;padding:6px 0}
+details.proof pre.proof-text{max-height:50vh;overflow:auto;margin-top:6px}
+details.proof [data-proof-more]{margin-top:8px}
 .badge.method-get{background:var(--sev-info-bg);color:var(--sev-info)}
 .badge.method-post{background:var(--success-soft);color:var(--success)}
 .badge.method-patch{background:var(--warning-soft);color:var(--warning)}

@@ -108,9 +108,12 @@ def _get(db: Session, issue_id: int) -> Issue:
 
 def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200, error: str | None = None, **extra):
     findings = list(db.scalars(select(Finding).where(Finding.issue_id == issue.id).order_by(Finding.id.desc()).limit(50)))
+    wanted = request.query_params.get("proof", "")
+    selected = next((f for f in findings if wanted.isdigit() and f.id == int(wanted)), findings[0] if findings else None)
     rule = db.get(Rule, issue.rule_id) if issue.rule_id else None
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
                   findings=findings, rule=rule, users=assignable_users(db), verify_labels=proof.VERIFY_LABELS,
+                  proof=proof.proof_from_finding(selected),
                   transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
                   sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue), reverify=get_reverify_settings(db),
                   ai_explain=latest_note(db, "explain", "issue", issue.id), ai_triage=latest_note(db, "triage", "issue", issue.id),
@@ -154,7 +157,6 @@ def _verify(request: Request, db: Session, issue: Issue, back: str):
             return _redirect(url, err=str(e))
         return _detail(request, db, issue, status_code=400, error=str(e))
     audit(db, request, "issue.verify", target=_label(issue), job_id=job.id, template_id=issue.template_id)
-    db.commit()
     return _redirect(url, msg=f"Verification started for {issue.asset} (job #{job.id}).")
 
 

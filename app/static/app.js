@@ -185,6 +185,13 @@
     catch (e) { toast("Copy failed: select the text and copy it manually", "error"); }
   }));
 
+  // ---------- Proof: reveal the part cut at PROOF_LIMIT ----------
+  $$("[data-proof-more]").forEach((b) => b.addEventListener("click", () => {
+    const rest = b.parentElement.querySelector(".proof-rest");
+    if (rest) rest.hidden = false;
+    b.remove();
+  }));
+
   // ---------- Schedule form: show the fields that apply to the chosen kind / frequency ----------
   $$(".schedule-form").forEach((form) => {
     const kind = $("[data-schedule-kind]", form);
