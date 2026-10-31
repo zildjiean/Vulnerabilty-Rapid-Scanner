@@ -619,6 +619,7 @@ def test_discovery_schedule_create_and_run(auth):
         sid = sc.id
     job_id = auth.portal.call(sch.run_schedule, auth.app, sid, True)
     assert wait_job(auth, job_id)["status"] == "done"
+    assert wait_job(auth, wait_for_probe(auth, job_id))["status"] == "done"
     with auth.app.state.SessionLocal() as s:
         job = s.get(Job, job_id)
         assert job.kind == "discovery" and job.schedule_id == sid
@@ -662,6 +663,7 @@ def test_api_discovered_and_start(auth):
     from tests.test_api import api, new_key, wait_api_job
     seeded(auth)
     viewer = new_key(auth, name="v", role="viewer")
+    analyst = new_key(auth, name="a", role="analyst")
     body = api(auth, viewer, "GET", "/discovered").json()
     assert body["count"] == 4
     item = next(i for i in body["items"] if i["hostname"] == "www.example.com")
@@ -674,7 +676,6 @@ def test_api_discovered_and_start(auth):
     assert api(auth, viewer, "GET", "/discovered?limit=1").json()["count"] == 1
     assert api(auth, viewer, "GET", "/discovered?state=ignored").json()["count"] == 0
     assert api(auth, viewer, "POST", "/scans/discovery", json={"domains": ["example.com"]}).status_code == 403
-    analyst = new_key(auth, name="a", role="analyst")
     r = api(auth, analyst, "POST", "/scans/discovery", json={"domains": ["https://x.example.com"]})
     assert r.status_code == 400 and "scheme" in r.json()["detail"]
     r = api(auth, analyst, "POST", "/scans/discovery", json={"domains": ["example.com"], "probe": False})

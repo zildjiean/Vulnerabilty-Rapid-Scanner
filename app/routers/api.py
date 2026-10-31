@@ -216,6 +216,43 @@ def changes_list(days: str = "", kind: str = "", job: str = "", state: str = "op
                       for c in rows], "count": len(rows)}
 
 
+# ----------------------------------------------------------------- external discovery
+@router.get("/discovered", dependencies=VIEW)
+def discovered_list(root: str = "", web: str = "any", state: str = "active", limit: int = 100,
+                    db: Session = Depends(get_db)):
+    """Discovered assets by root domain and host name. ``web`` any | web | none; ``state`` active | ignored | all."""
+    from .. import discovery as dsc
+    from .discovery import filters
+    f = filters(root, "", web, state, "")
+    limit = max(1, min(limit, MAX_LIMIT))
+    rows = list(db.scalars(dsc.query(f["root"], "", f["web"], f["state"]).limit(limit)))
+    return {"items": [{"id": a.id, "hostname": a.hostname, "root_domain": a.root_domain, "ips": a.ip_list,
+                       "web": a.web, "url": a.url or None, "status_code": a.status_code, "title": a.title,
+                       "webserver": a.webserver, "tech": a.tech_list,
+                       "sources": [x for x in a.sources.split(",") if x], "scope_id": a.scope_id,
+                       "first_seen": _ts(a.first_seen), "last_seen": _ts(a.last_seen),
+                       "last_probed_at": _ts(a.last_probed_at), "ignored": a.ignored} for a in rows],
+            "count": len(rows)}
+
+
+class DiscoveryIn(BaseModel):
+    domains: list[str]
+    probe: bool = True
+
+
+@router.post("/scans/discovery", status_code=202, dependencies=[Depends(require("scan.run"))])
+async def scan_discovery(request: Request, body: DiscoveryIn, db: Session = Depends(get_db),
+                         settings=Depends(get_settings), runner=Depends(get_runner)):
+    from ..discovery import launch_discovery, parse_root_domains
+    try:
+        roots = parse_root_domains(body.domains)
+        job = launch_discovery(db, settings, runner, request.app.state.secretbox, roots, body.probe)
+    except ValueError as e:
+        _bad(str(e))
+    audit(db, request, "scan.discovery", target=", ".join(roots), job_id=job.id, probe=body.probe)
+    return {"job_id": job.id, "url": f"{get_base_url(db)}/jobs/{job.id}"}
+
+
 # ----------------------------------------------------------------- trends
 @router.get("/trends", dependencies=VIEW)
 def trends_series(days: str = "", scope: str = "", db: Session = Depends(get_db)):
