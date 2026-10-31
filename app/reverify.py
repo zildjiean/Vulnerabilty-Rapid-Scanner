@@ -61,11 +61,11 @@ async def run_reverify(app, now=None) -> list[int]:
     """Start re-scans for due requests, one nuclei job per template. Returns job ids started."""
     from .routers.nuclei import launch_nuclei
     from .scanners.nuclei_runner import PROFILES
+    from .proof import cleanup_dead_verify_jobs
     now = now or utcnow()
     started: list[int] = []
     with app.state.SessionLocal() as db:
         _cleanup_dead_jobs(db)
-        from .proof import cleanup_dead_verify_jobs
         cleanup_dead_verify_jobs(db)
         cfg = get_reverify_settings(db)
         if not cfg["enabled"]:

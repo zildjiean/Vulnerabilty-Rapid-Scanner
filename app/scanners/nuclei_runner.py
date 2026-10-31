@@ -211,16 +211,13 @@ def on_nuclei_complete(db: Session, job: Job, output: str) -> str:
     if warnings:
         params["warnings"] = warnings
     params["analyzed"] = ANALYSIS_VERSION
-    job.params_json = json.dumps(params)
     if params.get("reverify"):
         from ..reverify import complete_reverify
-        verified = complete_reverify(db, job, warnings)
-        params["result"]["verified"] = verified
-        job.params_json = json.dumps(params)
+        params["result"]["verified"] = complete_reverify(db, job, warnings)
     if params.get("verify_issue"):
         from ..proof import complete_verify
         params["result"]["verify"] = complete_verify(db, job, warnings)
-        job.params_json = json.dumps(params)
+    job.params_json = json.dumps(params)
     issues_note = f" {new_issues} new issue(s) opened." if new_issues else ""
     if warnings:
         return (f"[nuclei] WARNING: coverage is incomplete, {n} finding(s) stored.{issues_note} " + " | ".join(warnings[:3]))

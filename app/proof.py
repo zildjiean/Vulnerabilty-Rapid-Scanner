@@ -86,10 +86,19 @@ def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
     issue = db.get(Issue, iid) if iid else None
     if issue is None or issue.verify_job_id != job.id:
         return ""
-    finding = db.scalar(select(Finding).where(Finding.job_id == job.id, Finding.issue_id == issue.id)
+    # The job ran exactly one template against exactly one asset, so any finding of that template reproduces the issue.
+    # Matching on issue_id alone would miss info templates: issues_from_findings skips them and never links them.
+    finding = db.scalar(select(Finding).where(Finding.job_id == job.id, Finding.template_id == issue.template_id)
                         .order_by(Finding.id.desc()).limit(1))
-    if finding is not None:   # the ingest already set confidence=confirmed, bumped last_seen and reopened if needed
+    if finding is not None:
         result = "reproduced"
+        if finding.issue_id is None:   # not ingested as an issue sighting (info severity); link it so the proof panel finds it
+            finding.issue_id = issue.id
+            if issue.confidence != "confirmed":
+                from .issues import _event as issue_event
+                issue_event(db, issue, "confirmed", from_value=issue.confidence, to_value="confirmed",
+                            body=f"verification job #{job.id}")
+                issue.confidence = "confirmed"
         p = proof_from_finding(finding)
         detail = f" (matcher {p['matcher']})" if p and p["matcher"] else ""
         body = f"Verified: job #{job.id} reproduced it{detail}. Proof captured."

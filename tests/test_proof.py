@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app import proof
+from app import reverify as rv
 from app.db import Finding, Issue, IssueEvent, Job, Rule
 from app.proof import PROOF_LIMIT, proof_from_finding
 from app.rules import evaluate_rules
@@ -137,17 +138,46 @@ def test_start_verify_errors(env):
             proof.start_verify(db, env.app, suspected, actor=None)
 
 
-def test_dead_verify_job_is_cleaned_up(env):
+def test_dead_verify_job_is_cleaned_up_by_the_reverify_tick_but_a_running_one_is_kept(env):
+    ids = seed(env, SPECS)
+    dead, live = ids[CVE], ids["exposed-panel"]
+    with env.app.state.SessionLocal() as db:
+        failed = Job(kind="nuclei", status="failed", params_json=json.dumps({"verify_issue": dead}))
+        running = Job(kind="nuclei", status="running", params_json=json.dumps({"verify_issue": live}))
+        db.add_all([failed, running])
+        db.flush()
+        db.get(Issue, dead).verify_job_id = failed.id
+        db.get(Issue, live).verify_job_id = running.id
+        db.commit()
+        running_id = running.id
+    assert env.portal.call(rv.run_reverify, env.app) == []
+    i = get(env, dead)
+    assert i.verify_job_id is None and i.verify_result == ""
+    assert any("failed" in body for kind, body in events(env, dead) if kind == "verify")
+    assert get(env, live).verify_job_id == running_id
+    assert not any(kind == "verify" for kind, _ in events(env, live))
+
+
+def test_complete_verify_counts_an_info_template_match_as_reproduced(env):
+    """issues_from_findings skips info findings, so Finding.issue_id is unset; the verify job only ran one template on one asset."""
     ids = seed(env, SPECS)
     iid = ids[CVE]
     with env.app.state.SessionLocal() as db:
-        job = Job(kind="nuclei", status="failed", params_json=json.dumps({"verify_issue": iid}))
+        issue = db.get(Issue, iid)
+        issue.template_id, issue.confidence = "php-detect", "suspected"
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issue": iid}))
         db.add(job)
         db.flush()
-        db.get(Issue, iid).verify_job_id = job.id
+        issue.verify_job_id = job.id
+        f = Finding(job_id=job.id, template_id="php-detect", template_name="PHP Detect", severity="info", issue_id=None,
+                    host="http://192.168.1.10:8080", matched_at="http://192.168.1.10:8080/", raw_json="{}")
+        db.add(f)
+        db.flush()
+        assert proof.complete_verify(db, job, []) == "reproduced"
         db.commit()
-        assert proof.cleanup_dead_verify_jobs(db) == 1
-        db.commit()
+        fid = f.id
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Finding, fid).issue_id == iid
     i = get(env, iid)
-    assert i.verify_job_id is None and i.verify_result == ""
-    assert any("failed" in body for kind, body in events(env, iid) if kind == "verify")
+    assert i.verify_result == "reproduced" and i.confidence == "confirmed"
+    assert ("confirmed", f"verification job #{job.id}") in events(env, iid)
