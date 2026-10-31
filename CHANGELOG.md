@@ -6,7 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-31
+
+First stable release: the scanner from 0.1.0 grows into a vulnerability-response platform.
+
 ### Added
+- Version number shown in the sidebar footer, returned by `/healthz` and `/api/v1/me`, and set as the
+  `org.opencontainers.image.version` label of the Docker image.
 - **Verify now (Play)** on every issue: re-runs the issue's nuclei template against that asset only, records
   *reproduced / not reproduced / inconclusive* on the issue timeline and marks it confirmed when reproduced.
   Available on the issue page, as a Play icon in the Issues list and in a campaign's exposure table.
@@ -100,3 +106,7 @@ All notable changes to this project are documented here. The format follows
 - Forced password change for the default `admin` account, CSRF protection, login rate limiting.
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
+
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v0.1.0...v1.0.0
+[0.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/releases/tag/v0.1.0

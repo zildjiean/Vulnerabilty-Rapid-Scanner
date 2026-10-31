@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .. import __version__
 from .. import campaigns as camp
 from .. import issues as iss
 from .. import reports as rep
@@ -40,7 +41,7 @@ def _bad(message: str):
 @router.get("/me", dependencies=VIEW)
 def me(request: Request):
     p = request.state.user
-    return {"username": p.owner_username, "role": p.role, "key": p.key_name}
+    return {"username": p.owner_username, "role": p.role, "key": p.key_name, "version": __version__}
 
 
 # ----------------------------------------------------------------- issues

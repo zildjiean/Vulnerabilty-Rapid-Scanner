@@ -205,9 +205,9 @@
         vres.innerHTML = rows.length ? "" : '<p class="small text-2">No templates match.</p>';
         rows.slice(0, 20).forEach((row, i) => {
           const l = document.createElement("label");
-          l.className = "list-row row center";
+          l.className = "list-row verify-hit";
           l.innerHTML = `<input type="radio" name="template_id" value="${esc(row.template_id)}"${i === 0 ? " checked" : ""}>` +
-            `<span class="cell-mono small">${esc(row.template_id)}</span><span class="small">${esc(row.name)}</span>` +
+            `<span class="hit-text"><span class="cell-mono small">${esc(row.template_id)}</span><span class="small text-2">${esc(row.name)}</span></span>` +
             `<span class="badge sev-${esc(row.severity)}">${esc(row.severity)}</span>`;
           vres.appendChild(l);
         });

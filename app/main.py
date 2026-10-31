@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
+from . import __version__
 from .auth import AuthMiddleware, LoginRateLimiter, SessionStore, seed_admin
 from .config import Settings, settings_from_env
 from .db import TemplateIndex, init_db, make_engine, make_session_factory
@@ -60,7 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.scheduler_task.cancel()
         app.state.notifications_task.cancel()
 
-    app = FastAPI(title="0-Day Rapid Scanner", lifespan=lifespan, docs_url=None, redoc_url=None)
+    app = FastAPI(title="0-Day Rapid Scanner", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.settings = settings
     app.state.SessionLocal = SessionLocal
     app.state.sessions = SessionStore(settings.secret_key)
@@ -102,6 +103,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/healthz")
     def healthz():
-        return {"status": "ok"}
+        return {"status": "ok", "version": __version__}
 
     return app
