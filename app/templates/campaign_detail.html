@@ -35,6 +35,7 @@
           {% if c.cve_id %}<dt>CVE</dt><dd class="cell-mono">{{ c.cve_id }} · <a href="https://nvd.nist.gov/vuln/detail/{{ c.cve_id }}" target="_blank" rel="noopener noreferrer">NVD<svg class="icon sm"><use href="#i-external"/></svg></a></dd>{% endif %}
           {% if c.published_at %}<dt>Published</dt><dd class="num">{{ c.published_at.strftime('%Y-%m-%d') }}</dd>{% endif %}
           {% if c.cvss_vector %}<dt>Vector</dt><dd class="cell-mono small">{{ c.cvss_vector }}</dd>{% endif %}
+          {% if cve_intel and cve_intel.epss is not none %}<dt>EPSS</dt><dd><span class="num">{{ '%.2f'|format(cve_intel.epss * 100) }} %</span> chance of exploitation in 30 days{% if cve_intel.epss_percentile is not none %} <span class="text-2">(top {{ epss_top(cve_intel.epss_percentile) }} %)</span>{% endif %}{% if cve_intel.epss_date %} <span class="small text-2">· FIRST {{ cve_intel.epss_date }}</span>{% endif %}</dd>{% endif %}
           {% if c.kev %}<dt>CISA KEV</dt><dd>Added {{ c.kev_date_added }} · federal due date <b>{{ c.kev_due }}</b>{% if c.kev_action %}<div class="small text-2">{{ c.kev_action }}</div>{% endif %}</dd>{% endif %}
         </dl>
         {% if refs %}<details><summary class="small">References ({{ refs|length }})</summary><ul class="refs">{% for r in refs %}<li><a href="{{ r }}" target="_blank" rel="noopener noreferrer">{{ r }}</a></li>{% endfor %}</ul></details>{% endif %}

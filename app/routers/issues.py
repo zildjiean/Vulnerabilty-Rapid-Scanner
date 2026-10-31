@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import issues as iss
 from .. import proof
+from .. import risk as rk
 from ..audit import audit
 from ..campaigns import campaigns_for_issue
 from ..ai import latest_note
@@ -87,11 +88,15 @@ def list_context(request: Request, db: Session, view: str = "active", severity: 
     rows = list(db.scalars(stmt))
     if overdue:
         rows = [i for i in rows if iss.is_overdue(i)]
-    rows.sort(key=_sort_key)
+    scores = rk.scores_for(db, rows)
+    truncated = len(rows) > limit
+    rows.sort(key=lambda i: (-scores[i.id].total, *_sort_key(i)))
+    rows = rows[:limit]
     filters = {"view": view, "severity": severity, "status": status, "assignee": assignee, "confidence": confidence,
                "overdue": overdue, "q": q, "scope": scope}
     from ..db import Scope
-    return dict(scopes=list(db.scalars(select(Scope).order_by(Scope.name))), active="issues", issues=rows[:limit], truncated=len(rows) > limit, kpis=issue_kpis(db),
+    return dict(scopes=list(db.scalars(select(Scope).order_by(Scope.name))), active="issues", issues=rows, truncated=truncated,
+                risk={i.id: scores[i.id] for i in rows}, kpis=issue_kpis(db),
                 users=assignable_users(db), f=filters, statuses=iss.STATUSES)
 
 
@@ -124,7 +129,7 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
                   transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
                   sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue), reverify=get_reverify_settings(db),
                   ai_explain=latest_note(db, "explain", "issue", issue.id), ai_triage=latest_note(db, "triage", "issue", issue.id),
-                  triage_labels=TRIAGE_LABELS, has_evidence=bool(findings),
+                  triage_labels=TRIAGE_LABELS, has_evidence=bool(findings), risk=rk.scores_for(db, [issue])[issue.id],
                   tickets=list(db.scalars(select(IssueTicket).where(IssueTicket.issue_id == issue.id))),
                   ticket_channels=list(db.scalars(select(NotificationChannel).where(
                       NotificationChannel.kind.in_(("jira", "gitlab")), NotificationChannel.enabled.is_(True)))),
@@ -317,7 +322,8 @@ def _settings(request: Request, db: Session, status_code: int = 200, error: str 
     return render(request, "settings.html", status_code=status_code, active="settings", error=error,
                   sla=sla or iss.get_sla(db), defaults=iss.DEFAULT_SLA, timezone=tz or get_timezone(db),
                   common_timezones=COMMON_TIMEZONES, base_url=get_base_url(db), reverify=get_reverify_settings(db),
-                  smtp={k: v for k, v in smtp.items() if k != "password"}, smtp_password_set=bool(smtp.get("password")))
+                  smtp={k: v for k, v in smtp.items() if k != "password"}, smtp_password_set=bool(smtp.get("password")),
+                  intel_refresh=rk.last_refresh(db), intel_refreshing=getattr(request.app.state, "intel_refreshing", False))
 
 
 @router.post("/settings/reverify", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
@@ -332,6 +338,14 @@ def settings_reverify(request: Request, enabled: bool = Form(False), delay_minut
     db.commit()
     audit(db, request, "settings.updated", target="re-verify", enabled=enabled, delay_minutes=delay_minutes)
     return RedirectResponse("/settings?msg=Re-verify+settings+saved#reverify", status_code=303)
+
+
+@router.post("/settings/intel/refresh", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
+async def settings_intel_refresh(request: Request, db: Session = Depends(get_db)):
+    if rk.start_refresh(request.app) is None:
+        return _redirect("/settings#intel", msg="A threat intel refresh is already running.")
+    audit(db, request, "intel.refresh_started", target="threat intel")
+    return _redirect("/settings#intel", msg="Threat intel refresh started. Reload this page in a minute for the result.")
 
 
 @router.post("/settings/notifications", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])

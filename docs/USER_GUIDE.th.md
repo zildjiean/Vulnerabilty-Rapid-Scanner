@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.2.1** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.3.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -168,6 +168,22 @@ New → Triaged → In progress → Fixed → Fix verified
    - ยังเจอ → **Reopened**
    - สแกนไม่สมบูรณ์ → คงไว้ที่ Fixed พร้อมหมายเหตุ
 5. issue ที่ปิดแล้วจะเปิดใหม่เองถ้าสแกนเจออีก และ issue *suspected* จะปิดเองเมื่อสแกนพบเวอร์ชันที่แก้แล้ว
+
+**Risk score (0–100)**: ตาราง Issues เรียงตามคะแนนนี้ (คลิกหัวคอลัมน์เพื่อเรียงแบบอื่น) ชี้เมาส์ที่ตัวเลขเพื่อดูที่มา
+หน้า issue มีการ์ด **Risk** แจกแจงทีละส่วน และ Dashboard มีการ์ด **Top risks**
+
+| ส่วน | คะแนน |
+|---|---|
+| ความรุนแรง: CVSS × 5 (ไม่มี CVE ใช้ severity: critical 47, high 37, medium 25, low 12) | 0–50 |
+| โอกาสถูกโจมตี: อยู่ใน CISA KEV = 25 ไม่งั้น 20 × EPSS percentile | 0–25 |
+| KEV ที่ใช้ใน ransomware | +5 |
+| Confidence: Verified +10, Confirmed +5 | 0–10 |
+| ความสำคัญของ scope: critical +10, high +6, medium +3 | 0–10 |
+
+ระดับ: ≥80 Critical, 60–79 High, 40–59 Medium, ต่ำกว่า 40 Low
+
+ข้อมูล EPSS (FIRST), KEV (CISA) และ CVSS (NVD) อัปเดตเองทุกชั่วโมง ดูผลรอบล่าสุดหรือกด **Refresh threat intel now**
+ได้ที่ **System → Settings → Threat intel** (ระบบส่งออกไปแค่หมายเลข CVE ไม่ส่งข้อมูล asset)
 
 **SLA**: วันครบกำหนดคิดจากความรุนแรง (ตั้งได้ที่ Settings) issue ที่เกินกำหนดแสดงเป็น *Overdue*
 
@@ -363,7 +379,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.2.1"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.3.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

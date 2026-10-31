@@ -3,6 +3,7 @@ import shutil
 import time
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -65,9 +66,15 @@ def settings(tmp_path, fake_bins):
     )
 
 
+def offline_get_json(url, params=None):
+    """Default intel fetcher for test apps: never reach real hosts. Tests that need data inject their own."""
+    raise httpx.ConnectError("network disabled in tests")
+
+
 @pytest.fixture
 def client(settings):
     app = create_app(settings)
+    app.state.get_json = offline_get_json
     with TestClient(app) as c:
         yield c
 

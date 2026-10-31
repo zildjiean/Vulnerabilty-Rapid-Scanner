@@ -28,6 +28,8 @@ def static_version() -> str:
 templates.env.globals["static_v"] = static_version()
 from . import __version__  # noqa: E402
 templates.env.globals["app_version"] = __version__
+from .risk import top_pct  # noqa: E402
+templates.env.globals["epss_top"] = top_pct
 from .mdlite import render_markdown  # noqa: E402
 templates.env.filters["mdlite"] = render_markdown
 

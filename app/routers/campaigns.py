@@ -14,6 +14,7 @@ from ..authz import require
 from ..db import Campaign, CampaignTemplate, Job, Rule, utcnow
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..intel import enrich, http_get_json, normalize_cve
+from ..risk import intel_for
 from ..issues import ISSUE_SEVERITIES
 from ..render import render
 from ..scanners.nuclei_runner import DEFAULT_PROFILE, PROFILES, profile_flags, validate_template_paths
@@ -109,7 +110,8 @@ def _detail(request: Request, db: Session, c: Campaign, status_code: int = 200, 
     return render(request, "campaign_detail.html", status_code=status_code, active="campaigns", c=c, error=error,
                   issues=issues, p=camp.progress(issues), rules=rules, suggestions=camp.suggested_templates(db, c),
                   jobs=jobs, job_summary=job_summary, targets=camp.verify_targets(db, c), profiles=PROFILES,
-                  default_profile=DEFAULT_PROFILE, refs=camp.references(c))
+                  default_profile=DEFAULT_PROFILE, refs=camp.references(c),
+                  cve_intel=intel_for(db, c.cve_id))
 
 
 @router.get("/campaigns/{cid}")

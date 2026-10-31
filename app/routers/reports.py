@@ -61,7 +61,7 @@ def scope_report(request: Request, sid: int, db: Session = Depends(get_db)):
 def _export(request: Request, db: Session, fmt: str, **filters):
     ctx = list_context(request, db, limit=EXPORT_LIMIT, **filters)
     base = get_base_url(db)
-    rows = [rep.export_row(i, base) for i in ctx["issues"]]
+    rows = [rep.export_row(i, base, ctx["risk"][i.id]) for i in ctx["issues"]]
     audit(db, request, "report.exported", target=f"issues.{fmt}", rows=len(rows),
           **{k: v for k, v in filters.items() if v})
     stamp = utcnow().strftime("%Y%m%d-%H%M%S")

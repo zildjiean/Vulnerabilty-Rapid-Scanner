@@ -72,10 +72,16 @@ def executive(db: Session, days: int = DEFAULT_DAYS, now: datetime | None = None
 
 
 EXPORT_FIELDS = ("id", "severity", "title", "vuln_id", "cve_id", "asset", "hostname", "confidence", "status",
-                 "assignee", "scope", "first_seen", "last_seen", "due_at", "resolved_at", "occurrences", "url")
+                 "assignee", "scope", "first_seen", "last_seen", "due_at", "resolved_at", "occurrences", "url",
+                 "risk_score", "risk_band", "epss", "epss_percentile", "kev")
 
 
-def export_row(issue: Issue, base_url: str) -> dict:
+def export_row(issue: Issue, base_url: str, risk=None) -> dict:
+    """One issue for CSV/JSON/API. ``risk`` is its ``app.risk.RiskScore`` (computed here when omitted)."""
+    if risk is None:
+        from .risk import scores_for
+        from sqlalchemy.orm import object_session
+        risk = scores_for(object_session(issue), [issue])[issue.id]
     def ts(d):
         return d.strftime("%Y-%m-%dT%H:%M:%SZ") if d else ""
     return {"id": issue.id, "severity": issue.severity, "title": issue.title, "vuln_id": issue.vuln_id,
@@ -83,4 +89,6 @@ def export_row(issue: Issue, base_url: str) -> dict:
             "status": issue.status, "assignee": issue.assignee.username if issue.assignee else "",
             "scope": issue.scope.name if issue.scope else "", "first_seen": ts(issue.first_seen),
             "last_seen": ts(issue.last_seen), "due_at": ts(issue.due_at), "resolved_at": ts(issue.resolved_at),
-            "occurrences": issue.occurrences, "url": f"{base_url}/issues/{issue.id}"}
+            "occurrences": issue.occurrences, "url": f"{base_url}/issues/{issue.id}",
+            "risk_score": risk.total, "risk_band": risk.band, "epss": risk.epss, "epss_percentile": risk.epss_percentile,
+            "kev": risk.kev}
