@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% from "_campaign_macros.html" import kev_badge, progress_bar %}
+{% from "_campaign_macros.html" import kev_badge, progress_bar, campaign_status, match_badge %}
 {% from "_issue_macros.html" import status_badge, confidence_badge, due_cell, play_button %}
-{% set playcol = can('scan.run') %}
+{% set unreviewed = c.status in ('draft', 'dismissed') %}
+{% set playcol = can('scan.run') and not unreviewed %}
 {% set section = "Campaigns" %}
 {% set page_title = c.name %}
 {% set page_subtitle = (c.cve_id ~ " · ") if c.cve_id and c.cve_id != c.name else "" %}
@@ -9,15 +10,21 @@
 {% block page_actions %}
 <a class="btn ghost" href="/reports/campaigns/{{ c.id }}"><svg class="icon"><use href="#i-file"/></svg>Report</a>
 {% if manage and c.cve_id %}<form method="post" action="/campaigns/{{ c.id }}/refresh"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Refresh intel</button></form>{% endif %}
-{% if manage %}<form method="post" action="/campaigns/{{ c.id }}/status" {% if c.status == 'active' %}data-confirm="Close this campaign? Issues stay as they are; you can reopen it later."{% endif %}><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost">{{ 'Close campaign' if c.status == 'active' else 'Reopen campaign' }}</button></form>{% endif %}
+{% if manage and c.status == 'draft' %}<form method="post" action="/campaigns/{{ c.id }}/dismiss" data-confirm="Dismiss this draft? Its rules stay disabled and the 0-day watch will not draft this CVE again."><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost"><svg class="icon"><use href="#i-x"/></svg>Dismiss</button></form>
+<form method="post" action="/campaigns/{{ c.id }}/activate"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="primary"><svg class="icon"><use href="#i-check"/></svg>Activate</button></form>
+{% elif manage and c.status == 'dismissed' %}<form method="post" action="/campaigns/{{ c.id }}/reopen"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost">Reopen as draft</button></form>
+{% elif manage %}<form method="post" action="/campaigns/{{ c.id }}/status" {% if c.status == 'active' %}data-confirm="Close this campaign? Issues stay as they are; you can reopen it later."{% endif %}><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost">{{ 'Close campaign' if c.status == 'active' else 'Reopen campaign' }}</button></form>{% endif %}
 {% endblock %}
 {% block content %}
 <div class="card mb"><div class="card-body row center" style="gap:10px">
   <span class="badge sev-{{ c.severity }}">{{ c.severity }}</span>{{ kev_badge(c) }}{% if c.kev_ransomware %}<span class="badge sev-critical">Used by ransomware</span>{% endif %}
-  <span class="status {{ 'st-running' if c.status == 'active' else 'st-done' }}">{{ c.status }}</span>
+  {{ campaign_status(c) }}
   <span class="spacer" style="flex:1"></span>
   <span class="small text-2">Started {{ c.created_at.strftime('%Y-%m-%d %H:%M') }} UTC by {{ c.created_by or 'unknown' }}</span>
 </div></div>
+{% if c.status == 'draft' %}<div class="alert info" role="status" data-draft-banner><svg class="icon"><use href="#i-radar"/></svg><div>Draft created by {{ c.created_by or '0-day watch' }} on {{ c.created_at.strftime('%Y-%m-%d %H:%M') }} UTC — review the rules, then <b>Activate</b> or <b>Dismiss</b>. Its version rules stay disabled and open no issues until it is activated.</div></div>
+{% if watch_unversioned %}<div class="alert warn" role="status" data-unversioned="{{ watch_unversioned }}"><svg class="icon"><use href="#i-alert"/></svg><div>{{ watch_unversioned }} matched asset{{ 's have' if watch_unversioned != 1 else ' has' }} no readable version; the version rules will not cover {{ 'them' if watch_unversioned != 1 else 'it' }} — check {{ 'them' if watch_unversioned != 1 else 'it' }} manually or run Verify after activation. Activating opens a suspected issue for each.</div></div>{% endif %}
+{% elif c.status == 'dismissed' %}<div class="alert warn" role="status"><svg class="icon"><use href="#i-alert"/></svg><div>This draft was dismissed. The 0-day watch will not draft {{ c.cve_id or 'it' }} again; reopen it as a draft to review it.</div></div>{% endif %}
 <div class="grid grid-4 mb">
   <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">Exposed assets</div><div class="kpi-value">{{ p.total }}</div><div class="kpi-sub">{{ p.confirmed }} confirmed · {{ p.conf_verified }} verified · {{ p.suspected }} suspected</div></div></div>
   <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-alert"/></svg></div><div><div class="kpi-label">Open</div><div class="kpi-value">{{ p.open }}</div><div class="kpi-sub">new, triaged or in progress</div></div></div>
@@ -41,6 +48,19 @@
         {% if refs %}<details><summary class="small">References ({{ refs|length }})</summary><ul class="refs">{% for r in refs %}<li><a href="{{ r }}" target="_blank" rel="noopener noreferrer">{{ r }}</a></li>{% endfor %}</ul></details>{% endif %}
       </div>
     </div>
+    {% if watch_matches %}
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-radar"/></svg>Matched by the 0-day watch <span class="chip num">{{ watch_matches|length }}</span></h2><a class="btn sm ghost" href="/watch">0-day watch<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+      <div class="table-wrap">
+      <table class="data" data-watch-matches>
+        <thead><tr><th data-sort="text">Asset</th><th data-sort="text">Product</th><th>Match</th><th>Why</th></tr></thead>
+        <tbody>{% for m in watch_matches %}
+        <tr><td class="cell-mono small">{{ m.host }}:{{ m.port }}</td><td class="small">{{ m.product }} <span class="cell-mono">{{ m.version }}</span></td><td>{{ match_badge(m.quality) }}</td><td class="small text-2">{{ m.reason }}</td></tr>
+        {% endfor %}</tbody>
+      </table>
+      </div>
+    </div>
+    {% endif %}
     <div class="card">
       <div class="card-head"><h2><svg class="icon"><use href="#i-server"/></svg>Exposure <span class="chip num">{{ issues|length }}</span></h2><a class="btn sm ghost" href="/issues?q={{ c.cve_id }}">Open in Issues<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
       <div class="table-wrap">
@@ -71,7 +91,7 @@
     </div>
   </div>
   <div class="stack">
-    {% if can('scan.run') %}
+    {% if can('scan.run') and not unreviewed %}
     <form method="post" action="/campaigns/{{ c.id }}/verify" class="card" data-loading>
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="card-head"><h2><svg class="icon"><use href="#i-bug"/></svg>Verify with nuclei</h2></div>
@@ -89,7 +109,8 @@
       <div class="card-body stack">
         {% for r in rules %}
         <div class="row center between list-row"><span class="cell-mono small">{{ r.product_pattern }} <b>{{ r.version_constraint }}</b>{% if not r.enabled %} <span class="badge neutral">disabled</span>{% endif %}</span>
-          {% if manage %}<form method="post" action="/campaigns/{{ c.id }}/rules/{{ r.id }}/delete" data-confirm="Remove this rule? Issues it opened stay in place."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Remove rule"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>{% endif %}</div>
+          <span class="row center" style="gap:4px">{% if can('rules.manage') %}<a class="btn ghost sm icon-btn" href="/rules/{{ r.id }}/edit" aria-label="Edit rule"><svg class="icon sm"><use href="#i-edit"/></svg></a>{% endif %}
+          {% if manage %}<form method="post" action="/campaigns/{{ c.id }}/rules/{{ r.id }}/delete" data-confirm="Remove this rule? Issues it opened stay in place."><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Remove rule"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>{% endif %}</span></div>
         {% else %}<p class="small text-2">No version rule yet.</p>{% endfor %}
         {% if manage %}
         <form method="post" action="/campaigns/{{ c.id }}/rules" class="stack">

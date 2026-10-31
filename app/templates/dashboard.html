@@ -7,6 +7,11 @@
 <a class="btn primary" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>New nuclei scan</a>{% endif %}
 {% endblock %}
 {% block content %}
+{% if drafts_waiting %}
+<div class="grid grid-4 mb">
+  <a class="card kpi kpi-link" href="/campaigns?view=draft" data-stat="drafts_waiting"><div class="kpi-icon warn"><svg class="icon"><use href="#i-radar"/></svg></div><div><div class="kpi-label">Drafts waiting</div><div class="kpi-value">{{ drafts_waiting }}</div><div class="kpi-sub">0-day watch campaigns to review</div></div></a>
+</div>
+{% endif %}
 {% set sev_total = sev_counts.critical + sev_counts.high + sev_counts.medium + sev_counts.low + sev_counts.info %}
 <div class="grid grid-4 mb">
   <a class="card kpi kpi-link" href="/issues"><div class="kpi-icon"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Active issues</div><div class="kpi-value" data-stat="issues_active">{{ kpis.active }}</div><div class="kpi-sub">{{ kpis.critical }} critical open · {{ kpis.suspected }} suspected</div></div></a>

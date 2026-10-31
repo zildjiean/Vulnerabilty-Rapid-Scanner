@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_campaign_macros.html" import campaign_status, match_badge %}
+{% set section = "0-Day intelligence" %}
+{% set page_title = "0-day watch" %}
+{% set page_subtitle = "Every hour the scanner reads newly published or changed CVEs (NVD) and newly exploited ones (CISA KEV), matches them against the inventory and drafts a campaign for each hit. Only public data is requested; no inventory data leaves the scanner." %}
+{% block page_actions %}
+{% if can('campaigns.manage') %}<form method="post" action="/watch/run" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button class="primary" type="submit" {{ 'disabled' if running }}><svg class="icon"><use href="#i-refresh"/></svg>Check now</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="grid grid-2 mb">
+  <div class="card" id="last-run">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Last run</h2>{% if running %}<span class="status st-running">running</span>{% endif %}</div>
+    <div class="card-body">
+      <dl class="kv">
+        <dt>When</dt><dd class="num">{% if last %}{{ last.at.strftime('%Y-%m-%d %H:%M') }} UTC{% else %}<span class="muted">Never</span>{% endif %}</dd>
+        {% if last %}
+        <dt>CVEs scanned</dt><dd class="num">{{ last.cves }}</dd>
+        <dt>Matched the inventory</dt><dd class="num">{{ last.matched }}</dd>
+        <dt>Drafts created</dt><dd class="num">{{ last.drafts }}</dd>
+        <dt>Templates attached</dt><dd class="num">{{ last.templates }}</dd>
+        {% if last.notes %}<dt>Notes</dt><dd><ul class="small">{% for n in last.notes %}<li>{{ n }}</li>{% endfor %}</ul></dd>{% endif %}
+        <dt>Errors</dt><dd>{% if last.errors %}<ul class="small">{% for e in last.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% else %}<span class="muted">none</span>{% endif %}</dd>
+        {% endif %}
+        <dt>NVD checked up to</dt><dd class="num">{{ cfg.last_nvd_check or '—' }}</dd>
+        <dt>KEV entries since</dt><dd class="num">{{ cfg.last_kev_date or '—' }}</dd>
+      </dl>
+      {% if not cfg.enabled %}<div class="alert warn" role="status" style="margin-top:10px"><svg class="icon"><use href="#i-alert"/></svg><div>The hourly watch is turned off. Check now still works.</div></div>{% endif %}
+    </div>
+  </div>
+  <form method="post" action="/watch/settings" class="card" id="watch-settings" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-sliders"/></svg>Settings</h2></div>
+    <div class="card-body stack">
+      {% set ro = not can('settings.manage') %}
+      <label class="check"><input type="checkbox" name="enabled" value="true" {{ 'checked' if cfg.enabled }} {{ 'disabled' if ro }}> Run every hour</label>
+      <div class="field"><label for="min_cvss">Minimum CVSS</label><input id="min_cvss" name="min_cvss" type="number" min="0" max="10" step="0.1" value="{{ cfg.min_cvss }}" {{ 'disabled' if ro }} aria-describedby="min_cvss_help"><span class="small text-2" id="min_cvss_help">CVEs below this score are skipped unless they are known exploited.</span></div>
+      <div class="field"><label for="max_drafts">Drafts per run</label><input id="max_drafts" name="max_drafts" type="number" min="1" max="200" step="1" value="{{ cfg.max_drafts }}" {{ 'disabled' if ro }} aria-describedby="max_drafts_help"><span class="small text-2" id="max_drafts_help">Known exploited and highest CVSS first; the rest stay listed as hits.</span></div>
+      <label class="check"><input type="checkbox" name="kev_always" value="true" {{ 'checked' if cfg.kev_always }} {{ 'disabled' if ro }}> Always include CISA KEV entries (known exploited)</label>
+      <label class="check"><input type="checkbox" name="include_possible" value="true" {{ 'checked' if cfg.include_possible }} {{ 'disabled' if ro }}> Include possible matches (product matches, version unknown)</label>
+      {% if not ro %}<div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save settings</button></div>{% else %}<p class="small text-2">Only an administrator can change these settings.</p>{% endif %}
+    </div>
+  </form>
+</div>
+<div class="card">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-radar"/></svg>Recent hits <span class="chip num">{{ hits|length }}</span></h2><a class="btn sm ghost" href="/campaigns?view=draft">Drafts<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="table-wrap">
+  <table class="data" data-watch-hits>
+    <thead><tr><th data-sort="text">CVE</th><th data-sort="num">CVSS</th><th>EPSS</th><th data-sort="num">Matched assets</th><th>Campaign</th><th data-sort="text">Found</th></tr></thead>
+    <tbody>
+    {% for h, c, ms, can_draft in hits %}
+    {% set confirmed = ms|selectattr('quality', 'equalto', 'confirmed')|list|length %}
+    {% set ei = epss.get(h.cve_id) %}
+    <tr>
+      <td><a class="cell-mono" href="https://nvd.nist.gov/vuln/detail/{{ h.cve_id }}" target="_blank" rel="noopener noreferrer">{{ h.cve_id }}<span class="sr-only"> (opens NVD)</span></a>{% if h.kev %} <span class="badge kev" title="Listed in the CISA Known Exploited Vulnerabilities catalog"><svg class="icon sm"><use href="#i-alert"/></svg>Known exploited</span>{% endif %}
+        {% if h.title %}<div class="small text-2" title="{{ h.title }}">{{ h.title|truncate(120) }}</div>{% endif %}</td>
+      <td class="num" data-value="{{ h.cvss_score or 0 }}">{{ h.cvss_score if h.cvss_score is not none else '—' }}</td>
+      <td class="num small">{% if ei and ei.epss is not none %}{{ '%.2f'|format(ei.epss * 100) }} %{% else %}—{% endif %}</td>
+      <td class="num" data-value="{{ ms|length }}">{{ ms|length }} <span class="row center small" style="gap:4px;display:inline-flex">{% if confirmed %}{{ match_badge('confirmed') }}<span class="num">{{ confirmed }}</span>{% endif %}{% if ms|length - confirmed %}{{ match_badge('possible') }}<span class="num">{{ ms|length - confirmed }}</span>{% endif %}</span></td>
+      <td>{% if c %}<a href="/campaigns/{{ c.id }}">{{ c.name }}</a> {{ campaign_status(c) }}{% elif can_draft and can('campaigns.manage') %}<form method="post" action="/watch/hits/{{ h.id }}/draft"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm" aria-label="Draft a campaign for {{ h.cve_id }} now"><svg class="icon sm"><use href="#i-plus"/></svg>Draft now</button></form>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="small text-2 num">{{ h.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    {% else %}
+    <tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-radar"/></svg><b>No hits yet</b>When a new CVE affects a product in the inventory, it appears here with a draft campaign to review.</div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

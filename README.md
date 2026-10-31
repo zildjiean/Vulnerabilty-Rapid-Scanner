@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-1.3.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.4.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -35,6 +35,13 @@ Everything runs in one container. No external services, no accounts, works offli
   (known exploited, ransomware use, federal due date) pulled automatically; a version rule and the matching
   nuclei templates in the same form; live exposure, remediation progress and one-click **Verify** that scans only
   the exposed assets.
+- **0-day watch**: every hour the scanner reads newly published or changed CVEs from NVD and new CISA KEV entries,
+  matches their affected products and version ranges against the inventory (nmap CPE, a product alias table and
+  name similarity; *confirmed* when the version is in range, *possible* when it cannot be checked) and prepares a
+  **draft campaign** for each hit, with disabled version rules and any matching nuclei template, then notifies the
+  team. A person reviews the draft and presses *Activate* (rules enabled, suspected issues opened) or *Dismiss*.
+  Templates published later are attached automatically. Thresholds (minimum CVSS, always include KEV, include
+  possible matches) and *Check now* are on the **0-day watch** page.
 - **0-day response** without waiting for upstream:
   - upload custom nuclei templates or pull them from a raw URL (validated with `nuclei -validate`);
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
@@ -105,7 +112,8 @@ Step-by-step user guide in Thai: **[docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md
 3. **Nuclei** – pick templates, groups or everything, optionally narrow by tags / severity, start. Results land in *Findings*.
 4. **0-day drops** – open *Campaigns → New campaign*, enter the CVE and the vulnerable versions. Exposed assets
    appear at once as suspected issues; press *Verify* to confirm them with nuclei. If no public template exists
-   yet, upload or pull one under *Templates* and attach it to the campaign.
+   yet, upload or pull one under *Templates* and attach it to the campaign. The **0-day watch** prepares these
+   campaigns as drafts on its own when a new CVE matches the inventory: review them under *Campaigns → Draft*.
 5. **Issues** – triage what was found: assign an owner, move it through the lifecycle, watch the SLA, and
    re-scan to verify the fix.
 6. **Proof** – press **Verify now** on an issue to re-run its template and capture proof before assigning the fix.
@@ -142,7 +150,8 @@ including failed sign-ins and denied attempts. Filter by user, action group and 
 
 Besides the targets, the scanner contacts GitHub (template and nuclei updates), `services.nvd.nist.gov` and
 `www.cisa.gov` (campaign intel; the KEV feed is cached in `/data/kev.json` for 24 hours), `api.first.org` (EPSS
-scores for the risk score, refreshed hourly for the CVEs on issues and campaigns), and the integrations
+scores for the risk score, refreshed hourly for the CVEs on issues and campaigns; the 0-day watch also queries
+NVD and the KEV feed hourly for new CVEs, sending only date ranges and CVE ids, never inventory data), and the integrations
 you configure (Slack, Teams, SMTP, Jira, GitLab, webhooks) and the AI provider you add (with redaction on, scan
 data leaves only as `HOST-n` placeholders; a local Ollama keeps everything on your network). Without internet
 access campaigns still work: intel shows an error and can be refreshed later; risk scores fall back to severity,

@@ -230,7 +230,7 @@ class Campaign(Base):
     cve_id: Mapped[str] = mapped_column(String(32), default="", index=True)
     description: Mapped[str] = mapped_column(Text, default="")
     severity: Mapped[str] = mapped_column(String(16), default="high")
-    status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # active | closed
+    status: Mapped[str] = mapped_column(String(16), default="active", index=True)  # draft | active | closed | dismissed
     cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     cvss_severity: Mapped[str] = mapped_column(String(16), default="")
     cvss_vector: Mapped[str] = mapped_column(String(255), default="")
@@ -431,6 +431,23 @@ class CveIntel(Base):
     nvd_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # rotates the per-run NVD budget
 
 
+class WatchHit(Base):
+    """One CVE the 0-day watch matched against the inventory (one row per CVE; matches merged across runs)."""
+    __tablename__ = "watch_hits"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cve_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    source: Mapped[str] = mapped_column(String(8), default="nvd")  # nvd | kev | both
+    title: Mapped[str] = mapped_column(String(512), default="")
+    cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    kev: Mapped[bool] = mapped_column(Boolean, default=False)
+    matches: Mapped[str] = mapped_column(Text, default="[]")  # JSON [{service_id, host, port, product, version, quality, reason}]
+    quality: Mapped[str] = mapped_column(String(16), default="possible")  # best of matches: confirmed | possible
+    campaign_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    record: Mapped[str] = mapped_column(Text, default="{}")  # JSON watch record (intel + CPE ranges), to draft later
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -476,6 +493,7 @@ _ADDED_COLUMNS = [
     ("issues", "last_verified_at", "DATETIME"),
     ("issues", "verify_result", "VARCHAR(16) NOT NULL DEFAULT ''"),
     ("issues", "verified_finding_id", "INTEGER"),
+    ("watch_hits", "record", "TEXT NOT NULL DEFAULT '{}'"),
 ]
 
 

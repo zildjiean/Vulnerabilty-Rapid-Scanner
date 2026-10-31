@@ -19,14 +19,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .db import AppSetting, Campaign, CveIntel, Issue, utcnow
-from .intel import GetJson, _load_kev_feed, fetch_nvd, http_get_json, normalize_cve
+from .intel import NVD_PAUSE, GetJson, _load_kev_feed, fetch_nvd, http_get_json, normalize_cve, nvd_wait
 
 log = logging.getLogger(__name__)
 
 EPSS_URL = "https://api.first.org/data/v1/epss"
 EPSS_BATCH = 100
 NVD_LIMIT = 5
-NVD_PAUSE = 6   # seconds between NVD calls: the public API allows 5 requests per 30 s without a key
 REFRESH_KEY = "intel_refresh"
 REFRESH_EVERY = timedelta(minutes=60)
 STARTUP_DELAY = timedelta(minutes=2)
@@ -172,8 +171,8 @@ def short_error(source: str, e: BaseException) -> str:
 def refresh_intel(db: Session, settings, get_json: GetJson, nvd_limit: int = NVD_LIMIT,
                   now: datetime | None = None, sleep: Callable[[float], None] = time.sleep) -> dict:
     """Refresh EPSS, KEV and CVSS for every CVE on an issue or campaign. Any error is recorded per source in
-    ``errors`` (short text); a failing source keeps its previous values and never blocks the others. NVD calls are
-    paced ``NVD_PAUSE`` seconds apart (public rate limit 5 per 30 s without a key). Caller commits."""
+    ``errors`` (short text); a failing source keeps its previous values and never blocks the others. NVD calls go
+    through the process-wide limiter (``intel.nvd_wait``, ``NVD_PAUSE`` s apart). Caller commits."""
     now = now or utcnow()
     cves = collect_cves(db)
     summary = {"cves": len(cves), "epss": 0, "kev": 0, "nvd": 0, "cvss_from_campaigns": 0, "errors": []}
@@ -233,9 +232,8 @@ def refresh_intel(db: Session, settings, get_json: GetJson, nvd_limit: int = NVD
         # Unscored CVEs least recently asked first, so a small per-run budget eventually covers all of them.
         missing = sorted((r for r in rows.values() if r.cvss_score is None),
                          key=lambda r: (r.nvd_checked_at or datetime.min, r.cve_id))[:max(0, nvd_limit)]
-        for n, row in enumerate(missing):
-            if n:
-                sleep(NVD_PAUSE)
+        for row in missing:
+            nvd_wait(sleep)
             try:
                 nvd = fetch_nvd(row.cve_id, get_json)
             except Exception as e:  # noqa: BLE001

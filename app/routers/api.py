@@ -144,7 +144,7 @@ def _campaign_out(db: Session, c: Campaign) -> dict:
 @router.get("/campaigns", dependencies=VIEW)
 def campaigns_list(status: str = "", db: Session = Depends(get_db)):
     stmt = select(Campaign).order_by(Campaign.created_at.desc())
-    if status in ("active", "closed"):
+    if status in ("active", "draft", "closed", "dismissed"):
         stmt = stmt.where(Campaign.status == status)
     return {"campaigns": [_campaign_out(db, c) for c in db.scalars(stmt)]}
 

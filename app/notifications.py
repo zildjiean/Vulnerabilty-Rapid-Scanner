@@ -23,6 +23,7 @@ EVENTS = {
     "issue.assigned": "Issue assigned",
     "issue.status_changed": "Issue status changed",
     "campaign.created": "Campaign started",
+    "campaign.draft": "0-day watch drafted a campaign",
     "scan.problem": "Scan failed or incomplete",
     "schedule.error": "Scheduled run failed",
 }
@@ -223,14 +224,21 @@ def check_jobs(db: Session) -> int:
     return n
 
 
-def campaign_message(db: Session, c) -> ch.Message:
+def campaign_message(db: Session, c, event: str = "campaign.created", assets: int | None = None) -> ch.Message:
+    """``campaign.created`` when a campaign starts; ``campaign.draft`` when the 0-day watch drafts one for review."""
     fields = [("CVE", c.cve_id or "—"), ("Severity", c.severity)]
     if c.cvss_score is not None:
         fields.append(("CVSS", str(c.cvss_score)))
     if c.kev:
         fields.append(("CISA KEV", f"known exploited, due {c.kev_due}" + (" · ransomware" if c.kev_ransomware else "")))
-    title = f"[{c.severity.upper()}] Campaign started: {c.name}" + (" (known exploited)" if c.kev else "")
-    return ch.Message(event="campaign.created", title=title, text=(c.description or c.name)[:600], severity=c.severity,
+    if event == "campaign.draft":
+        n = assets or 0
+        fields.append(("Status", "draft: review the rules, then activate or dismiss"))
+        title = f"[{c.severity.upper()}] 0-day watch: {c.cve_id or c.name} affects {n} asset{'s' if n != 1 else ''}"
+    else:
+        title = f"[{c.severity.upper()}] Campaign started: {c.name}"
+    title += " (known exploited)" if c.kev else ""
+    return ch.Message(event=event, title=title, text=(c.description or c.name)[:600], severity=c.severity,
                       url=f"{get_base_url(db)}/campaigns/{c.id}", fields=fields, data={"campaign_id": c.id, "cve": c.cve_id})
 
 

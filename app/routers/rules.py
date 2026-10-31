@@ -5,12 +5,12 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..db import Host, Rule, RuleMatch, Service
+from ..db import Campaign, Host, Rule, RuleMatch, Service
 from ..audit import audit
 from ..authz import require
 from ..deps import get_db, verify_csrf
 from ..render import SEVERITIES, render
-from ..rules import evaluate_rules, validate_rule
+from ..rules import UNREVIEWED, evaluate_rules, validate_rule
 
 router = APIRouter()
 
@@ -26,8 +26,16 @@ def _matches(db: Session):
 
 def _rules_page(request: Request, db: Session, form: dict | None = None, error: str | None = None, status_code: int = 200):
     rules = list(db.scalars(select(Rule).order_by(Rule.id)))
+    waiting = {cid: status for cid, status in db.execute(
+        select(Campaign.id, Campaign.status).where(Campaign.status.in_(UNREVIEWED)))}
     return render(request, "rules.html", status_code=status_code, active="rules", rules=rules, matches=_matches(db),
-                  form=form or dict(EMPTY_RULE), error=error)
+                  form=form or dict(EMPTY_RULE), error=error, waiting=waiting)
+
+
+def _unreviewed_campaign(db: Session, rule: Rule) -> Campaign | None:
+    """The draft / dismissed campaign a rule belongs to, if any."""
+    c = db.get(Campaign, rule.campaign_id) if rule.campaign_id else None
+    return c if c is not None and c.status in UNREVIEWED else None
 
 
 def _form_from(name, product_pattern, version_constraint, cve_id, severity, description, enabled) -> dict:
@@ -94,6 +102,9 @@ def rule_edit(request: Request, rule_id: int, name: str = Form(""), product_patt
     db.commit()
     audit(db, request, "rule.updated", target=rule.name, rule_id=rule.id, product=rule.product_pattern,
           constraint=rule.version_constraint, cve=rule.cve_id, enabled=rule.enabled)
+    draft = _unreviewed_campaign(db, rule)
+    if draft is not None:   # a draft's rule is reviewed on its campaign page
+        return RedirectResponse(f"/campaigns/{draft.id}?msg=Rule+updated", status_code=303)
     return RedirectResponse("/rules?msg=Rule+updated+and+evaluated", status_code=303)
 
 

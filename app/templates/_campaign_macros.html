@@ -4,3 +4,5 @@
   {% if p.total %}{% for s, cls in [('verified','ok'),('fixed','ok-soft'),('false_positive','muted'),('accepted_risk','muted'),('in_progress','primary'),('triaged','warn'),('new','danger')] if p[s] %}<i class="{{ cls }}" style="width:{{ (100 * p[s] / p.total)|round(1) }}%" title="{{ issue_status_labels[s] }}: {{ p[s] }}"></i>{% endfor %}{% endif %}
 </div>
 {%- endmacro %}
+{% macro campaign_status(c) -%}<span class="status {{ {'active': 'st-running', 'draft': 'st-queued', 'dismissed': 'st-cancelled'}.get(c.status, 'st-done') }}">{{ c.status }}</span>{%- endmacro %}
+{% macro match_badge(q) -%}{% if q == 'confirmed' %}<span class="badge conf-confirmed" title="The inventory version is inside the vulnerable range">confirmed</span>{% else %}<span class="badge conf-suspected" title="Product matches but the version could not be checked: needs a look">possible</span>{% endif %}{%- endmacro %}
