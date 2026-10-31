@@ -278,6 +278,10 @@ async def issue_template_save_run(request: Request, issue_id: int, yaml: str = F
     """Save the reviewed draft as a custom template, link it to the issue and start the verification scan."""
     from .templates import nuclei_validate
     issue = _get(db, issue_id)
+    if proof.live_verify_job(db, issue) is not None:   # complete_verify matches findings on the template id
+        return _redirect(f"/issues/{issue.id}", err="Wait for the running verification to finish before changing the template.")
+    if issue.template_id:
+        return _redirect(f"/issues/{issue.id}", err="This issue already has a verification template. Press Verify now to run it.")
     try:
         info = validate_template_yaml(yaml)
         tmp = settings.data_dir / "ai-drafts"

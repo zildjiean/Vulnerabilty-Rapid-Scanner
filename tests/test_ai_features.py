@@ -249,3 +249,22 @@ def test_issue_template_draft_refusal_shows_english_guidance(env):
     script(env, error="Claude API error 500: boom")                      # other errors use the generic notice
     r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": get_csrf(env, f"/issues/{iid}")})
     assert r.status_code == 400 and "boom" in r.text and "declined this request" not in r.text
+
+
+def test_save_run_refuses_while_verifying_or_when_template_already_linked(env):
+    iid = suspected(env)
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="running")
+        db.add(job)
+        db.flush()
+        db.get(Issue, iid).verify_job_id = job.id
+        db.commit()
+    csrf = get_csrf(env, f"/issues/{iid}")
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
+    assert r.status_code == 303 and "err=Wait+for+the+running" in r.headers["location"]
+    linked = seed(env, SPECS)["CVE-2021-41773"]                           # already has a template
+    r = env.post(f"/issues/{linked}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
+    assert r.status_code == 303 and "err=This+issue+already" in r.headers["location"]
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, iid).template_id == "" and db.get(Issue, linked).template_id == "CVE-2021-41773"
+        assert db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == "cve-2026-1-php-detect")) is None
