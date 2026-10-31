@@ -525,7 +525,8 @@ def test_source_keys_stored_encrypted_and_never_rendered(auth):
     assert r.status_code == 303 and KEY not in r.headers["location"]
     page = auth.get("/settings").text
     assert KEY not in page and "csecret-XYZ" not in page
-    assert re.search(r'securitytrails.*?\bset\b', page, re.S)
+    assert 'data-provider="securitytrails">set<' in page and 'data-provider="censys">set<' in page
+    assert 'data-provider="shodan">not set<' in page
     with auth.app.state.SessionLocal() as s:
         from app.db import AppSetting
         raw = s.get(AppSetting, dsc.KEYS_SETTING).value
@@ -543,7 +544,7 @@ def test_source_key_validation_never_echoes_key(auth):
     r = save_keys(auth, key_censys="no-colon-SECRETVALUE")
     assert r.status_code == 400 and "id:secret" in r.text and "SECRETVALUE" not in r.text
     r = save_keys(auth, key_shodan="abc\ndef")
-    assert r.status_code == 400 and "abc" not in r.text.split("</header>", 1)[-1].split("discovery-sources")[0][-200:]
+    assert r.status_code == 400 and "single value" in r.text and "abc\ndef" not in r.text and "abc&#10;def" not in r.text
 
 
 def test_source_keys_need_settings_manage(auth):

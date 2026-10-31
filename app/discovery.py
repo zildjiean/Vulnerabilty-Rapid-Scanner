@@ -455,7 +455,14 @@ def launch_discovery(db: Session, settings: Settings, runner, box, roots: list[s
     domains_file = settings.tmp_dir / f"discovery-{job.id}-domains.txt"
     domains_file.write_text("\n".join(roots) + "\n")
     keys = get_source_keys(db, box)
-    pc = write_provider_config(settings, job.id, keys) if keys else None
+    try:
+        pc = write_provider_config(settings, job.id, keys) if keys else None
+    except OSError as e:
+        _unlink(domains_file, settings.tmp_dir / f"subfinder-{job.id}.yaml")
+        job.status, job.finished_at = "failed", utcnow()
+        job.log = f"[discovery] cannot write the subfinder provider config: {e.strerror or type(e).__name__}"
+        db.commit()
+        raise ValueError("Cannot write the subfinder provider config in the data directory (see the job log).")
     argv = build_subfinder_argv(settings.subfinder_bin, str(domains_file), str(pc) if pc else None)
     job.command = quote_argv(argv)
     db.commit()

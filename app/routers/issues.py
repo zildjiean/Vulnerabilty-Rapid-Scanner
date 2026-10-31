@@ -349,8 +349,11 @@ def _settings(request: Request, db: Session, status_code: int = 200, error: str 
     from ..notifications import get_base_url, get_smtp
     from ..reverify import get_reverify_settings
     from ..scheduler import get_timezone
+    from .. import discovery as dsc
     smtp = get_smtp(db, request.app.state.secretbox)
+    stored_keys = dsc.get_source_keys(db, request.app.state.secretbox)
     return render(request, "settings.html", status_code=status_code, active="settings", error=error,
+                  discovery_providers=dsc.PROVIDERS, discovery_keys_set={n: n in stored_keys for n in dsc.PROVIDERS},
                   sla=sla or iss.get_sla(db), defaults=iss.DEFAULT_SLA, timezone=tz or get_timezone(db),
                   common_timezones=COMMON_TIMEZONES, base_url=get_base_url(db), reverify=get_reverify_settings(db),
                   smtp={k: v for k, v in smtp.items() if k != "password"}, smtp_password_set=bool(smtp.get("password")),
@@ -394,6 +397,25 @@ def settings_notifications(request: Request, base_url: str = Form(""), smtp_host
     audit(db, request, "settings.updated", target="notifications", base_url=base_url.strip(), smtp_host=smtp_host.strip(),
           smtp_password_changed=bool(smtp_password))
     return RedirectResponse("/settings?msg=Notification+settings+saved#notifications", status_code=303)
+
+
+@router.post("/settings/discovery-keys", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
+async def settings_discovery_keys(request: Request, db: Session = Depends(get_db)):
+    """subfinder source keys: ``key_<provider>`` sets (blank keeps), ``remove_<provider>`` deletes. Key values never
+    reach a log, the audit trail, a flash message or an error: only provider names do."""
+    from .. import discovery as dsc
+    form = await request.form()
+    updates = {n: str(form.get(f"key_{n}") or "").strip() for n in dsc.PROVIDERS}
+    remove = {n for n in dsc.PROVIDERS if form.get(f"remove_{n}")}
+    try:
+        changed, removed = dsc.set_source_keys(db, request.app.state.secretbox, updates, remove)
+    except ValueError as e:
+        db.rollback()
+        return _settings(request, db, 400, str(e))
+    db.commit()
+    audit(db, request, "settings.discovery_keys", target="discovery sources", set=",".join(changed),
+          removed=",".join(removed))
+    return RedirectResponse("/settings?msg=Discovery+source+keys+saved#discovery-sources", status_code=303)
 
 
 COMMON_TIMEZONES = ("Asia/Bangkok", "UTC", "Asia/Singapore", "Asia/Tokyo", "Asia/Kolkata", "Europe/London",
