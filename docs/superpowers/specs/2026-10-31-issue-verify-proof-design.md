@@ -134,7 +134,7 @@ section 2 in the same request. Validation errors re-render the card with the YAM
   (help|assist|provide|create)|against (my|our) (guidelines|policies)|can't help with`), raise `LLMRefusal` with the
   first 160 characters of the model's text as the reason. Plain `_parse_json` errors stay `LLMError`.
 
-UI: the Verification template card catches `LLMRefusal` and renders a `.notice.error` box (English, verbatim):
+UI: the Verification template card catches `LLMRefusal` and renders a `.alert.error` box (English, verbatim):
 
 > **The configured AI model declined this request** (<reason>). Writing a verification template for your own
 > assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model

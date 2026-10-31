@@ -57,7 +57,7 @@
       <div class="card-body stack">
         <dl class="kv">
           <dt>Matched at</dt><dd class="cell-mono">{{ proof.matched_at }}</dd>
-          {% if proof.matcher %}<dt>Matcher</dt><dd class="cell-mono">{{ proof.matcher }}</dd>{% endif %}
+          {% if proof.matcher %}<dt>Matcher</dt><dd class="cell-mono">{{ proof.matcher }}{% if not proof.matcher_status %} <span class="small text-2">(matcher-status false)</span>{% endif %}</dd>{% endif %}
           {% if proof.extracted %}<dt>Extracted</dt><dd class="cell-mono">{{ proof.extracted|join(', ') }}</dd>{% endif %}
         </dl>
         {% if proof.has_http %}

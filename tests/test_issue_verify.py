@@ -77,6 +77,9 @@ def test_verify_with_back_redirects_to_the_list_and_errors_go_to_err(env):
     r = env.post(f"/issues/{ids[CVE]}/verify", data={"csrf": get_csrf(env, "/issues"), "back": "//evil.example/x"},
                  follow_redirects=False)
     assert r.headers["location"].startswith(f"/issues/{ids[CVE]}?")
+    r = env.post(f"/issues/{ids[CVE]}/verify", data={"csrf": get_csrf(env, "/issues"), "back": "/\\evil.example/x"},
+                 follow_redirects=False)
+    assert r.headers["location"].startswith(f"/issues/{ids[CVE]}?")
     with env.app.state.SessionLocal() as db:   # do not leave the verification subprocess running at teardown
         wait_job(env, db.scalar(select(Job.id).where(Job.kind == "nuclei").order_by(Job.id.desc())))
 

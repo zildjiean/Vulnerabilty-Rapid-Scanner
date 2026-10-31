@@ -143,7 +143,7 @@ def _redirect(url: str, **q) -> RedirectResponse:
 
 def _safe_back(back: str, issue: Issue) -> str:
     """Only same-site paths are honoured; anything else returns to the issue page."""
-    return back if back.startswith("/") and not back.startswith("//") else f"/issues/{issue.id}"
+    return back if back.startswith("/") and not back.startswith(("//", "/\\")) else f"/issues/{issue.id}"
 
 
 def _verify(request: Request, db: Session, issue: Issue, back: str):
