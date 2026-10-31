@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -133,8 +133,11 @@ def _actor(request: Request, db: Session) -> User:
 
 
 def _redirect(url: str, **q) -> RedirectResponse:
-    sep = "&" if "?" in url else "?"
-    return RedirectResponse(url + (sep + urlencode(q) if q else ""), status_code=303)
+    """Redirect with ?msg= / ?err=, replacing any flash left in the URL by an earlier redirect."""
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k not in ("msg", "err")]
+    query += list(q.items())
+    return RedirectResponse(urlunsplit(parts._replace(query=urlencode(query))), status_code=303)
 
 
 def _safe_back(back: str, issue: Issue) -> str:

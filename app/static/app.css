@@ -433,7 +433,7 @@ details.proof [data-proof-more]{margin-top:8px}
 .w-md{width:220px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 .ai-ask input{min-height:38px}
-.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-height:36px;padding:0;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--primary);cursor:pointer}
-.icon-btn:hover{background:var(--primary-soft);border-color:var(--primary)}
-.icon-btn.muted{color:var(--text-3)}
+.play-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-height:36px;padding:0;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--primary);cursor:pointer}
+.play-btn:hover{background:var(--primary-soft);border-color:var(--primary)}
+.play-btn.muted{color:var(--text-3)}
 .play-form{display:inline-block;margin:0}

@@ -127,6 +127,27 @@ def test_play_icons_in_list_and_campaign_only_for_scanners(env):
     page = env.get("/issues").text
     assert f'action="/issues/{ids[CVE]}/verify"' in page and 'aria-label="Verify now' in page
     assert 'name="back" value="/issues"' in page
+    # a stale flash in the list URL is replaced, not piled up
+    r = env.post(f"/issues/{ids[CVE]}/verify", data={"csrf": get_csrf(env, "/issues"), "back": "/issues?view=active&msg=old"},
+                 follow_redirects=False)
+    assert r.headers["location"].count("msg=") == 1 and "msg=old" not in r.headers["location"]
+    assert r.headers["location"].startswith("/issues?view=active&msg=")
+    # the other two states: a live job shows the chip, no template shows the muted link
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="running")
+        db.add(job)
+        db.flush()
+        db.get(Issue, ids[CVE]).verify_job_id = job.id
+        db.commit()
+        jid = job.id
+    page = env.get("/issues").text
+    assert f'href="/jobs/{jid}"' in page and f'action="/issues/{ids[CVE]}/verify"' not in page
+    assert f'class="play-btn muted" href="/issues/{ids["exposed-panel"]}#verify"' not in page   # it has a template
+    sus = suspected_issue(env)
+    assert f'class="play-btn muted" href="/issues/{sus}#verify"' in env.get("/issues").text
+    with env.app.state.SessionLocal() as db:   # back to the idle state for the campaign checks below
+        db.get(Issue, ids[CVE]).verify_job_id = None
+        db.commit()
     from app.campaigns import create_campaign
     with env.app.state.SessionLocal() as db:
         c = create_campaign(db, name="PHP UAF", cve_id=CVE, description="", severity="critical", product_pattern="php",
