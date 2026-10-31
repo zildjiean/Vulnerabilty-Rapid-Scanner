@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-31
+
 ### Added
 - **Risk score** (0-100) on every issue: CVSS (or severity when no CVSS is known), exploitation from CISA KEV or the
   FIRST EPSS percentile, KEV ransomware use, confidence and scope criticality. Bands critical / high / medium / low.
@@ -160,7 +162,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.0.0...v1.1.0

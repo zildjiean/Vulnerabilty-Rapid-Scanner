@@ -321,7 +321,14 @@ def start_refresh(app, now: datetime | None = None) -> asyncio.Task | None:
     except BaseException:
         app.state.intel_refreshing = False
         raise
+    app.state.intel_task.add_done_callback(_log_task_failure)
     return app.state.intel_task
+
+
+def _log_task_failure(task: asyncio.Task) -> None:
+    """Nothing awaits the background task, so surface a failure that escaped _run instead of losing it."""
+    if not task.cancelled() and task.exception() is not None:
+        log.error("threat intel refresh task failed", exc_info=task.exception())
 
 
 async def maybe_refresh_intel(app, now: datetime | None = None) -> asyncio.Task | None:
