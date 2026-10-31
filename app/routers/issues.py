@@ -47,7 +47,9 @@ def issue_kpis(db: Session) -> dict:
         "due_soon": sum(1 for i in open_work if i.due_at and now <= i.due_at <= now + timedelta(days=7)),
         "unassigned": sum(1 for i in open_work if i.assignee_id is None),
         "confirmed": sum(1 for i in active if i.confidence == "confirmed"),
+        "conf_verified": sum(1 for i in active if i.confidence == "verified"),
         "suspected": sum(1 for i in active if i.confidence == "suspected"),
+        "scan_confirmed": sum(1 for i in active if i.confidence in iss.SCAN_CONFIRMED),
         "awaiting_verification": sum(1 for i in active if i.status == "fixed"),
         "critical": sum(1 for i in open_work if i.severity == "critical"),
     }

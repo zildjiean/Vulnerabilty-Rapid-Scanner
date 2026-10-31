@@ -50,7 +50,7 @@ SEARCH_SCHEMA = _obj({
     "status": {"type": "string", "enum": ["", "new", "triaged", "in_progress", "fixed", "verified", "false_positive",
                                           "accepted_risk"]},
     "assignee": {"type": "string"},
-    "confidence": {"type": "string", "enum": ["", "confirmed", "suspected"]},
+    "confidence": {"type": "string", "enum": ["", "confirmed", "verified", "suspected"]},
     "overdue": {"type": "boolean"},
     "scope": {"type": "string"},
     "q": {"type": "string"},
@@ -182,7 +182,8 @@ def search_prompt(db: Session, question: str, me: str) -> str:
     return f"""Translate the question into filters for the scanner UI. Use empty strings for filters that do not apply.
 - target "issues" for vulnerabilities / risk / remediation questions; "inventory" for "what runs where" questions.
 - issues filters: view, severity, status, assignee ("me" = {me}, "none" = unassigned, or a username from the list),
-  confidence, overdue, scope (exact scope name or "none"), q (free text: CVE, title, address, host name).
+  confidence ("suspected" = version match only, "confirmed" = seen by a nuclei scan, "verified" = reproduced with
+  proof by Verify now), overdue, scope (exact scope name or "none"), q (free text: CVE, title, address, host name).
 - inventory filters: q (address, host name, product, version, CPE), product (exact name from the list), port.
 - explanation: one short sentence describing the filter you chose.
 Scopes: {scopes}

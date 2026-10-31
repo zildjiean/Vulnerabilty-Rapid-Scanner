@@ -90,10 +90,10 @@ def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
     # Matching on issue_id alone would miss info templates: issues_from_findings skips them and never links them.
     finding = db.scalar(select(Finding).where(Finding.job_id == job.id, Finding.template_id == issue.template_id)
                         .order_by(Finding.id.desc()).limit(1))
+    from .issues import _event as issue_event, _set_status
     if finding is not None:
         result = "reproduced"
         if finding.issue_id is None:   # not ingested as an issue sighting (info severity); link it so the proof panel finds it
-            from .issues import _event as issue_event, _set_status
             finding.issue_id = issue.id
             if issue.confidence != "confirmed":
                 issue_event(db, issue, "confirmed", from_value=issue.confidence, to_value="confirmed",
@@ -101,6 +101,11 @@ def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
                 issue.confidence = "confirmed"
             if issue.status in ("fixed", "verified"):   # issues_from_findings would have reopened a non-info match
                 _set_status(db, issue, "triaged", None, kind="reopened", body=f"Seen again: verification job #{job.id}")
+        if issue.confidence != "verified":
+            issue_event(db, issue, "confirmed", from_value=issue.confidence, to_value="verified",
+                        body=f"Verified by job #{job.id}; proof captured.")
+            issue.confidence = "verified"
+        issue.verified_finding_id = finding.id
         p = proof_from_finding(finding)
         detail = f" (matcher {p['matcher']})" if p and p["matcher"] else ""
         body = f"Verified: job #{job.id} reproduced it{detail}. Proof captured."
@@ -110,6 +115,10 @@ def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
     else:
         result = "not_reproduced"
         body = f"Verification: job #{job.id} did not reproduce it. Decide whether it is fixed or a false positive."
+        if issue.confidence == "verified":
+            issue_event(db, issue, "confirmed", from_value="verified", to_value="confirmed",
+                        body=f"Verification job #{job.id} did not reproduce it; confidence back to confirmed.")
+            issue.confidence, issue.verified_finding_id = "confirmed", None
     issue.verify_result, issue.last_verified_at, issue.verify_job_id = result, utcnow(), None
     _event(db, issue, body)
     db.flush()

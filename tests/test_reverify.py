@@ -200,3 +200,13 @@ def test_settings_and_issue_page(env):
     a = ids_for(env, "192.168.1.10")
     set_status(env, a, "fixed")
     assert "re-verify paused" in env.get(f"/issues/{a}").text
+
+
+def test_request_is_set_for_verified_fixed_issues(env):
+    seed(env, SPECS)
+    a = ids_for(env, "192.168.1.10")
+    with env.app.state.SessionLocal() as db:
+        db.get(Issue, a).confidence = "verified"
+        db.commit()
+    set_status(env, a, "fixed")
+    assert get(env, a).reverify_requested_at is not None

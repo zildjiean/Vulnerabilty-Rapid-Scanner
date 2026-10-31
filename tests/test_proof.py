@@ -92,7 +92,7 @@ def test_start_verify_runs_the_template_against_the_asset_and_reproduces(env):
     wait_job(env, jid)   # the fake nuclei finishes fast, so verify_job_id is only checked after completion
     i = get(env, iid)
     assert i.verify_result == "reproduced" and i.verify_job_id is None and i.last_verified_at is not None
-    assert i.confidence == "confirmed"
+    assert i.confidence == "verified" and i.verified_finding_id is not None
     assert any(kind == "verify" and "reproduced it" in body for kind, body in events(env, iid))
 
 
@@ -179,7 +179,64 @@ def test_complete_verify_counts_an_info_template_match_as_reproduced(env):
     with env.app.state.SessionLocal() as db:
         assert db.get(Finding, fid).issue_id == iid
     i = get(env, iid)
-    assert i.verify_result == "reproduced" and i.confidence == "confirmed"
+    assert i.verify_result == "reproduced" and i.confidence == "verified" and i.verified_finding_id == fid
     assert i.status == "triaged" and i.resolved_at is None   # a closed issue that reproduces is reopened
     assert ("confirmed", f"verification job #{job.id}") in events(env, iid)
     assert ("reopened", f"Seen again: verification job #{job.id}") in events(env, iid)
+
+
+def confidence_events(client, iid):
+    with client.app.state.SessionLocal() as db:
+        return [(e.from_value, e.to_value, e.body) for e in db.scalars(
+            select(IssueEvent).where(IssueEvent.issue_id == iid, IssueEvent.kind == "confirmed").order_by(IssueEvent.id))]
+
+
+def verify_job(db, iid):
+    job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issue": iid}))
+    db.add(job)
+    db.flush()
+    db.get(Issue, iid).verify_job_id = job.id
+    return job
+
+
+def test_reproduced_marks_the_issue_verified_and_not_reproduced_takes_it_back(env):
+    ids = seed(env, SPECS)
+    iid = ids[CVE]
+    with env.app.state.SessionLocal() as db:
+        job = verify_job(db, iid)
+        f = Finding(job_id=job.id, template_id=CVE, template_name="PHP", severity="critical", issue_id=iid,
+                    host="http://192.168.1.10:8080", matched_at="http://192.168.1.10:8080/", raw_json="{}")
+        db.add(f)
+        db.flush()
+        assert proof.complete_verify(db, job, []) == "reproduced"
+        db.commit()
+        fid, jid = f.id, job.id
+    i = get(env, iid)
+    assert i.confidence == "verified" and i.verified_finding_id == fid
+    assert confidence_events(env, iid)[-1] == ("confirmed", "verified", f"Verified by job #{jid}; proof captured.")
+
+    with env.app.state.SessionLocal() as db:   # inconclusive changes nothing
+        job = verify_job(db, iid)
+        assert proof.complete_verify(db, job, ["Target was dropped as unresponsive"]) == "inconclusive"
+        db.commit()
+    i = get(env, iid)
+    assert i.confidence == "verified" and i.verified_finding_id == fid
+
+    with env.app.state.SessionLocal() as db:
+        job = verify_job(db, iid)
+        assert proof.complete_verify(db, job, []) == "not_reproduced"
+        db.commit()
+        jid = job.id
+    i = get(env, iid)
+    assert i.confidence == "confirmed" and i.verified_finding_id is None
+    assert confidence_events(env, iid)[-1] == (
+        "verified", "confirmed", f"Verification job #{jid} did not reproduce it; confidence back to confirmed.")
+
+
+def test_not_reproduced_leaves_a_confirmed_issue_confirmed(env):
+    ids = seed(env, SPECS)
+    iid = ids[CVE]
+    with env.app.state.SessionLocal() as db:
+        assert proof.complete_verify(db, verify_job(db, iid), []) == "not_reproduced"
+        db.commit()
+    assert get(env, iid).confidence == "confirmed" and confidence_events(env, iid) == []

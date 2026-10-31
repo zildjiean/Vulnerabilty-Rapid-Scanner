@@ -199,3 +199,23 @@ def test_link_existing_template_then_play_works(env):
         assert db.get(Issue, iid).template_id == CVE
     page = env.get(f"/issues/{iid}").text
     assert "Verify now" in page and 'id="verify"' not in page and f"Linked verification template {CVE}" in page
+
+
+def test_verified_badge_links_to_its_proof(env):
+    iid = seed(env, SPECS)[CVE]
+    with env.app.state.SessionLocal() as db:
+        from app.db import Finding
+        fid = db.scalar(select(Finding.id).where(Finding.issue_id == iid))
+        i = db.get(Issue, iid)
+        i.confidence, i.verified_finding_id = "verified", fid
+        db.commit()
+    badge = f'class="badge conf-verified" href="/issues/{iid}?proof={fid}#proof"'
+    for url in ("/issues", f"/issues/{iid}"):
+        page = env.get(url).text
+        assert badge in page, url
+        assert "Reproduced by Verify now; proof captured" in page and "#i-check-circle" in page
+    assert 'id="proof"' in env.get(f"/issues/{iid}?proof={fid}").text
+    with env.app.state.SessionLocal() as db:
+        db.get(Issue, iid).verified_finding_id = None
+        db.commit()
+    assert f'class="badge conf-verified" href="/issues/{iid}#proof"' in env.get("/issues").text

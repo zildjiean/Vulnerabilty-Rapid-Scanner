@@ -20,7 +20,7 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>Automatic re-verification</h2></div>
   <div class="card-body stack">
-    <p class="text-2">When a confirmed issue is marked fixed, its nuclei template is re-run against the asset. Not found → verified; found → reopened; incomplete scan → stays fixed with a note. Suspected issues are verified by the next nmap scan instead.</p>
+    <p class="text-2">When a confirmed or verified issue is marked fixed, its nuclei template is re-run against the asset. Not found → fix verified; found → reopened; incomplete scan → stays fixed with a note. Suspected fixes are verified by the next nmap scan instead.</p>
     <div class="row" style="align-items:flex-end">
       <label class="check"><input type="checkbox" name="enabled" value="true" {{ 'checked' if reverify.enabled }}> Re-verify fixed issues automatically</label>
       <div class="field w-sm"><label for="delay_minutes">Wait (minutes)</label><input id="delay_minutes" name="delay_minutes" type="number" min="0" max="1440" value="{{ reverify.delay_minutes }}"></div>

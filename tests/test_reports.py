@@ -102,3 +102,15 @@ def test_viewer_can_read_reports(data):
     login_as(data, "vee")
     assert data.get("/reports").status_code == 200
     assert data.get("/reports/issues.csv").status_code == 200
+
+
+def test_exports_carry_verified_confidence(data):
+    with data.app.state.SessionLocal() as db:
+        i = db.scalar(select(Issue).where(Issue.status == "new"))
+        i.confidence = "verified"
+        db.commit()
+        iid = i.id
+    rows = list(csv.DictReader(io.StringIO(data.get("/reports/issues.csv?view=all&confidence=verified").text)))
+    assert [(int(r["id"]), r["confidence"]) for r in rows] == [(iid, "verified")]
+    j = data.get("/reports/issues.json?view=all&confidence=verified").json()
+    assert j["count"] == 1 and j["issues"][0]["confidence"] == "verified"

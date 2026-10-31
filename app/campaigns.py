@@ -7,7 +7,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from .db import Campaign, CampaignTemplate, Host, Issue, Rule, Service, TemplateIndex, utcnow
-from .issues import CLOSED, ISSUE_SEVERITIES, STATUSES
+from .issues import CLOSED, ISSUE_SEVERITIES, SCAN_CONFIRMED, STATUSES
 from .rules import evaluate_rules, validate_rule
 
 REMEDIATED = ("fixed", "verified", "false_positive", "accepted_risk")
@@ -163,7 +163,9 @@ def progress(issues: list[Issue]) -> dict:
     return {**counts, "total": total, "remediated": remediated,
             "remediated_pct": round(100 * remediated / total) if total else 0,
             "confirmed": sum(1 for i in issues if i.confidence == "confirmed"),
+            "conf_verified": sum(1 for i in issues if i.confidence == "verified"),   # "verified" is the status count
             "suspected": sum(1 for i in issues if i.confidence == "suspected"),
+            "scan_confirmed": sum(1 for i in issues if i.confidence in SCAN_CONFIRMED),
             "open": sum(1 for i in issues if i.status in ("new", "triaged", "in_progress"))}
 
 
