@@ -93,3 +93,17 @@ def parse_nmap_xml(xml_text: str) -> list[HostResult]:
 def _pick_address(host_el: ET.Element) -> str:
     addrs = {a.get("addrtype"): a.get("addr", "") for a in host_el.findall("address")}
     return addrs.get("ipv4") or addrs.get("ipv6") or ""
+
+
+def merge_hosts(hosts: list[HostResult]) -> list[HostResult]:
+    """One HostResult per address (nmap repeats a host when several targets resolve to it): union of ports, first hostname."""
+    merged: dict[str, HostResult] = {}
+    for h in hosts:
+        m = merged.get(h.address)
+        if m is None:
+            merged[h.address] = HostResult(address=h.address, hostname=h.hostname, ports=list(h.ports))
+            continue
+        m.hostname = m.hostname or h.hostname
+        have = {(p.port, p.protocol) for p in m.ports}
+        m.ports.extend(p for p in h.ports if (p.port, p.protocol) not in have)
+    return list(merged.values())

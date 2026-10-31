@@ -89,9 +89,9 @@ def job_detail(request: Request, job_id: int, db: Session = Depends(get_db), run
     changes = None
     if job.kind == "nmap":
         from .. import surface
-        rows = list(db.scalars(surface.query(db, days="all", job_id=job.id, state="all")))
-        changes = {"counts": surface.summarize(rows), "rows": rows[:20], "total": len(rows),
-                   "labels": surface.KIND_LABELS}
+        counts = surface.job_counts(db, job.id)
+        rows = list(db.scalars(surface.query(db, days="all", job_id=job.id, state="all").limit(20)))
+        changes = {"counts": counts, "rows": rows, "total": sum(counts.values()), "labels": surface.KIND_LABELS}
     return render(request, "job_detail.html", active="jobs", job=job, log=log, live=live, params=params, summary=job_summary(job),
                   ai_diagnosis=latest_note(db, "diagnose", "job", job.id), changes=changes)
 

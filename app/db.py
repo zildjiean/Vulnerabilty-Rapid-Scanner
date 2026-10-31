@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import (Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, event,
+from sqlalchemy import (Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, create_engine, event,
                         inspect, text)
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
@@ -451,6 +451,7 @@ class WatchHit(Base):
 class SurfaceChange(Base):
     """One attack-surface change an nmap scan found against the inventory as it stood before the scan."""
     __tablename__ = "surface_changes"
+    __table_args__ = (Index("ix_surface_kind_addr", "kind", "address"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="SET NULL"), nullable=True)
@@ -517,8 +518,14 @@ _ADDED_COLUMNS = [
 ]
 
 
+# Indexes added after a table first shipped (create_all does not add them to existing tables): (table, name, columns).
+_ADDED_INDEXES = [
+    ("surface_changes", "ix_surface_kind_addr", "kind, address"),
+]
+
+
 def migrate_db(engine: Engine) -> None:
-    """Add columns introduced after the initial schema to an existing database (idempotent)."""
+    """Add columns and indexes introduced after the initial schema to an existing database (idempotent)."""
     insp = inspect(engine)
     tables = set(insp.get_table_names())
     with engine.begin() as conn:
@@ -528,6 +535,9 @@ def migrate_db(engine: Engine) -> None:
             existing = {c["name"] for c in insp.get_columns(table)}
             if column not in existing:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+        for table, name, columns in _ADDED_INDEXES:
+            if table in tables:
+                conn.execute(text(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({columns})"))
 
 
 def init_db(engine: Engine) -> None:

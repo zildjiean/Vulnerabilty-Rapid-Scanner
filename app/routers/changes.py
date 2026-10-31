@@ -48,30 +48,32 @@ def _back(f: dict, msg: str, page: int = 1) -> RedirectResponse:
 
 @router.get("/changes")
 def changes_page(request: Request, kind: str = "", scope: str = "", days: str = "", job: str = "", state: str = "",
-                 page: int = 1, db: Session = Depends(get_db)):
+                 page: str = "1", db: Session = Depends(get_db)):
     f = filters(kind, scope, days, job, state)
     stmt = _query(db, f)
     total = db.scalar(select(func.count()).select_from(stmt.order_by(None).subquery())) or 0
     pages = max(1, -(-total // PAGE_SIZE))
-    page = min(max(1, page), pages)
+    page = min(_int(page) or 1, pages)
     rows = list(db.scalars(stmt.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE)))
-    open_count = db.scalar(select(func.count()).select_from(
-        _query(db, {**f, "state": "open"}).order_by(None).subquery())) or 0
+    open_count, max_id = db.execute(select(func.count(SurfaceChange.id), func.max(SurfaceChange.id))
+                                    .where(*surface.conditions(f["kind"], f["scope"], f["days"], f["job"], "open"))).one()
 
     def page_url(n: int) -> str:
         return "/changes?" + urlencode({**_params(f), "page": n})
 
     scopes = list(db.scalars(select(Scope).order_by(Scope.name)))
     return render(request, "changes.html", active="changes", rows=rows, total=total, page=page, pages=pages,
-                  page_url=page_url, f=f, open_count=open_count, kind_labels=surface.KIND_LABELS,
+                  page_url=page_url, f=f, open_count=open_count or 0, max_id=max_id or 0, kind_labels=surface.KIND_LABELS,
                   days_labels=DAYS_LABELS, scopes=scopes, scope_names={s.id: s.name for s in scopes})
 
 
 @router.post("/changes/ack-all", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
 def changes_ack_all(request: Request, kind: str = Form(""), scope: str = Form(""), days: str = Form(""),
-                    job: str = Form(""), state: str = Form(""), db: Session = Depends(get_db)):
+                    job: str = Form(""), state: str = Form(""), max_id: str = Form(""), db: Session = Depends(get_db)):
+    """Acks only what the page showed: rows up to ``max_id`` (the newest id at render time). No max_id, nothing acked."""
     f = filters(kind, scope, days, job, state)
-    n = surface.acknowledge(list(db.scalars(_query(db, {**f, "state": "open"}))), getattr(request.state.user, "username", ""))
+    n = surface.acknowledge_matching(db, getattr(request.state.user, "username", ""), _int(max_id) or 0, kind=f["kind"],
+                                     scope_id=f["scope"], days=f["days"], job_id=f["job"])
     db.commit()
     audit(db, request, "surface.ack", target=f"{n} change(s)", count=n, **_params(f))
     return _back(f, f"Acknowledged {n} change(s)")
@@ -79,11 +81,11 @@ def changes_ack_all(request: Request, kind: str = Form(""), scope: str = Form(""
 
 @router.post("/changes/{cid}/ack", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
 def changes_ack(request: Request, cid: int, kind: str = Form(""), scope: str = Form(""), days: str = Form(""),
-                job: str = Form(""), state: str = Form(""), page: int = Form(1), db: Session = Depends(get_db)):
+                job: str = Form(""), state: str = Form(""), page: str = Form("1"), db: Session = Depends(get_db)):
     c = db.get(SurfaceChange, cid)
     if c is None:
         raise HTTPException(404)
     n = surface.acknowledge([c], getattr(request.state.user, "username", ""))
     db.commit()
     audit(db, request, "surface.ack", target=f"change #{c.id} {c.kind} on {c.address}", count=n, change_id=c.id)
-    return _back(filters(kind, scope, days, job, state), "Change acknowledged", page)
+    return _back(filters(kind, scope, days, job, state), "Change acknowledged", _int(page) or 1)

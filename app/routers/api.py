@@ -200,12 +200,15 @@ async def campaign_verify(request: Request, cid: int, body: VerifyIn, db: Sessio
 
 # ----------------------------------------------------------------- surface changes
 @router.get("/changes", dependencies=VIEW)
-def changes_list(days: str = "30", kind: str = "", job: int | None = None, state: str = "open", limit: int = 100,
+def changes_list(days: str = "", kind: str = "", job: str = "", state: str = "open", limit: int = 100,
                  db: Session = Depends(get_db)):
+    """Same filter rules as the Changes page: ``days`` defaults to 30, or all time when ``job`` is given."""
     from .. import surface
+    from .changes import filters
+    f = filters(kind, "", days, job, state)
     limit = max(1, min(limit, MAX_LIMIT))
-    rows = list(db.scalars(surface.query(db, kind=kind, days=surface.parse_days(days), job_id=job,
-                                         state="all" if state == "all" else "open").limit(limit)))
+    rows = list(db.scalars(surface.query(db, kind=f["kind"], days=f["days"], job_id=f["job"], state=f["state"])
+                           .limit(limit)))
     return {"items": [{"id": c.id, "job_id": c.job_id, "kind": c.kind, "severity": c.severity, "address": c.address,
                        "hostname": c.hostname, "port": c.port, "protocol": c.protocol, "before": c.before,
                        "after": c.after, "scope_id": c.scope_id, "created_at": _ts(c.created_at),

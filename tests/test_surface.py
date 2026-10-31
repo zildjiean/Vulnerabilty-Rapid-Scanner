@@ -53,6 +53,11 @@ def scan(db, xml, targets=("192.168.1.0/24",), exclude=None, complete=False):
     return job, note
 
 
+def baseline(db):
+    """A first scan of an unrelated host, so later scans are not the (silent) baseline."""
+    scan(db, make_xml({"10.9.9.9": ("", [])}), targets=["10.9.9.9"], complete=True)
+
+
 def changes(db, job):
     return list(db.scalars(select(SurfaceChange).where(SurfaceChange.job_id == job.id).order_by(SurfaceChange.id)))
 
@@ -153,14 +158,79 @@ def test_deleting_host_keeps_change_rows(db):
 
 
 def test_on_complete_logs_and_stores_count(db):
+    baseline(db)
     job, note = scan(db, make_xml(BASE), complete=True)
     assert note.endswith(", 2 surface change(s).")
     assert json.loads(job.params_json)["result"]["changes"] == 2
 
 
+def test_baseline_scan_records_but_does_not_notify(client, db):
+    channel(client, "slack", secret=SLACK, events=("surface.changed",), min_severity="low")
+    job, note = scan(db, make_xml(BASE), complete=True)
+    assert note.endswith(", 2 surface change(s) (baseline, not notified).")
+    assert [c.kind for c in changes(db, job)] == ["host_new", "host_new"]
+    assert list(db.scalars(select(Delivery))) == []
+
+
+def test_duplicate_host_elements_are_merged(db):
+    baseline(db)
+    xml = make_xml(BASE).replace("</nmaprun>", "") + (
+        '<host><status state="up"/><address addr="192.168.1.10" addrtype="ipv4"/>'
+        '<hostnames><hostname name="www.lab" type="user"/></hostnames><ports>'
+        '<port protocol="tcp" portid="22"><state state="open"/><service name="ssh" product="OpenSSH" version="9.6p1"/></port>'
+        '<port protocol="tcp" portid="443"><state state="open"/><service name="https" product="nginx" version="1.25"/></port>'
+        '</ports></host></nmaprun>')
+    job, _ = scan(db, xml)
+    rows = changes(db, job)
+    assert [(c.kind, c.address) for c in rows] == [("host_new", "192.168.1.10"), ("host_new", "192.168.1.12")]
+    assert rows[0].hostname == "web01.lab" and "443/tcp https nginx 1.25" in rows[0].after
+    host = db.scalar(select(Host).where(Host.address == "192.168.1.10"))
+    assert sorted(s.port for s in host.services) == [22, 80, 443]
+    job, _ = scan(db, xml)                          # rescan of the same duplicated output: nothing new
+    assert changes(db, job) == []
+
+
+def test_host_gone_again_after_reappearing(db):
+    scan(db, make_xml(BASE))
+    only_web = make_xml({"192.168.1.10": BASE["192.168.1.10"]})
+    job, _ = scan(db, only_web)
+    assert [c.kind for c in changes(db, job)] == ["host_gone"]
+    job, _ = scan(db, make_xml(BASE))               # back again: no change kind for that
+    assert changes(db, job) == []
+    job, _ = scan(db, only_web)
+    assert [(c.kind, c.address) for c in changes(db, job)] == [("host_gone", "192.168.1.12")]
+
+
+def test_hostname_target_triggers_host_gone(db):
+    scan(db, make_xml(BASE))
+    job, _ = scan(db, make_xml({}), targets=["web01.lab"])
+    assert [(c.kind, c.address, c.hostname) for c in changes(db, job)] == [("host_gone", "192.168.1.10", "web01.lab")]
+
+
+def test_udp_service_kept_on_tcp_only_scan(db):
+    web = ("web01.lab", BASE["192.168.1.10"][1] + [(53, "udp", "domain", "ISC BIND", "9.18")])
+    scan(db, make_xml({"192.168.1.10": web}))
+    xml = make_xml({"192.168.1.10": BASE["192.168.1.10"]}, scaninfo={"tcp": "1-1000"})
+    job, _ = scan(db, xml, targets=["192.168.1.10"])
+    assert changes(db, job) == []
+    host = db.scalar(select(Host).where(Host.address == "192.168.1.10"))
+    db.refresh(host)
+    assert sorted((s.port, s.protocol) for s in host.services) == [(22, "tcp"), (53, "udp"), (80, "tcp")]
+
+
+def test_empty_fingerprint_is_not_a_version_change(db):
+    scan(db, make_xml(BASE))
+    web = ("web01.lab", [(22, "tcp", "ssh", "", ""), (80, "tcp", "http", "Apache httpd", "2.4.58")])
+    job, _ = scan(db, make_xml({"192.168.1.10": web, "192.168.1.12": BASE["192.168.1.12"]}))
+    assert changes(db, job) == []
+    ssh = db.scalar(select(Service).where(Service.port == 22))
+    assert (ssh.product, ssh.version) == ("OpenSSH", "9.6p1")
+
+
 # ----------------------------------------------------------------- notification
 def test_one_notification_per_job_with_highest_severity(client, db):
     channel(client, "slack", secret=SLACK, events=("surface.changed",), min_severity="low")
+    baseline(db)
     job, _ = scan(db, make_xml(BASE), complete=True)
     rows = list(db.scalars(select(Delivery)))
     assert len(rows) == 1 and rows[0].event == "surface.changed"
@@ -186,10 +256,25 @@ def test_low_only_changes_skip_medium_rules(client, db):
 def test_notification_failure_does_not_fail_ingest(client, db, monkeypatch):
     def boom(*a, **kw):
         raise RuntimeError("channel exploded")
+    baseline(db)
     monkeypatch.setattr(nt, "notify", boom)
     job, note = scan(db, make_xml(BASE), complete=True)
     assert "2 surface change(s)" in note and len(changes(db, job)) == 2
     assert db.scalar(select(Host).where(Host.address == "192.168.1.10")) is not None
+
+
+def test_failure_after_queueing_is_rolled_back(client, db, monkeypatch):
+    channel(client, "slack", secret=SLACK, events=("surface.changed",), min_severity="low")
+    baseline(db)
+    real = nt.notify
+
+    def queue_then_fail(*a, **kw):
+        assert real(*a, **kw) == 1
+        raise RuntimeError("after enqueue")
+    monkeypatch.setattr(nt, "notify", queue_then_fail)
+    job, note = scan(db, make_xml(BASE), complete=True)
+    assert "2 surface change(s)" in note and len(changes(db, job)) == 2
+    assert list(db.scalars(select(Delivery))) == []
 
 
 def test_summarize_and_title():
@@ -222,6 +307,39 @@ def test_changes_page_lists_and_filters(auth):
     r = auth.get("/changes?kind=host_gone")
     assert "No changes" in r.text
     assert 'aria-current="page"' in auth.get("/changes").text
+    assert auth.get("/changes?page=abc").status_code == 200
+
+
+def test_scope_filter_on_page_and_ack_all(auth):
+    with auth.app.state.SessionLocal() as s:
+        sc = Scope(name="DMZ", targets="192.168.1.12", criticality="high")
+        s.add(sc)
+        s.commit()
+        sid = sc.id
+    _seed_changes(auth)
+    r = auth.get(f"/changes?scope={sid}")
+    assert "3306/tcp" in r.text and "8080/tcp" not in r.text and "192.168.1.10<" not in r.text
+    csrf = get_csrf(auth, "/changes")
+    max_id = re.search(r'name="max_id" value="(\d+)"', r.text).group(1)
+    r = auth.post("/changes/ack-all", data={"csrf": csrf, "scope": str(sid), "days": "30", "max_id": max_id},
+                  follow_redirects=False)
+    assert f"scope={sid}" in r.headers["location"]
+    with auth.app.state.SessionLocal() as s:
+        acked = {c.address for c in s.scalars(select(SurfaceChange).where(SurfaceChange.acknowledged_at.is_not(None)))}
+        assert acked == {"192.168.1.12"}
+
+
+def test_ack_all_skips_rows_newer_than_the_page(auth):
+    _seed_changes(auth)
+    r = auth.get("/changes")
+    max_id = int(re.search(r'name="max_id" value="(\d+)"', r.text).group(1))
+    with auth.app.state.SessionLocal() as s:
+        scan(s, make_xml({"192.168.1.30": ("", [])}), targets=["192.168.1.30"])   # arrives after the page rendered
+    csrf = get_csrf(auth, "/changes")
+    auth.post("/changes/ack-all", data={"csrf": csrf, "days": "30", "max_id": str(max_id)}, follow_redirects=False)
+    with auth.app.state.SessionLocal() as s:
+        still_open = [c.address for c in s.scalars(select(SurfaceChange).where(SurfaceChange.acknowledged_at.is_(None)))]
+        assert still_open == ["192.168.1.30"]
 
 
 def test_changes_days_filter(auth):
@@ -252,8 +370,9 @@ def test_ack_one_and_ack_all_with_filters(auth):
     assert "8080/tcp" not in auth.get("/changes").text
     assert "8080/tcp" in auth.get("/changes?state=all").text
 
-    r = auth.post("/changes/ack-all", data={"csrf": csrf, "kind": "host_new", "days": "30", "state": "open"},
-                  follow_redirects=False)
+    max_id = re.search(r'name="max_id" value="(\d+)"', auth.get("/changes?kind=host_new").text).group(1)
+    r = auth.post("/changes/ack-all", data={"csrf": csrf, "kind": "host_new", "days": "30", "state": "open",
+                                            "max_id": max_id}, follow_redirects=False)
     assert r.status_code == 303 and "kind=host_new" in r.headers["location"]
     with auth.app.state.SessionLocal() as s:
         open_kinds = {c.kind for c in s.scalars(select(SurfaceChange).where(SurfaceChange.acknowledged_at.is_(None)))}
@@ -319,4 +438,39 @@ def test_api_changes(auth):
     assert api(auth, key, "GET", f"/changes?job={j1}").json()["count"] == 2
     assert api(auth, key, "GET", "/changes?kind=port_opened").json()["count"] == 1
     assert api(auth, key, "GET", "/changes?limit=1").json()["count"] == 1
-    assert api(auth, key, "GET", "/changes?limit=100000").status_code == 200
+    from app.routers import api as api_router
+    old_job = api(auth, key, "GET", f"/changes?job={j1}").json()["items"][0]["id"]
+    with auth.app.state.SessionLocal() as s:
+        from datetime import timedelta
+        s.get(SurfaceChange, old_job).created_at = utcnow() - timedelta(days=60)
+        s.commit()
+    assert api(auth, key, "GET", f"/changes?job={j1}").json()["count"] == 2      # job without days: all time
+    assert api(auth, key, "GET", f"/changes?job={j1}&days=30").json()["count"] == 1
+    import pytest as _pytest
+    mp = _pytest.MonkeyPatch()
+    mp.setattr(api_router, "MAX_LIMIT", 2)
+    try:
+        assert api(auth, key, "GET", "/changes?limit=100000").json()["count"] == 2
+    finally:
+        mp.undo()
+
+
+def test_job_detail_counts_without_loading_every_row(auth):
+    with auth.app.state.SessionLocal() as s:
+        many = {f"192.168.1.{i}": ("", [(22, "tcp", "ssh", "", "")]) for i in range(100, 130)}
+        job, _ = scan(s, make_xml(many))
+        jid = job.id
+    r = auth.get(f"/jobs/{jid}")
+    assert "New host: 30" in r.text and "Showing 20 of 30" in r.text
+
+
+def test_index_is_added_to_an_existing_table(tmp_path):
+    from sqlalchemy import inspect, text
+    from app.db import init_db, make_engine
+    engine = make_engine(f"sqlite:///{tmp_path / 'old.db'}")
+    init_db(engine)
+    with engine.begin() as conn:
+        conn.execute(text("DROP INDEX ix_surface_kind_addr"))
+    assert "ix_surface_kind_addr" not in {i["name"] for i in inspect(engine).get_indexes("surface_changes")}
+    init_db(engine)
+    assert "ix_surface_kind_addr" in {i["name"] for i in inspect(engine).get_indexes("surface_changes")}

@@ -7,7 +7,7 @@
 {% for k in ('kind', 'scope', 'days', 'job', 'state') %}{% if f[k] is not none and f[k] != '' %}<input type="hidden" name="{{ k }}" value="{{ f[k] }}">{% endif %}{% endfor %}
 {%- endmacro %}
 {% block page_actions %}
-{% if can('issues.manage') and open_count %}<form method="post" action="/changes/ack-all" data-confirm="Acknowledge all {{ open_count }} open change(s) matching the current filters?"><input type="hidden" name="csrf" value="{{ csrf }}">{{ hidden_filters() }}<button type="submit"><svg class="icon"><use href="#i-check"/></svg>Acknowledge all ({{ open_count }})</button></form>{% endif %}
+{% if can('issues.manage') and open_count %}<form method="post" action="/changes/ack-all" data-confirm="Acknowledge all {{ open_count }} open change(s) matching the current filters?"><input type="hidden" name="csrf" value="{{ csrf }}">{{ hidden_filters() }}<input type="hidden" name="max_id" value="{{ max_id }}"><button type="submit"><svg class="icon"><use href="#i-check"/></svg>Acknowledge all ({{ open_count }})</button></form>{% endif %}
 {% endblock %}
 {% block content %}
 <form method="get" action="/changes" class="card mb">
