@@ -4,6 +4,7 @@
 {% if c.kind == 'host_new' %}<span class="small">{{ c.after or 'no open ports' }}</span>
 {% elif c.kind == 'host_gone' %}<span class="small text-2">Not up in this scan; kept in the inventory</span>
 {% elif c.kind == 'port_opened' %}<span class="small">{{ c.after or '—' }}</span>
+{% elif c.kind == 'subdomain_new' %}<span class="small">{% if c.after %}<span class="text-2">Sources:</span> {{ c.after }}{% else %}<span class="text-2">Found by discovery</span>{% endif %}</span>
 {% elif c.kind == 'port_closed' %}<span class="small text-2"><s>{{ c.before or '—' }}</s></span>
 {% else %}<span class="small"><span class="text-2">{{ c.before or '—' }}</span> → {{ c.after or '—' }}</span>{% endif %}
 {%- endmacro %}

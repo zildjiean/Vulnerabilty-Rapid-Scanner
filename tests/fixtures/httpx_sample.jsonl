@@ -1,0 +1,5 @@
+{"timestamp":"2026-10-31T10:00:00Z","input":"www.example.com","url":"https://www.example.com","host":"192.0.2.10","port":"443","scheme":"https","status_code":200,"title":"<script>alert(1)</script>Welcome","webserver":"nginx/1.25","tech":["Nginx","WordPress:6.4"],"a":["192.0.2.10","192.0.2.11"]}
+{"input":"API.example.com","url":"javascript:alert(1)","host":"198.51.100.5","status_code":403,"title":"Forbidden","webserver":"","tech":[]}
+garbage line
+{"input":"unrelated.example.net","url":"http://unrelated.example.net","status_code":200}
+{"url":"https://nohost"}

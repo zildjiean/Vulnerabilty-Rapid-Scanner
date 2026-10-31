@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-31
+
+### Added
+- **External asset discovery** (*Scanning → Discovery*, `scan.run`): enter up to 20 root domains; **subfinder**
+  finds their subdomains from passive sources, then (optional, on by default) **httpx** probes which of them answer
+  over HTTP(S) and records IPs, status, title, web server and technologies. The probe runs as a chained
+  `discovery_probe` job (at most 5,000 hosts, ignored hosts skipped).
+- **Discovered assets** table: filters for root domain, text, web / no web, active / ignored and new in 7 days;
+  **Scan with nmap** / **Scan with nuclei** pre-fill the scan form with the selection (probed URL for nuclei when
+  known); **Ignore** / **Unignore** (`issues.manage`, audited).
+- New Changes kind **New subdomain** (medium), counted as *Added* in trends; one `surface.changed` notification per
+  discovery job. The first job that covers a root domain is a baseline and is not notified.
+- Schedules: new **External discovery** type (root domains and the probe option).
+- **Settings → Discovery sources** (admin): optional API keys for SecurityTrails, Shodan, Censys, VirusTotal,
+  Chaos, GitHub, BinaryEdge and FOFA, encrypted at rest and never shown again. They are written to a temporary
+  0600 provider file for the job only and removed when it ends.
+- **Updates**: *Update subfinder* and *Update httpx*.
+- API: `GET /api/v1/discovered`, `POST /api/v1/scans/discovery`.
+- Image: subfinder 2.17.0 and httpx 1.12.0 in `/opt/pd` (`SUBFINDER_BIN`, `HTTPX_BIN`).
+
 ## [1.7.0] - 2026-10-31
 
 ### Added
@@ -254,7 +274,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.4.0...v1.5.0

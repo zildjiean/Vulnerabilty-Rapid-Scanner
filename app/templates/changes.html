@@ -2,7 +2,7 @@
 {% from "_surface_macros.html" import kind_badge, port_cell, before_after %}
 {% set section = "Discovery" %}
 {% set page_title = "Changes" %}
-{% set page_subtitle = "What every nmap scan changed in the attack surface: new hosts, opened and closed ports, version changes and hosts that stopped responding. Times are UTC." %}
+{% set page_subtitle = "What every nmap scan changed in the attack surface: new hosts, opened and closed ports, version changes and hosts that stopped responding, plus new subdomains from external discovery. Times are UTC." %}
 {% macro hidden_filters() -%}
 {% for k in ('kind', 'scope', 'days', 'job', 'state') %}{% if f[k] is not none and f[k] != '' %}<input type="hidden" name="{{ k }}" value="{{ f[k] }}">{% endif %}{% endfor %}
 {%- endmacro %}
@@ -35,7 +35,7 @@
     <tr>
       <td class="small text-2 num" style="white-space:nowrap">{{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
       <td>{{ kind_badge(c, kind_labels) }}</td>
-      <td><a class="cell-mono" href="/inventory?q={{ c.address|urlencode }}">{{ c.address }}</a>{% if c.hostname and c.hostname != c.address %}<div class="small text-2">{{ c.hostname }}</div>{% endif %}</td>
+      <td><a class="cell-mono" href="{{ '/discovery' if c.kind == 'subdomain_new' else '/inventory' }}?q={{ c.address|urlencode }}">{{ c.address }}</a>{% if c.hostname and c.hostname != c.address %}<div class="small text-2">{{ c.hostname }}</div>{% endif %}</td>
       <td>{{ port_cell(c) }}</td>
       <td style="max-width:420px;overflow-wrap:anywhere">{{ before_after(c) }}</td>
       <td class="small">{{ scope_names.get(c.scope_id, '—') }}</td>

@@ -1,4 +1,5 @@
-"""Recurring jobs: nmap discovery and nuclei scans of scopes, and re-verification of active campaigns."""
+"""Recurring jobs: nmap discovery and nuclei scans of scopes, re-verification of active campaigns and external
+(subdomain) discovery of root domains."""
 from __future__ import annotations
 
 import asyncio
@@ -16,7 +17,8 @@ from .db import AppSetting, Campaign, Host, Job, Schedule, Scope, Service, utcno
 
 log = logging.getLogger(__name__)
 
-KINDS = {"nmap": "nmap discovery", "nuclei": "nuclei scan", "campaign_verify": "Verify active campaigns"}
+KINDS = {"nmap": "nmap discovery", "nuclei": "nuclei scan", "campaign_verify": "Verify active campaigns",
+         "discovery": "External discovery"}
 FREQUENCIES = {"interval": "Every N hours", "daily": "Daily", "weekly": "Weekly"}
 WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 TZ_KEY = "timezone"
@@ -176,7 +178,16 @@ def _run_campaigns(app, db: Session, s: Schedule, cfg: dict) -> tuple[Job | None
     return last, msg
 
 
-RUNNERS = {"nmap": _run_nmap, "nuclei": _run_nuclei, "campaign_verify": _run_campaigns}
+def _run_discovery(app, db: Session, s: Schedule, cfg: dict) -> tuple[Job | None, str]:
+    from .discovery import launch_discovery, parse_root_domains
+    roots = parse_root_domains(cfg.get("domains") or [])
+    probe = bool(cfg.get("probe", True))
+    job = launch_discovery(db, app.state.settings, app.state.job_runner, app.state.secretbox, roots, probe,
+                           schedule_id=s.id, extra_params={"schedule": s.name})
+    return job, f"External discovery of {len(roots)} root domain(s)" + ("" if probe else " (no web probe)")
+
+
+RUNNERS = {"nmap": _run_nmap, "nuclei": _run_nuclei, "campaign_verify": _run_campaigns, "discovery": _run_discovery}
 
 
 async def run_schedule(app, schedule_id: int, manual: bool = False, actor=None, request=None) -> int | None:

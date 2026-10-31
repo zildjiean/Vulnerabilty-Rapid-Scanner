@@ -41,8 +41,9 @@ def launch_nmap(db: Session, settings, runner, target_list: list[str], *, port_m
 
 
 @router.get("/nmap")
-def nmap_page(request: Request, db: Session = Depends(get_db)):
-    return _page(request, db, dict(DEFAULT_FORM))
+def nmap_page(request: Request, targets: str = "", db: Session = Depends(get_db)):
+    """``targets`` pre-fills the form (Discovery → "Scan with nmap")."""
+    return _page(request, db, {**DEFAULT_FORM, "targets": targets[:200_000]})
 
 
 @router.post("/nmap/scan", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])

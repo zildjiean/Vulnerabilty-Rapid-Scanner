@@ -1,4 +1,5 @@
-"""Attack-surface change detection: diff each nmap scan against the inventory before it is updated."""
+"""Attack-surface change detection: diff each nmap scan against the inventory before it is updated. Discovery jobs
+record ``subdomain_new`` rows here too (see app/discovery.py)."""
 from __future__ import annotations
 
 import logging
@@ -20,12 +21,13 @@ KIND_LABELS = {
     "port_closed": "Port closed",
     "service_changed": "Version changed",
     "host_gone": "Not responding",
+    "subdomain_new": "New subdomain",
 }
 KIND_SEVERITY = {"host_new": "medium", "port_opened": "medium", "port_closed": "low", "service_changed": "low",
-                 "host_gone": "low"}
+                 "host_gone": "low", "subdomain_new": "medium"}
 TITLE_PARTS = (("host_new", "new host", "new hosts"), ("port_opened", "opened", "opened"),
                ("port_closed", "closed", "closed"), ("service_changed", "changed", "changed"),
-               ("host_gone", "gone", "gone"))
+               ("host_gone", "gone", "gone"), ("subdomain_new", "new subdomain", "new subdomains"))
 DAYS_CHOICES = ("1", "7", "30", "90", "all")
 DEFAULT_DAYS = "30"
 MAX_TEXT = 2000
@@ -139,6 +141,8 @@ def change_line(c: SurfaceChange) -> str:
         return _join(f"- {where}", c.before)
     if c.kind == "service_changed":
         return f"~ {where} {c.before or '?'} → {c.after or '?'}"
+    if c.kind == "subdomain_new":
+        return f"+ {c.hostname or c.address} new subdomain" + (f" ({c.after})" if c.after else "")
     return f"- {asset} not responding"
 
 
@@ -151,8 +155,8 @@ def notify_changes(db: Session, job: Job, changes: list[SurfaceChange]) -> int:
     lines = [change_line(c)[:300] for c in changes[:NOTIFY_LINES]]
     if len(changes) > NOTIFY_LINES:
         lines.append(f"… and {len(changes) - NOTIFY_LINES} more")
-    fields = [("Job", f"#{job.id} (nmap)")] + [(KIND_LABELS[k], str(n)) for k, n in counts.items() if n]
-    msg = ch.Message(event="surface.changed", title=f"[SURFACE] nmap job #{job.id}: {title_counts(counts)}",
+    fields = [("Job", f"#{job.id} ({job.kind})")] + [(KIND_LABELS[k], str(n)) for k, n in counts.items() if n]
+    msg = ch.Message(event="surface.changed", title=f"[SURFACE] {job.kind} job #{job.id}: {title_counts(counts)}",
                      text="\n".join(lines), severity=severity, url=f"{nt.get_base_url(db)}/changes?job={job.id}",
                      fields=fields, data={"job_id": job.id, "counts": counts})
     return nt.notify(db, "surface.changed", message=msg, severity=severity)

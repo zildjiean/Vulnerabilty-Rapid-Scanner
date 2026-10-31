@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% set section = "Scanning" %}
+{% set page_title = "Discovery" %}
+{% set page_subtitle = "Find internet-facing subdomains of your root domains (subfinder, passive sources) and which of them serve web content (httpx). New names show up on the Changes page." %}
+{% block content %}
+{% with perm="scan.run", what="start discovery jobs" %}{% include "_readonly.html" %}{% endwith %}
+{% for t in ('subfinder', 'httpx') if not tools[t] %}<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>{{ missing[t] }}</div></div>{% endfor %}
+<div class="grid {{ 'grid-2' if can('scan.run') }} mb">
+  {% if can('scan.run') %}
+  <form method="post" action="/discovery/scan" class="card" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-globe"/></svg>New discovery job</h2></div>
+    <div class="card-body stack">
+      <div class="alert info" role="note"><svg class="icon"><use href="#i-info"/></svg><div>Only enumerate domains you own or are authorized to test.</div></div>
+      <div class="field">
+        <label for="domains">Root domains</label>
+        <textarea id="domains" name="domains" rows="5" required class="mono" placeholder="example.com&#10;example.org" aria-describedby="domains-hint">{{ form.domains }}</textarea>
+        <span class="hint" id="domains-hint">One per line, up to {{ max_roots }}. Domain names only: no scheme, path, wildcard or IP range.</span>
+      </div>
+      <label class="check"><input type="checkbox" name="probe" value="true" {{ 'checked' if form.probe }} aria-describedby="probe-hint"> Probe web services with httpx</label>
+      <p class="small text-2" id="probe-hint" style="margin:-6px 0 0">subfinder only queries public sources. The httpx probe contacts every host found (HTTP/HTTPS, 50 requests/s) to record status, title, server and technologies.</p>
+      <div><button class="primary" type="submit" {{ 'disabled' if not tools.subfinder }}><svg class="icon"><use href="#i-play"/></svg>Start discovery</button></div>
+    </div>
+  </form>
+  {% endif %}
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent discovery jobs</h2>{% if can('settings.manage') %}<a class="btn sm ghost" href="/settings#discovery-sources">Source API keys</a>{% endif %}</div>
+    <div class="card-body tight">{% include "_jobs_table.html" %}</div>
+  </div>
+</div>
+
+<form method="get" action="/discovery" class="card mb">
+  <div class="card-body row" style="align-items:flex-end">
+    <div class="field" style="flex:2;min-width:200px"><label for="q">Search</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="q" name="q" placeholder="host name, IP, title, server, tech, source" value="{{ f.q }}"></div></div>
+    <div class="field" style="min-width:160px"><label for="root">Root domain</label>
+      <select id="root" name="root"><option value="">All roots</option>{% for r in roots %}<option value="{{ r }}" {{ 'selected' if f.root == r }}>{{ r }}</option>{% endfor %}</select></div>
+    <div class="field" style="min-width:130px"><label for="web">Web</label>
+      <select id="web" name="web">{% for k, label in web_filters.items() %}<option value="{{ k }}" {{ 'selected' if f.web == k }}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="field" style="min-width:130px"><label for="state">State</label>
+      <select id="state" name="state">{% for k, label in states.items() %}<option value="{{ k }}" {{ 'selected' if f.state == k }}>{{ label }}</option>{% endfor %}</select></div>
+    <label class="check"><input type="checkbox" name="new" value="1" {{ 'checked' if f.new }}> New ({{ new_days }} days)</label>
+    <button type="submit"><svg class="icon"><use href="#i-filter"/></svg>Filter</button>
+    <a class="btn ghost" href="/discovery">Reset</a>
+  </div>
+</form>
+
+{% set selectable = can('scan.run') or can('issues.manage') %}
+<form method="post" action="/discovery/to-nuclei" class="card">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}">
+  <div class="table-toolbar">
+    <div class="text-2"><b class="num">{{ total }}</b> discovered asset(s){% if pages > 1 %} · page <span class="num">{{ page }}</span> of <span class="num">{{ pages }}</span>{% endif %}{% if selectable %} · <span class="num" data-selected-count>0</span> selected{% endif %}</div>
+    <div class="row center">
+      {% if can('issues.manage') %}
+      {% if f.state != 'ignored' %}<button class="ghost" type="submit" formaction="/discovery/ignore" data-needs-selection><svg class="icon"><use href="#i-x"/></svg>Ignore</button>{% endif %}
+      {% if f.state != 'active' %}<button class="ghost" type="submit" formaction="/discovery/unignore" data-needs-selection><svg class="icon"><use href="#i-refresh"/></svg>Unignore</button>{% endif %}
+      {% endif %}
+      {% if can('scan.run') %}
+      <button type="submit" formaction="/discovery/to-nmap" data-needs-selection><svg class="icon"><use href="#i-radar"/></svg>Scan with nmap</button>
+      <button class="primary" type="submit" formaction="/discovery/to-nuclei" data-needs-selection><svg class="icon"><use href="#i-bug"/></svg>Scan with nuclei</button>
+      {% endif %}
+    </div>
+  </div>
+  <div class="table-wrap">
+  <table class="data">
+    <thead><tr>
+      {% if selectable %}<th><input type="checkbox" data-select-all="asset_ids" aria-label="Select all assets on this page"></th>{% endif %}
+      <th data-sort="text">Host name</th><th>IPs</th><th>Web</th><th>Server / tech</th><th>Sources</th><th data-sort="text">Scope</th><th data-sort="text">First seen</th><th data-sort="text">Last seen</th>
+    </tr></thead>
+    <tbody>
+    {% for a in rows %}
+    {% set tech = a.tech_list|join(', ') %}
+    <tr style="{{ 'opacity:.6' if a.ignored }}">
+      {% if selectable %}<td><input type="checkbox" name="asset_ids" value="{{ a.id }}" aria-label="Select {{ a.hostname }}"></td>{% endif %}
+      <td><span class="cell-mono">{{ a.hostname }}</span>{% if (now - a.first_seen).days < new_days %} <span class="badge sev-medium">new</span>{% endif %}{% if a.ignored %} <span class="badge neutral" title="Ignored by {{ a.ignored_by or '—' }}">ignored</span>{% endif %}<div class="small text-2">{{ a.root_domain }}</div></td>
+      <td class="cell-mono small">{% for ip in a.ip_list[:3] %}<div>{{ ip }}</div>{% else %}<span class="muted">—</span>{% endfor %}{% if a.ip_list|length > 3 %}<div class="text-2" title="{{ a.ip_list|join(', ') }}">+{{ a.ip_list|length - 3 }} more</div>{% endif %}</td>
+      <td style="max-width:320px">{% if a.web %}
+        {% if a.status_code %}<span class="badge {{ 'conf-verified' if a.status_code < 300 else ('neutral' if a.status_code < 400 else 'sev-medium') }} num">{{ a.status_code }}</span>{% endif %}
+        {% if a.link %}<a href="{{ a.link }}" rel="noopener noreferrer" target="_blank" class="truncate" style="max-width:240px" title="{{ a.link }}">{{ a.title or a.link }}</a>
+        {% else %}<span class="truncate small" style="max-width:240px" title="{{ a.title }}">{{ a.title or '—' }}</span>{% endif %}
+        {% elif a.last_probed_at %}<span class="small text-2">No web answer</span>
+        {% else %}<span class="small muted">Not probed</span>{% endif %}</td>
+      <td class="small" style="max-width:260px">{% if a.webserver or tech %}<span class="truncate" style="max-width:240px" title="{{ a.webserver }}{{ ' · ' if a.webserver and tech }}{{ tech }}">{% if a.webserver %}<b>{{ a.webserver }}</b>{% endif %}{% if a.webserver and tech %} · {% endif %}{{ tech }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="small text-2"><span class="truncate" style="max-width:160px" title="{{ a.sources }}">{{ a.sources.replace(',', ', ') or '—' }}</span></td>
+      <td class="small">{{ scope_names.get(a.scope_id, '—') }}</td>
+      <td class="small text-2 num" style="white-space:nowrap">{{ a.first_seen.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td class="small text-2 num" style="white-space:nowrap">{{ a.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    {% else %}
+    <tr data-empty="1"><td colspan="{{ 9 if selectable else 8 }}"><div class="empty"><svg class="icon"><use href="#i-globe"/></svg><b>No discovered assets</b>{% if f.q or f.root or f.web != 'any' or f.state != 'active' or f.new %}Nothing matches these filters.{% else %}Start a discovery job above to enumerate the subdomains of your root domains.{% endif %}</div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Discovered asset pages">
+    {% if page > 1 %}<a class="btn ghost sm" href="{{ page_url(page - 1) }}">Previous</a>{% endif %}
+    <span class="small text-2">Page {{ page }} of {{ pages }}</span>
+    {% if page < pages %}<a class="btn ghost sm" href="{{ page_url(page + 1) }}">Next</a>{% endif %}
+  </nav>
+  {% endif %}
+</form>
+{% endblock %}

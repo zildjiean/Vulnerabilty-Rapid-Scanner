@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-1.7.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -17,6 +17,9 @@ Everything runs in one container. No external services, no accounts, works offli
 ## Features
 
 - **Nmap discovery** from the browser: top 1000 ports, all 65 535 ports or a custom range; SYN or connect scan; live log.
+- **External asset discovery**: subfinder (passive subdomain sources, optional API keys) and an httpx web probe for
+  your root domains, with a Discovered assets table, one-click nmap / nuclei follow-up, *New subdomain* changes and
+  scheduled runs.
 - **Inventory** of every open service with product, version, CPE and hostname. Filter, sort, select, delete.
 - **Attack-surface changes**: each nmap scan is compared with the last known inventory — new hosts, opened and
   closed ports, version changes and hosts that stopped responding — with acknowledge, a dashboard card and one
@@ -48,7 +51,7 @@ Everything runs in one container. No external services, no accounts, works offli
 - **0-day response** without waiting for upstream:
   - upload custom nuclei templates or pull them from a raw URL (validated with `nuclei -validate`);
   - version-match rules (`php` + `< 8.3.15`) evaluated against the inventory after every scan, no traffic to targets.
-- **Updates** for nuclei templates, the nuclei engine and the nmap script DB, each as a tracked job.
+- **Updates** for nuclei templates, the nuclei engine, subfinder, httpx and the nmap script DB, each as a tracked job.
 - **Jobs** with persisted logs, Server-Sent Events streaming, cancel, and automatic cleanup after restarts.
 - **AI assistant (bring your own model)**: Anthropic Claude, OpenAI, Azure OpenAI, Google Gemini or any
   OpenAI-compatible server (Ollama, vLLM, LM Studio, OpenRouter, Groq …) with your own API key. It drafts campaigns

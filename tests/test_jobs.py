@@ -154,3 +154,97 @@ def test_interrupted_jobs_marked_failed_on_startup(settings):
         assert jobs["nuclei"].status == "failed" and jobs["nuclei"].finished_at is not None
         assert jobs["update"].status == "done"
         assert c.get("/healthz").status_code == 200
+
+
+# ----------------------------------------------------------------- robustness of the runner's own DB writes
+def _locked():
+    import sqlite3
+    from sqlalchemy.exc import OperationalError
+    return OperationalError("UPDATE jobs", {}, sqlite3.OperationalError("database is locked"))
+
+
+def _run_echo(runner, session_factory):
+    import asyncio
+
+    async def go():
+        with session_factory() as db:
+            job = runner.create_job(db, "other", ["/bin/echo", "hi"])
+        q = runner.subscribe(job.id)
+        task = runner.start(job.id, ["/bin/echo", "hi"])
+        await asyncio.wait_for(task, 10)
+        items = []
+        while not q.empty():
+            items.append(q.get_nowait())
+        return job.id, items
+    return asyncio.run(go())
+
+
+def test_finish_closes_streams_even_when_the_db_stays_locked(client, monkeypatch):
+    from app import jobs as jobs_mod
+    from app.jobs import JobRunner
+    monkeypatch.setattr(jobs_mod, "RETRY_DELAYS", (0, 0, 0))
+    runner = JobRunner(client.app.state.SessionLocal)
+    real = runner._write
+    calls = {"n": 0}
+
+    def locked_finish(job_id, **fields):
+        if "finished_at" in fields:
+            calls["n"] += 1
+            raise _locked()
+        return real(job_id, **fields)
+    runner._write = locked_finish
+    jid, items = _run_echo(runner, client.app.state.SessionLocal)
+    assert items and items[-1] is None                   # subscribers got the end of stream
+    assert calls["n"] == 4                                # first try + 3 retries
+    assert not runner.is_live(jid) and jid not in runner._subs and jid not in runner._cancel_requested
+
+
+def test_finish_retries_a_briefly_locked_db(client, monkeypatch):
+    from app import jobs as jobs_mod
+    from app.db import Job
+    from app.jobs import JobRunner
+    monkeypatch.setattr(jobs_mod, "RETRY_DELAYS", (0, 0, 0))
+    runner = JobRunner(client.app.state.SessionLocal)
+    real = runner._write
+    calls = {"n": 0}
+
+    def flaky(job_id, **fields):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise _locked()
+        return real(job_id, **fields)
+    runner._write = flaky
+    jid, items = _run_echo(runner, client.app.state.SessionLocal)
+    with client.app.state.SessionLocal() as db:
+        job = db.get(Job, jid)
+        assert job.status == "done" and job.finished_at is not None and "hi" in job.log
+    assert items[-1] is None
+
+
+def test_runner_db_writes_run_off_the_loop(client):
+    import asyncio
+    import threading
+    from app.jobs import JobRunner
+    runner = JobRunner(client.app.state.SessionLocal)
+    threads = set()
+    real = runner._write
+
+    def spy(job_id, **fields):
+        threads.add(threading.current_thread() is threading.main_thread())
+        return real(job_id, **fields)
+    runner._write = spy
+    _run_echo(runner, client.app.state.SessionLocal)
+    assert threads == {False}
+
+
+def test_late_log_flush_does_not_overwrite_finished_job(client):
+    from app.db import Job
+    runner = client.app.state.job_runner
+    with client.app.state.SessionLocal() as db:
+        job = Job(kind="nmap", status="done", command="x", log="final log")
+        db.add(job)
+        db.commit()
+        jid = job.id
+    runner._write(jid, only_running=True, log="partial")
+    with client.app.state.SessionLocal() as db:
+        assert db.get(Job, jid).log == "final log"

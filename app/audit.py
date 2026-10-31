@@ -20,6 +20,7 @@ ACTION_GROUPS = {
     "job": "Jobs",
     "inventory": "Inventory",
     "surface": "Attack-surface changes",
+    "discovery": "External discovery",
     "rule": "Version rules",
     "template": "Templates",
     "system": "System updates",

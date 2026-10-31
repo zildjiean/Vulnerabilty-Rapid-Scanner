@@ -24,8 +24,16 @@ MUTATING = [
     ("/templates/pull", {"url": "https://example.invalid/t.yaml"}, "templates.manage"),
     ("/templates/delete", {"path": "/nope.yaml"}, "templates.manage"),
     ("/updates/nuclei-templates", {}, "system.update"),
+    ("/updates/subfinder", {}, "system.update"),
+    ("/updates/httpx", {}, "system.update"),
+    ("/discovery/scan", {"domains": "example.com"}, "scan.run"),
+    ("/discovery/to-nmap", {"asset_ids": ["1"]}, "scan.run"),
+    ("/discovery/to-nuclei", {"asset_ids": ["1"]}, "scan.run"),
+    ("/discovery/ignore", {"asset_ids": ["1"]}, "issues.manage"),
+    ("/discovery/unignore", {"asset_ids": ["1"]}, "issues.manage"),
+    ("/settings/discovery-keys", {"key_shodan": "x"}, "settings.manage"),
 ]
-ANALYST_DENIED = {"system.update"}
+ANALYST_DENIED = {"system.update", "settings.manage"}
 
 
 def _as(client, role):

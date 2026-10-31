@@ -13,7 +13,7 @@ def test_parse_versions():
 
 def test_tool_versions_with_fake_bins(settings):
     v = asyncio.run(tool_versions(settings))
-    assert v == {"nmap": "7.97", "nuclei": "v3.8.0"}
+    assert v == {"nmap": "7.97", "nuclei": "v3.8.0", "subfinder": "v2.17.0", "httpx": "v1.12.0"}
 
 
 def test_templates_info_reads_config(settings, tmp_path, monkeypatch):
@@ -30,7 +30,7 @@ def test_build_update_argv(settings):
     assert build_update_argv(settings, "nuclei-templates")[1] == "-update-templates"
     assert build_update_argv(settings, "nuclei-engine")[1] == "-update"
     assert build_update_argv(settings, "nmap-scripts")[1] == "--script-updatedb"
-    assert set(UPDATE_ACTIONS) == {"nuclei-templates", "nuclei-engine", "nmap-scripts"}
+    assert set(UPDATE_ACTIONS) == {"nuclei-templates", "nuclei-engine", "nmap-scripts", "subfinder", "httpx"}
 
 
 def test_updates_page_and_actions(auth):

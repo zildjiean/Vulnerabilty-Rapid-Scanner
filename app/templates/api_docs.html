@@ -21,6 +21,7 @@ curl -s -H "Authorization: Bearer $ZDRS_KEY" {{ B }}/me</pre>
     ('PATCH', '/issues/{id}', 'issues.manage', 'Body: status, comment, severity, assignee (username or null).'),
     ('GET', '/assets', 'view', 'Inventory hosts with services and scope.'),
     ('GET', '/changes', 'view', 'Attack-surface changes, newest first. Query: days (1/7/30/90/all), kind, job, state (open/all), limit (max 500).'),
+    ('GET', '/discovered', 'view', 'Assets found by external discovery (subfinder + httpx). Query: root, web (any|web|none), state (active|ignored|all, default active), limit (max 500), offset. url / status_code / title / webserver / tech are null while web is false.'),
     ('GET', '/trends', 'view', 'Trend series behind the dashboard charts: open exposure by severity, new vs resolved, MTTR, SLA %, surface changes. Query: days (30/90/180/365, default 90), scope (id).'),
     ('GET', '/campaigns', 'view', 'Campaigns with progress. Query: status (active|draft|closed|dismissed).'),
     ('GET', '/campaigns/{id}', 'view', 'One campaign with rules, templates and progress.'),
@@ -28,6 +29,7 @@ curl -s -H "Authorization: Bearer $ZDRS_KEY" {{ B }}/me</pre>
     ('POST', '/campaigns/{id}/verify', 'scan.run', 'Body: profile (gentle|normal|aggressive), extra_targets []. Returns job_id.'),
     ('POST', '/scans/nmap', 'scan.run', 'Body: targets [], port_mode (top|all|custom), custom_ports, timing (T2|T3|T4), scan_type (syn|connect), skip_ping.'),
     ('POST', '/scans/nuclei', 'scan.run', 'Body: targets [], mode (selected|all|groups), template_ids [], groups [], severities [], profile.'),
+    ('POST', '/scans/discovery', 'scan.run', 'Body: domains [] (root domains you own or are authorized to test, max 20), probe (default true: chain an httpx web probe). Returns job_id.'),
     ('GET', '/jobs/{id}', 'view', 'Job status, summary, warnings, finding count. Query: log=true adds the log tail.'),
   ] %}
   <tr><td><span class="badge method-{{ m|lower }}">{{ m }}</span></td><td class="cell-mono">/api/v1{{ p }}</td><td class="small"><code>{{ perm }}</code></td><td class="small">{{ desc }}</td></tr>

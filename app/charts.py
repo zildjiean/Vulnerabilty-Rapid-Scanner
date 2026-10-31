@@ -231,7 +231,7 @@ def trend_charts(t: dict, surface: bool = True) -> list[dict]:
         add, oth = sum(p["surface_added"] for p in pts), sum(p["surface_other"] for p in pts)
         out.append({
             "id": "surface", "kind": "grouped", "title": "Surface changes",
-            "subtitle": "New hosts and opened ports vs closed ports, changed services and hosts gone",
+            "subtitle": "New hosts, opened ports and new subdomains vs closed ports, changed services and hosts gone",
             "desc": f"{add} added and {oth} other attack-surface changes in this period.",
             "legend": [("c-1", "Added"), ("c-2", "Other")],
             "g": grouped_bars(pts, ("surface_added", "surface_other"),

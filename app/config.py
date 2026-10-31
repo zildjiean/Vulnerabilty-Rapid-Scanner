@@ -20,6 +20,8 @@ class Settings:
     data_dir: Path
     nmap_bin: str = "nmap"
     nuclei_bin: str = "nuclei"
+    subfinder_bin: str = "subfinder"
+    httpx_bin: str = "httpx"  # the image sets an absolute path: the Python httpx package installs an "httpx" script too
     secret_key: str = ""
     https: bool = False
     nuclei_templates_dir: Path | None = None
@@ -36,6 +38,7 @@ class Settings:
         self.custom_templates_dir = Path(self.custom_templates_dir)
         self.custom_templates_dir.mkdir(parents=True, exist_ok=True)
         (self.data_dir / "jobs").mkdir(parents=True, exist_ok=True)
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
         if not self.secret_key:
             self.secret_key = _load_or_create_secret(self.data_dir / "secret_key")
 
@@ -47,6 +50,11 @@ class Settings:
     def jobs_dir(self) -> Path:
         return self.data_dir / "jobs"
 
+    @property
+    def tmp_dir(self) -> Path:
+        """Short-lived job input files (domain / host lists, provider configs); removed when the job ends."""
+        return self.data_dir / "tmp"
+
 
 def settings_from_env() -> Settings:
     def opt_path(name: str) -> Path | None:
@@ -57,6 +65,8 @@ def settings_from_env() -> Settings:
         data_dir=Path(os.environ.get("DATA_DIR", "/data")),
         nmap_bin=os.environ.get("NMAP_BIN", "nmap"),
         nuclei_bin=os.environ.get("NUCLEI_BIN", "nuclei"),
+        subfinder_bin=os.environ.get("SUBFINDER_BIN", "subfinder"),
+        httpx_bin=os.environ.get("HTTPX_BIN", "httpx"),
         secret_key=os.environ.get("SECRET_KEY", ""),
         https=os.environ.get("HTTPS", "0") == "1",
         nuclei_templates_dir=opt_path("NUCLEI_TEMPLATES_DIR"),

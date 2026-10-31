@@ -19,7 +19,7 @@ from .reports import REMEDIATED
 PERIODS = (30, 90, 180, 365)
 PERIOD_LABELS = {30: "30 days", 90: "90 days", 180: "6 months", 365: "12 months"}
 DEFAULT_DAYS = 90
-SURFACE_ADDED = ("host_new", "port_opened")   # everything else (port_closed, service_changed, host_gone) is "other"
+SURFACE_ADDED = ("host_new", "port_opened", "subdomain_new")  # the rest (port_closed, service_changed, host_gone) is "other"
 
 
 def parse_days(value) -> int:

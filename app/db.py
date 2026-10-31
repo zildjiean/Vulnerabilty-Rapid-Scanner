@@ -46,7 +46,7 @@ class AuditLog(Base):
 class Job(Base):
     __tablename__ = "jobs"
     id: Mapped[int] = mapped_column(primary_key=True)
-    kind: Mapped[str] = mapped_column(String(16))  # nmap | nuclei | update
+    kind: Mapped[str] = mapped_column(String(16))  # nmap | nuclei | update | discovery | discovery_probe
     status: Mapped[str] = mapped_column(String(16), default="queued")  # queued|running|done|failed|cancelled
     command: Mapped[str] = mapped_column(Text, default="")
     log: Mapped[str] = mapped_column(Text, default="")
@@ -269,7 +269,7 @@ class Schedule(Base):
     __tablename__ = "schedules"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(128))
-    kind: Mapped[str] = mapped_column(String(24))  # nmap | nuclei | campaign_verify
+    kind: Mapped[str] = mapped_column(String(24))  # nmap | nuclei | campaign_verify | discovery
     scope_id: Mapped[int | None] = mapped_column(ForeignKey("scopes.id", ondelete="CASCADE"), nullable=True, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     frequency: Mapped[str] = mapped_column(String(16), default="daily")  # interval | daily | weekly
@@ -449,17 +449,18 @@ class WatchHit(Base):
 
 
 class SurfaceChange(Base):
-    """One attack-surface change an nmap scan found against the inventory as it stood before the scan."""
+    """One attack-surface change an nmap scan found against the inventory as it stood before the scan, or a subdomain
+    a discovery job found for the first time (address = hostname)."""
     __tablename__ = "surface_changes"
     __table_args__ = (Index("ix_surface_kind_addr", "kind", "address"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="SET NULL"), nullable=True)
-    address: Mapped[str] = mapped_column(String(64), default="")
+    address: Mapped[str] = mapped_column(String(255), default="")  # an IP, or a host name for subdomain_new
     hostname: Mapped[str] = mapped_column(String(255), default="")
     port: Mapped[int | None] = mapped_column(Integer, nullable=True)
     protocol: Mapped[str] = mapped_column(String(8), default="")
-    kind: Mapped[str] = mapped_column(String(24))  # host_new | port_opened | port_closed | service_changed | host_gone
+    kind: Mapped[str] = mapped_column(String(24))  # host_new | port_opened | port_closed | service_changed | host_gone | subdomain_new
     before: Mapped[str] = mapped_column(String(2000), default="")
     after: Mapped[str] = mapped_column(String(2000), default="")
     severity: Mapped[str] = mapped_column(String(16), default="low")
@@ -467,6 +468,45 @@ class SurfaceChange(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     acknowledged_by: Mapped[str] = mapped_column(String(64), default="")
+
+
+class DiscoveredAsset(Base):
+    """An internet-facing host name found by subfinder under one of the operator's root domains, probed by httpx.
+    Title / server / tech / url come from the remote host: attacker-controlled text, rendered escaped only."""
+    __tablename__ = "discovered_assets"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    root_domain: Mapped[str] = mapped_column(String(253), default="", index=True)
+    hostname: Mapped[str] = mapped_column(String(253), unique=True)
+    ips: Mapped[str] = mapped_column(String(1000), default="")  # comma list
+    url: Mapped[str] = mapped_column(String(2048), default="")
+    status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    webserver: Mapped[str] = mapped_column(String(255), default="")
+    tech: Mapped[str] = mapped_column(String(1000), default="")  # comma list
+    sources: Mapped[str] = mapped_column(String(500), default="")  # comma list of subfinder sources
+    first_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_probed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    web: Mapped[bool] = mapped_column(Boolean, default=False)  # httpx answered on the last probe
+    ignored: Mapped[bool] = mapped_column(Boolean, default=False)
+    ignored_by: Mapped[str] = mapped_column(String(64), default="")
+    ignored_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    scope_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    @property
+    def link(self) -> str:
+        """The URL when it is safe to put in an href (http / https only), else ''."""
+        u = (self.url or "").strip()
+        return u if u.lower().startswith(("http://", "https://")) else ""
+
+    @property
+    def ip_list(self) -> list[str]:
+        return [x for x in (self.ips or "").split(",") if x]
+
+    @property
+    def tech_list(self) -> list[str]:
+        return [x for x in (self.tech or "").split(",") if x]
 
 
 class AppSetting(Base):

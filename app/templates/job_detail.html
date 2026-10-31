@@ -7,6 +7,9 @@
 {% endif %}
 {% if job.kind == 'nmap' and job.status == 'done' %}<a class="btn primary" href="/inventory"><svg class="icon"><use href="#i-server"/></svg>View inventory</a>{% endif %}
 {% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn primary" href="/findings?job={{ job.id }}"><svg class="icon"><use href="#i-alert"/></svg>View findings</a>{% endif %}
+{% if job.kind == 'discovery' and params.get('result', {}).get('probe_job') %}<a class="btn" href="/jobs/{{ params.result.probe_job }}"><svg class="icon"><use href="#i-globe"/></svg>Web probe job #{{ params.result.probe_job }}</a>{% endif %}
+{% if job.kind == 'discovery_probe' and params.get('parent_job') %}<a class="btn" href="/jobs/{{ params.parent_job }}"><svg class="icon"><use href="#i-globe"/></svg>Discovery job #{{ params.parent_job }}</a>{% endif %}
+{% if job.kind in ('discovery', 'discovery_probe') and job.status == 'done' %}<a class="btn primary" href="/discovery"><svg class="icon"><use href="#i-globe"/></svg>View discovered assets</a>{% endif %}
 {% endblock %}
 {% block content %}
 {% from "_ai.html" import ai_meta, ai_badge %}
@@ -19,7 +22,7 @@
 {% endif %}
 {% set warnings = job_warnings(job) %}
 {% if job.status == 'done' and warnings %}
-<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Done with warnings — coverage is incomplete.</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul><p class="small" style="margin:8px 0 0">Re-run with the <a href="/nuclei">Gentle profile</a>, a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.</p></div></div>
+<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Done with warnings — coverage is incomplete.</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% if job.kind == 'nuclei' %}<p class="small" style="margin:8px 0 0">Re-run with the <a href="/nuclei">Gentle profile</a>, a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.</p>{% endif %}</div></div>
 {% endif %}
 <div class="card mb">
   <div class="card-body">

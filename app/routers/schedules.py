@@ -57,7 +57,11 @@ def _to_int(value: str, default: int) -> int:
 
 
 def build_config(kind: str, port_mode: str, custom_ports: str, timing: str, scan_type: str, skip_ping: bool,
-                 nuclei_mode: str, groups: str, severities: list[str], profile: str) -> dict:
+                 nuclei_mode: str, groups: str, severities: list[str], profile: str, domains: str = "",
+                 probe: bool = False) -> dict:
+    if kind == "discovery":
+        from ..discovery import parse_root_domains
+        return {"domains": parse_root_domains(domains), "probe": probe}
     if kind == "nmap":
         # dry-run the argv builder so bad ports / modes are rejected now, not at 2 a.m.
         build_nmap_argv("nmap", ["127.0.0.1"], port_mode=port_mode, custom_ports=custom_ports, timing=timing,
@@ -91,7 +95,8 @@ def schedule_create(request: Request, name: str = Form(""), kind: str = Form("")
                     weekday: str = Form("0"), port_mode: str = Form("top"), custom_ports: str = Form(""),
                     timing: str = Form("T3"), scan_type: str = Form("syn"), skip_ping: bool = Form(False),
                     nuclei_mode: str = Form("all"), groups: str = Form(""), severities: list[str] = Form(default=[]),
-                    profile: str = Form(DEFAULT_PROFILE), back: str = Form("/schedules"), db: Session = Depends(get_db)):
+                    profile: str = Form(DEFAULT_PROFILE), domains: str = Form(""), probe: bool = Form(False),
+                    back: str = Form("/schedules"), db: Session = Depends(get_db)):
     scope = db.get(Scope, int(scope_id)) if scope_id.isdigit() else None
     hours, day = _to_int(interval_hours, 0), _to_int(weekday, -1)
     err = sch.validate_schedule(kind, scope.id if scope else None, frequency, hours, time_of_day, day)
@@ -99,20 +104,25 @@ def schedule_create(request: Request, name: str = Form(""), kind: str = Form("")
     if not err:
         try:
             config = build_config(kind, port_mode, custom_ports, timing, scan_type, skip_ping, nuclei_mode, groups,
-                                  severities, profile)
+                                  severities, profile, domains, probe)
         except ValueError as e:
             err = str(e)
     if err:
         ctx = schedule_form_context(db, scope_filter=scope.id if scope and back.startswith("/scopes/") else None)
         return render(request, "schedules.html", status_code=400, active="schedules", error=err, **ctx)
-    s = Schedule(name=(name.strip() or f"{sch.KINDS[kind]}{' of ' + scope.name if scope else ''}")[:128], kind=kind,
-                 scope_id=None if kind == "campaign_verify" else scope.id, frequency=frequency, interval_hours=hours or 24, time_of_day=time_of_day or "02:00",
+    if kind == "discovery":
+        roots = config["domains"]
+        default_name = f"{sch.KINDS[kind]} of {', '.join(roots[:2])}{'…' if len(roots) > 2 else ''}"
+    else:
+        default_name = f"{sch.KINDS[kind]}{' of ' + scope.name if scope else ''}"
+    s = Schedule(name=(name.strip() or default_name)[:128], kind=kind,
+                 scope_id=None if kind in ("campaign_verify", "discovery") else scope.id, frequency=frequency, interval_hours=hours or 24, time_of_day=time_of_day or "02:00",
                  weekday=max(day, 0), config=json.dumps(config), enabled=True, created_by=request.state.user.username)
     s.next_run_at = sch.compute_next_run(s, utcnow(), sch.tzinfo(db))
     db.add(s)
     db.commit()
     audit(db, request, "schedule.created", target=s.name, schedule_id=s.id, kind=kind, frequency=describe(s),
-          scope=scope.name if scope else "")
+          scope=scope.name if scope and kind not in ("campaign_verify", "discovery") else "")
     return RedirectResponse(_back(back) + "?msg=Schedule+created", status_code=303)
 
 

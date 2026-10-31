@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.7.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.8.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -58,6 +58,7 @@ docker compose up -d --build
 | | Changes | สิ่งที่เปลี่ยนไปจากการสแกน nmap แต่ละรอบ: host ใหม่, พอร์ตเปิด/ปิด, เวอร์ชันเปลี่ยน, host ไม่ตอบ |
 | | Reports | รายงานผู้บริหาร, รายงาน campaign / scope, export |
 | Scanning | Nmap scan, Nuclei scan | สั่งสแกนเอง |
+| | Discovery | ค้นหา subdomain และเว็บที่เปิดสู่อินเทอร์เน็ตจาก root domain ขององค์กร |
 | | Findings | ผลดิบจาก nuclei ทุก job |
 | | Jobs | ประวัติงาน, log สด, ยกเลิกงาน |
 | | Schedules, Scopes | สแกนตามเวลา และแบ่งกลุ่ม asset |
@@ -125,6 +126,27 @@ docker compose up -d --build
 - หน้า job ของ nmap มีการ์ด **Changes from this scan** และ Dashboard มีการ์ด **Surface changes (7 days)**
 - สแกนครั้งแรกตอน Inventory ว่าง ระบบบันทึกเป็น baseline และไม่ส่งแจ้งเตือน
 - สแกนแค่บางพอร์ต (Custom / Top 1000) พอร์ตอื่นของ host เดิมจะยังอยู่ใน Inventory ไม่ถูกลบ
+
+### Discovery: ค้นหา asset ภายนอก
+
+ใช้หา subdomain และเว็บขององค์กรที่ทีมอาจไม่รู้ว่ามีอยู่ **ใช้กับโดเมนที่คุณเป็นเจ้าของหรือได้รับอนุญาตเท่านั้น**
+
+1. ไปที่ **Scanning → Discovery**
+2. **Root domains** ใส่บรรทัดละหนึ่งโดเมน เช่น `example.com` (สูงสุด 20 โดเมน ไม่ต้องใส่ `https://`)
+3. **Probe web services with httpx** (เปิดไว้เป็นค่าเริ่มต้น)
+   - ขั้นแรก **subfinder** ค้นจากแหล่งข้อมูลสาธารณะ (เช่น certificate transparency) ไม่ได้แตะระบบของคุณ
+   - ถ้าเปิด probe ระบบจะเริ่ม job **httpx** ต่อให้อัตโนมัติ ซึ่ง *ติดต่อ host เหล่านั้นจริง* เพื่อดูว่าเป็นเว็บไหม
+     พร้อม IP, status, title, web server และเทคโนโลยี (สูงสุด 5,000 host ต่อครั้ง)
+4. ผลอยู่ในตาราง **Discovered assets** ด้านล่าง
+   - กรองตาม root domain, ข้อความ, มีเว็บ / ไม่มีเว็บ, ใหม่ใน 7 วัน, active / ignored
+   - ติ๊กแล้วกด **Scan with nmap** หรือ **Scan with nuclei** ระบบพาไปหน้าสแกนพร้อมกรอกเป้าหมายให้ (ยังไม่เริ่มจนกว่าจะกด Start)
+   - **Ignore** สิ่งที่ไม่ใช่ของคุณหรือไม่ต้องสนใจ (ไม่ถูก probe ในรอบถัดไป) และ **Unignore** ได้
+- subdomain ที่เจอครั้งแรกขึ้นในเมนู **Changes** เป็น *New subdomain* และส่งแจ้งเตือน `surface.changed`
+  ยกเว้นการค้นครั้งแรกของแต่ละ root domain ซึ่งเป็น baseline
+- ตั้งให้ค้นอัตโนมัติได้ที่ **Schedules** เลือกชนิด **External discovery**
+- **API key ของแหล่งข้อมูล (ไม่บังคับ)**: admin ใส่ได้ที่ **System → Settings → Discovery sources**
+  (SecurityTrails, Shodan, Censys, VirusTotal, Chaos, GitHub, BinaryEdge, FOFA) ช่วยให้เจอ subdomain มากขึ้น
+  key ถูกเข้ารหัส ไม่แสดงกลับมา และถูกเขียนเป็นไฟล์ชั่วคราวเฉพาะตอนรัน job เท่านั้น
 
 ## 5. สแกนช่องโหว่: Nuclei scan และ Findings
 
@@ -442,9 +464,9 @@ AI **แนะนำเท่านั้น** ไม่เปลี่ยนส
 
 **System → Updates** (admin) กดปุ่มอัปเดตแต่ละตัว ทำงานเป็น job ดู log ได้
 - **nuclei templates** ควรอัปเดตทุกวันหรือทันทีที่มี 0-day ใหม่
-- **nuclei engine** และ **nmap script DB**
+- **nuclei engine**, **subfinder**, **httpx** และ **nmap script DB**
 
-อัปเดต binary nmap และเวอร์ชัน nuclei ที่ตรึงไว้ใน image ด้วยการ build ใหม่:
+อัปเดต binary nmap และเวอร์ชัน nuclei / subfinder / httpx ที่ตรึงไว้ใน image ด้วยการ build ใหม่:
 
 ```bash
 git pull
@@ -458,7 +480,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.7.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.8.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 
