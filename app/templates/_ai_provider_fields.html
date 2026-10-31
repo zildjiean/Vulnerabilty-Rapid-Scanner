@@ -1,5 +1,6 @@
 {# Provider settings shared by the Add form (ai.html) and the Edit page (ai_provider.html).
-   The surrounding <form> needs class="schedule-form" so app.js toggles [data-show-kind] with the type select. #}
+   The surrounding <form> needs class="schedule-form" so app.js toggles [data-show-kind] with the type select, and
+   data-disable-hidden so the fields of other provider types are not posted. #}
 {% macro provider_fields(form, kinds, default_models, gemini_base, key_stored=False) %}
 {%- set current = form.kind if form.kind in kinds else (kinds|list)[0] -%}
 {%- macro show(list) %}data-show-kind="{{ list }}"{{ ' hidden' if current not in list.split(' ') }}{% endmacro -%}
@@ -16,8 +17,8 @@
         <span class="hint" {{ show('openai_compatible') }}>Ollama in Docker Desktop: http://host.docker.internal:11434/v1</span></div>
       <div class="field" {{ show('azure_openai') }}><label for="api_version">API version</label><input id="api_version" name="api_version" value="{{ form.api_version or '' }}" placeholder="2024-10-21"></div>
       {% if key_stored %}
-      <div class="field"><label for="api_key">API key</label><input id="api_key" name="api_key" type="password" autocomplete="off" placeholder="Key stored · leave blank to keep"><span class="hint">Type a new key to replace it.</span>
-        <label class="check"><input type="checkbox" name="remove_key" value="true"> Remove stored key</label></div>
+      <div class="field"><label for="api_key">API key</label><input id="api_key" name="api_key" type="password" autocomplete="off" placeholder="Key stored · leave blank to keep"><span class="hint">Type a new key to replace it; a typed key takes priority over Remove stored key.</span>
+        <label class="check"><input type="checkbox" name="remove_key" value="true"{{ ' checked' if form.remove_key }}> Remove stored key</label></div>
       {% else %}
       <div class="field"><label for="api_key">API key</label><input id="api_key" name="api_key" type="password" autocomplete="off"><span class="hint">Encrypted at rest, never shown again. Optional for local servers.</span></div>
       {% endif %}

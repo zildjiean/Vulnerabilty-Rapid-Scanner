@@ -223,6 +223,12 @@
     const sync = () => {
       $$("[data-show-kind]", form).forEach((el) => { el.hidden = !el.dataset.showKind.split(" ").includes(kind.value); });
       $$("[data-show-frequency]", form).forEach((el) => { el.hidden = !el.dataset.showFrequency.split(" ").includes(freq.value); });
+      // Opt-in: fields inside hidden blocks are disabled so they are not posted.
+      if (form.hasAttribute("data-disable-hidden")) {
+        $$("[data-show-kind] input, [data-show-kind] select, [data-show-kind] textarea", form).forEach((el) => {
+          el.disabled = !!el.closest("[data-show-kind][hidden]");
+        });
+      }
     };
     kind?.addEventListener("change", sync);
     freq?.addEventListener("change", sync);

@@ -198,3 +198,38 @@ def test_edit_validation_keeps_typed_values(auth, fake_llm):
     assert '<option value="azure_openai" selected>' in r.text
     p = providers(auth)[0]
     assert p.name == "Claude" and p.kind == "anthropic"
+
+
+def test_edit_to_openai_drops_hidden_base_url(auth, fake_llm):
+    add_provider(auth, kind="openai_compatible", model="m", base_url="https://openrouter.ai/api/v1", api_key="sk-or")
+    p = providers(auth)[0]
+    r = edit(auth, p, kind="openai", model="gpt-5", base_url="https://openrouter.ai/api/v1", api_key="sk-openai")
+    assert r.status_code == 303
+    p = providers(auth)[0]
+    assert p.kind == "openai" and json.loads(p.config)["base_url"] == ""
+    assert auth.app.state.secretbox.decrypt(p.secret) == {"api_key": "sk-openai"}
+
+
+def test_edit_save_and_test_keeps_key_warning(auth, fake_llm):
+    add_provider(auth, kind="openai", model="gpt-5", api_key="sk-old")
+    p = providers(auth)[0]
+    r = edit(auth, p, kind="openai_compatible", model="llama3.1", base_url="http://host.docker.internal:11434/v1",
+             action="test")
+    assert r.status_code == 303 and r.headers["location"].startswith(f"/ai/providers/{p.id}?msg=Test+succeeded")
+    assert "previous+provider+type" in r.headers["location"]
+
+
+def test_edit_typed_key_wins_over_remove(auth, fake_llm):
+    add_provider(auth)
+    p = providers(auth)[0]
+    assert edit(auth, p, api_key="sk-ant-newvalue", remove_key="true").status_code == 303
+    assert auth.app.state.secretbox.decrypt(providers(auth)[0].secret) == {"api_key": "sk-ant-newvalue"}
+
+
+def test_edit_error_keeps_remove_ticked(auth, fake_llm):
+    add_provider(auth)
+    p = providers(auth)[0]
+    r = edit(auth, p, remove_key="true")
+    assert r.status_code == 400
+    assert 'name="remove_key" value="true" checked' in r.text
+    assert 'name="remove_key" value="true" checked' not in auth.get(f"/ai/providers/{p.id}").text

@@ -40,7 +40,9 @@ def _page(request: Request, db: Session, status_code: int = 200, error: str | No
 
 
 def _fields(kind: str, model: str, base_url: str, api_version: str) -> dict:
-    config = {"model": model.strip() or DEFAULT_MODELS.get(kind, ""), "base_url": base_url.strip().rstrip("/")}
+    # OpenAI always talks to api.openai.com: never carry over a base URL typed for another type (key exfiltration).
+    base = "" if kind == "openai" else base_url.strip().rstrip("/")
+    config = {"model": model.strip() or DEFAULT_MODELS.get(kind, ""), "base_url": base}
     if kind == "azure_openai":
         config["api_version"] = api_version.strip()
     return config
@@ -89,7 +91,7 @@ def _get(db: Session, pid: int) -> AiProvider:
     return p
 
 
-def _edit_page(request: Request, db: Session, p: AiProvider, status_code: int = 200, error: str | None = None,
+def _edit_page(request: Request, p: AiProvider, status_code: int = 200, error: str | None = None,
                form: dict | None = None):
     if form is None:
         config = json.loads(p.config or "{}")
@@ -102,7 +104,7 @@ def _edit_page(request: Request, db: Session, p: AiProvider, status_code: int = 
 
 @router.get("/ai/providers/{pid}", dependencies=VIEW)
 def provider_edit_page(request: Request, pid: int, db: Session = Depends(get_db)):
-    return _edit_page(request, db, _get(db, pid))
+    return _edit_page(request, _get(db, pid))
 
 
 KEPT_KEY_WARNING = (" The API key from the previous provider type was kept; tick Remove stored key if the new provider "
@@ -120,7 +122,7 @@ async def provider_update(request: Request, pid: int, name: str = Form(""), kind
     box = request.app.state.secretbox
     kind = kind or p.kind
     form = {"name": name, "kind": kind, "model": model, "base_url": base_url, "api_version": api_version,
-            "max_tokens": max_tokens, "redact": redact}
+            "max_tokens": max_tokens, "redact": redact, "remove_key": remove_key}
     config = _fields(kind, model, base_url, api_version)
     stored = box.decrypt(p.secret)
     secret = dict(stored)
@@ -134,7 +136,7 @@ async def provider_update(request: Request, pid: int, name: str = Form(""), kind
     except ValueError as e:
         err = err or str(e)
     if err:
-        return _edit_page(request, db, p, 400, err, form)
+        return _edit_page(request, p, 400, err, form)
     old_config = json.loads(p.config or "{}")
     old = {"name": p.name, "kind": p.kind, "max_tokens": p.max_tokens, "redact": p.redact,
            "api_key": stored.get("api_key"), **{k: old_config.get(k, "") for k in ("model", "base_url", "api_version")}}
@@ -149,13 +151,12 @@ async def provider_update(request: Request, pid: int, name: str = Form(""), kind
     ai.refresh_ready(request.app)
     audit(db, request, "ai.provider_updated", target=p.name, provider_id=p.id, kind=kind, model=config["model"],
           redact=redact, changed=changed, key_changed="api_key" in changed)
+    warning = KEPT_KEY_WARNING if "kind" in changed and secret.get("api_key") and "api_key" not in changed else ""
     if action == "test":
         ok, _ = await _run_test(request, db, p)
-        return RedirectResponse(f"/ai/providers/{pid}?msg=" + ("Test+succeeded" if ok else "Test+failed"), status_code=303)
-    message = "Provider saved."
-    if "kind" in changed and secret.get("api_key") and "api_key" not in changed:
-        message += KEPT_KEY_WARNING
-    return RedirectResponse(f"/ai?{urlencode({'msg': message})}#p{pid}", status_code=303)
+        message = ("Test succeeded." if ok else "Test failed.") + warning
+        return RedirectResponse(f"/ai/providers/{pid}?{urlencode({'msg': message})}", status_code=303)
+    return RedirectResponse(f"/ai?{urlencode({'msg': 'Provider saved.' + warning})}#p{pid}", status_code=303)
 
 
 @router.post("/ai/providers/{pid}/default", dependencies=MANAGE)
