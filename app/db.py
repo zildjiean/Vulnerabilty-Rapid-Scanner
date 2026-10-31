@@ -445,6 +445,7 @@ class WatchHit(Base):
     campaign_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    record: Mapped[str] = mapped_column(Text, default="{}")  # JSON watch record (intel + CPE ranges), to draft later
 
 
 class AppSetting(Base):
@@ -492,6 +493,7 @@ _ADDED_COLUMNS = [
     ("issues", "last_verified_at", "DATETIME"),
     ("issues", "verify_result", "VARCHAR(16) NOT NULL DEFAULT ''"),
     ("issues", "verified_finding_id", "INTEGER"),
+    ("watch_hits", "record", "TEXT NOT NULL DEFAULT '{}'"),
 ]
 
 

@@ -47,7 +47,7 @@
   <table class="data" data-watch-hits>
     <thead><tr><th data-sort="text">CVE</th><th data-sort="num">CVSS</th><th>EPSS</th><th data-sort="num">Matched assets</th><th>Campaign</th><th data-sort="text">Found</th></tr></thead>
     <tbody>
-    {% for h, c, ms in hits %}
+    {% for h, c, ms, can_draft in hits %}
     {% set confirmed = ms|selectattr('quality', 'equalto', 'confirmed')|list|length %}
     {% set ei = epss.get(h.cve_id) %}
     <tr>
@@ -56,7 +56,7 @@
       <td class="num" data-value="{{ h.cvss_score or 0 }}">{{ h.cvss_score if h.cvss_score is not none else '—' }}</td>
       <td class="num small">{% if ei and ei.epss is not none %}{{ '%.2f'|format(ei.epss * 100) }} %{% else %}—{% endif %}</td>
       <td class="num" data-value="{{ ms|length }}">{{ ms|length }} <span class="row center small" style="gap:4px;display:inline-flex">{% if confirmed %}{{ match_badge('confirmed') }}<span class="num">{{ confirmed }}</span>{% endif %}{% if ms|length - confirmed %}{{ match_badge('possible') }}<span class="num">{{ ms|length - confirmed }}</span>{% endif %}</span></td>
-      <td>{% if c %}<a href="/campaigns/{{ c.id }}">{{ c.name }}</a> {{ campaign_status(c) }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if c %}<a href="/campaigns/{{ c.id }}">{{ c.name }}</a> {{ campaign_status(c) }}{% elif can_draft and can('campaigns.manage') %}<form method="post" action="/watch/hits/{{ h.id }}/draft"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm" aria-label="Draft a campaign for {{ h.cve_id }} now"><svg class="icon sm"><use href="#i-plus"/></svg>Draft now</button></form>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="small text-2 num">{{ h.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
     </tr>
     {% else %}

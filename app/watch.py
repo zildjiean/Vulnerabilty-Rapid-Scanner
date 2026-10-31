@@ -338,6 +338,24 @@ def os_keys(svc) -> set[tuple[str, str]]:
     return {cpe[1]} if cpe and cpe[0] != "a" else set()
 
 
+_PLAIN_SEGMENT = re.compile(r"\d+[a-z]*\d*")          # 10, 2k, 6p1, 0rc1
+_RANGE_WORDS = re.compile(r"^(or\b|and\b|\+|-|through\b|to\b|later\b|earlier\b|x\b)", re.IGNORECASE)
+
+
+def readable_version(raw: str | None) -> str | None:
+    """The comparable version of an nmap version string, or None when it cannot be read reliably: every dot
+    segment must start with a digit ('9.4.z-SNAPSHOT', '2.x', '5.7.33-0ubuntu0' are unreadable) and nothing may
+    follow that widens it ('2.0 or later', '3.1+')."""
+    v = extract_version(raw)
+    if not v:
+        return None
+    if not all(_PLAIN_SEGMENT.fullmatch(seg.lower()) for seg in v.split(".")):
+        return None
+    rest = (raw or "").strip()
+    rest = rest[rest.find(v) + len(v):].strip() if v in rest else ""
+    return None if _RANGE_WORDS.match(rest) else v
+
+
 @dataclass
 class Inv:
     """An inventory service prepared once per run for matching."""
@@ -354,7 +372,7 @@ class Inv:
     def of(cls, svc, host) -> "Inv":
         product = normalize_name(svc.product)
         keys = frozenset(service_keys(svc))
-        return cls(svc, host, product, frozenset(product.split(" ")) - {""}, extract_version(_service_version(svc)),
+        return cls(svc, host, product, frozenset(product.split(" ")) - {""}, readable_version(_service_version(svc)),
                    keys, frozenset(os_keys(svc)), tuple(frozenset(_tokens(v, p)) for v, p in keys))
 
 
@@ -457,8 +475,29 @@ def _log(db: Session, action: str, target: str, **details) -> None:
                     details=json.dumps(details, default=str, sort_keys=True)))
 
 
+def _dump_record(rec: dict) -> dict:
+    return {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in rec.items()}
+
+
+def hit_record(hit: WatchHit) -> dict | None:
+    """The stored watch record of a hit (published as a datetime), or None for rows without one."""
+    try:
+        rec = json.loads(hit.record or "{}")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(rec, dict) or rec.get("cve_id") != hit.cve_id:
+        return None
+    rec["published"] = _parse_time(str(rec.get("published") or "")) if rec.get("published") else None
+    rec.setdefault("ranges", [])
+    rec.setdefault("source", hit.source)
+    return rec
+
+
 def upsert_hit(db: Session, cve: dict, matches: list[Match], now: datetime) -> WatchHit:
     hit = db.scalar(select(WatchHit).where(WatchHit.cve_id == cve["cve_id"]))
+    stored = (hit_record(hit) or {}) if hit is not None else {}
+    merged = {**stored, **{k: v for k, v in cve.items() if v not in (None, "", [])}}
+    merged["kev"] = bool(stored.get("kev") or cve.get("kev"))
     new = [{k: v for k, v in asdict(m).items() if k != "constraint"} for m in matches]
     if hit is None:
         hit = WatchHit(cve_id=cve["cve_id"], source=cve["source"], created_at=now, matches="[]")
@@ -476,6 +515,7 @@ def upsert_hit(db: Session, cve: dict, matches: list[Match], now: datetime) -> W
     hit.cvss_score = cve.get("cvss_score") if cve.get("cvss_score") is not None else hit.cvss_score
     hit.kev = bool(hit.kev or cve.get("kev"))
     hit.matches = json.dumps(new)
+    hit.record = json.dumps(_dump_record(merged), default=str)
     hit.quality = best_quality(new)
     hit.updated_at = now
     db.flush()
@@ -536,6 +576,48 @@ def attach_new_templates(db: Session) -> int:
         db.refresh(c)
     db.flush()
     return attached
+
+
+def _campaigns_by_cve(db: Session) -> dict[str, Campaign]:
+    out: dict[str, Campaign] = {}
+    for c in db.scalars(select(Campaign).where(Campaign.cve_id != "").order_by(Campaign.id)):
+        out.setdefault(c.cve_id, c)
+    return out
+
+
+def _current_matches(rec: dict, services: list, state: dict) -> list[Match]:
+    matches = match_cve(rec, services)
+    if not state.get("include_possible", True):
+        matches = [m for m in matches if m.quality == "confirmed"]
+    return matches
+
+
+def hit_draftable(hit: WatchHit, now: datetime | None = None) -> bool:
+    """Shown with a Draft now button: no campaign yet, a stored record, and eligible (recent or known exploited)."""
+    if hit.campaign_id is not None:
+        return False
+    rec = hit_record(hit)
+    return rec is not None and draftable(rec, now or utcnow())
+
+
+def draft_hit(db: Session, hit: WatchHit) -> Campaign:
+    """Draft one hit now (Draft now on the watch page), whatever the per-run cap. Raises ValueError with a
+    user-facing message. Caller commits."""
+    if hit.campaign_id is not None or hit.cve_id in _campaigns_by_cve(db):
+        raise ValueError(f"{hit.cve_id} already has a campaign.")
+    rec = hit_record(hit)
+    if rec is None:
+        raise ValueError(f"No stored details for {hit.cve_id}; wait for the next watch run.")
+    services = inventory(db.execute(select(Service, Host).join(Host, Host.id == Service.host_id)
+                                    .order_by(Host.address, Service.port)).tuples())
+    matches = _current_matches(rec, services, load_state(db))
+    if not matches:
+        raise ValueError(f"{hit.cve_id} no longer matches the inventory.")
+    upsert_hit(db, rec, matches, utcnow())
+    c = draft_campaign(db, rec, matches)
+    hit.campaign_id = c.id
+    db.flush()
+    return c
 
 
 def unversioned(matches: Iterable[dict]) -> list[dict]:
@@ -657,39 +739,64 @@ def run_watch(db: Session, settings, get_json: GetJson, now: datetime | None = N
 
     summary["cves"] = len(cves)
     services = inventory(db.execute(select(Service, Host).join(Host, Host.id == Service.host_id)
-                                    .order_by(Host.address, Service.port)).tuples()) if cves else []
-    existing: dict[str, Campaign] = {}
-    for c in db.scalars(select(Campaign).where(Campaign.cve_id != "").order_by(Campaign.id)):
-        existing.setdefault(c.cve_id, c)
+                                    .order_by(Host.address, Service.port)).tuples())
+    existing = _campaigns_by_cve(db)
     max_drafts = int(state.get("max_drafts") or DEFAULTS["max_drafts"])
+    candidates: dict[str, tuple[dict, list[Match], int]] = {}   # cve -> (record, matches, hit id)
+
+    # 1. this run's CVEs: record a hit, link an existing campaign, or queue for drafting
     for rec in sorted(cves.values(), key=_priority):
         cve_id = rec["cve_id"]
         if not _wanted(rec, state):
             continue
         try:
             with db.begin_nested():
-                matches = match_cve(rec, services)
-                if not state.get("include_possible", True):
-                    matches = [m for m in matches if m.quality == "confirmed"]
+                matches = _current_matches(rec, services, state)
                 if not matches:
                     continue
                 summary["matched"] += 1
                 hit = upsert_hit(db, rec, matches, now)
                 campaign = existing.get(cve_id)
-                if campaign is None:          # any status, dismissed included: never drafted twice
-                    if not draftable(rec, now):
-                        summary["hits_only"] += 1
-                        continue
-                    if summary["drafts"] >= max_drafts:
-                        summary["not_drafted_limit"] += 1   # stays a hit on the watch page
-                        continue
-                    campaign = draft_campaign(db, rec, matches)
-                    existing[cve_id] = campaign
-                    summary["drafts"] += 1
-                hit.campaign_id = campaign.id
+                if campaign is not None:      # any status, dismissed included: never drafted twice
+                    hit.campaign_id = campaign.id
+                elif not draftable(rec, now):
+                    summary["hits_only"] += 1
+                else:
+                    candidates[cve_id] = (rec, matches, hit.id)
         except Exception as e:  # noqa: BLE001 - one bad CVE must not stop the run
-            log.exception("0-day watch: drafting %s failed", cve_id)
-            errors.append(short_error(f"draft {cve_id}", e))
+            log.exception("0-day watch: matching %s failed", cve_id)
+            errors.append(short_error(f"match {cve_id}", e))
+
+    # 2. earlier hits still without a campaign (held back by the cap, or the inventory changed): same rules
+    for hit in db.scalars(select(WatchHit).where(WatchHit.campaign_id.is_(None)).order_by(WatchHit.id)):
+        if hit.cve_id in candidates or hit.cve_id in cves:
+            continue
+        rec = hit_record(hit)
+        if rec is None:
+            continue
+        if hit.cve_id in existing:
+            hit.campaign_id = existing[hit.cve_id].id
+            continue
+        if not _wanted(rec, state) or not draftable(rec, now):
+            continue
+        matches = _current_matches(rec, services, state)
+        if matches:
+            candidates[hit.cve_id] = (rec, matches, hit.id)
+
+    # 3. draft in priority order up to the per-run cap; the rest stay hits for the next run
+    for rec, matches, hit_id in sorted(candidates.values(), key=lambda t: _priority(t[0])):
+        if summary["drafts"] >= max_drafts:
+            summary["not_drafted_limit"] += 1
+            continue
+        try:
+            with db.begin_nested():
+                campaign = draft_campaign(db, rec, matches)
+                existing[rec["cve_id"]] = campaign
+                db.get(WatchHit, hit_id).campaign_id = campaign.id
+                summary["drafts"] += 1
+        except Exception as e:  # noqa: BLE001
+            log.exception("0-day watch: drafting %s failed", rec["cve_id"])
+            errors.append(short_error(f"draft {rec['cve_id']}", e))
 
     try:
         with db.begin_nested():
@@ -807,11 +914,13 @@ async def attach_templates_in_background(app) -> int:
         return 0
 
 
-def recent_hits(db: Session, limit: int = HIT_ROWS) -> list[tuple[WatchHit, Campaign | None, list[dict]]]:
+def recent_hits(db: Session, limit: int = HIT_ROWS) -> list[tuple[WatchHit, Campaign | None, list[dict], bool]]:
+    """(hit, campaign, matches, can be drafted now), newest first."""
     hits = list(db.scalars(select(WatchHit).order_by(WatchHit.created_at.desc(), WatchHit.id.desc()).limit(limit)))
     ids = {h.campaign_id for h in hits if h.campaign_id}
     campaigns = {c.id: c for c in db.scalars(select(Campaign).where(Campaign.id.in_(ids)))} if ids else {}
-    return [(h, campaigns.get(h.campaign_id), hit_matches(h)) for h in hits]
+    now = utcnow()
+    return [(h, campaigns.get(h.campaign_id), hit_matches(h), hit_draftable(h, now)) for h in hits]
 
 
 def hit_matches(hit: WatchHit | None) -> list[dict]:

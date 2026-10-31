@@ -696,3 +696,89 @@ def test_draft_campaigns_hidden_from_issue_and_rules_page_marks_them(env):
                                                  "version_constraint": "< 8.3.15", "severity": "high"},
                  follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith(f"/campaigns/{php.id}")
+
+
+# ----------------------------------------------------------------- capped hits, Draft now, odd versions
+THREE = [
+    nvd_cve(PHP_CVE, 9.8, [cpe_match("php", "php", si="8.3.0", ee="8.3.15")]),
+    nvd_cve(APACHE_CVE, 8.1, [cpe_match("apache", "http_server", si="2.4.0", ee="2.4.62")]),
+    nvd_cve("CVE-2026-20011", 7.5, [cpe_match("f5", "nginx", ee="1.26.0")]),
+]
+
+
+def cap(client, n):
+    with client.app.state.SessionLocal() as db:
+        watch.set_watch_settings(db, True, "7", True, True, str(n))
+        db.commit()
+
+
+def test_capped_hits_are_drafted_by_later_runs(env):
+    cap(env, 1)
+    s1 = run(env, WatchNet(items=THREE))
+    assert s1["drafts"] == 1 and s1["not_drafted_limit"] == 2 and set(campaigns(env)) == {PHP_CVE}
+    s2 = run(env, WatchNet(items=[]), now=NOW + timedelta(hours=1))      # no new NVD data
+    assert s2["drafts"] == 1 and s2["not_drafted_limit"] == 1 and set(campaigns(env)) == {PHP_CVE, APACHE_CVE}
+    s3 = run(env, WatchNet(items=[]), now=NOW + timedelta(hours=2))
+    assert s3["drafts"] == 1 and s3["not_drafted_limit"] == 0 and len(campaigns(env)) == 3
+    with env.app.state.SessionLocal() as db:
+        assert all(h.campaign_id for h in db.scalars(select(WatchHit)))
+    assert run(env, WatchNet(items=[]), now=NOW + timedelta(hours=3))["drafts"] == 0
+
+
+def test_stored_hits_respect_dismissal_age_and_inventory(env):
+    cap(env, 1)
+    run(env, WatchNet(items=THREE))
+    with env.app.state.SessionLocal() as db:
+        db.add(Campaign(name="dismissed", cve_id=APACHE_CVE, status="dismissed"))
+        db.commit()
+    # 40 days later the remaining nginx hit is too old to draft; the dismissed Apache CVE gets linked, not drafted
+    s = run(env, WatchNet(items=[]), now=NOW + timedelta(days=40))
+    assert s["drafts"] == 0
+    with env.app.state.SessionLocal() as db:
+        hits = {h.cve_id: h for h in db.scalars(select(WatchHit))}
+        assert hits[APACHE_CVE].campaign_id is not None and hits["CVE-2026-20011"].campaign_id is None
+
+
+def test_draft_now_ignores_the_cap_and_needs_campaigns_manage(env):
+    cap(env, 1)
+    run(env, WatchNet(items=THREE))
+    page = env.get("/watch").text
+    assert page.count("Draft now</button>") == 2
+    with env.app.state.SessionLocal() as db:
+        hit = db.scalar(select(WatchHit).where(WatchHit.cve_id == APACHE_CVE))
+    make_user(env, "vera", "viewer")
+    login_as(env, "vera")
+    assert "Draft now</button>" not in env.get("/watch").text
+    csrf = get_csrf(env, "/watch")
+    assert env.post(f"/watch/hits/{hit.id}/draft", data={"csrf": csrf}, follow_redirects=False).status_code == 403
+    make_user(env, "ana", "analyst")
+    login_as(env, "ana")
+    csrf = get_csrf(env, "/watch")
+    assert env.post(f"/watch/hits/{hit.id}/draft", data={}, follow_redirects=False).status_code in (400, 403)
+    r = env.post(f"/watch/hits/{hit.id}/draft", data={"csrf": csrf}, follow_redirects=False)
+    c = campaigns(env)[APACHE_CVE]
+    assert r.status_code == 303 and r.headers["location"].startswith(f"/campaigns/{c.id}")
+    assert c.status == "draft" and c.cvss_score == 8.1 and rules_of(env, c.id)[0].version_constraint == ">= 2.4.0, < 2.4.62"
+    r = env.post(f"/watch/hits/{hit.id}/draft", data={"csrf": csrf})
+    assert r.status_code == 400 and "already has a campaign" in r.text
+    with env.app.state.SessionLocal() as db:
+        assert db.scalar(select(AuditLog).where(AuditLog.action == "watch.draft_now")).username == "ana"
+    assert env.post("/watch/hits/9999/draft", data={"csrf": csrf}).status_code == 404
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("8.3.10", "8.3.10"), ("9.6p1 Ubuntu 3ubuntu13", "9.6p1"), ("1.0.2k", "1.0.2k"), ("1.0rc1", "1.0rc1"),
+    ("9.4.z-SNAPSHOT", None), ("2.x", None), ("2.4.x", None), ("2.0 or later", None), ("3.1+", None),
+    ("5.7.33-0ubuntu0.18.04.1", None), ("", None), ("unknown", None),
+])
+def test_readable_version(raw, expected):
+    assert watch.readable_version(raw) == expected
+
+
+def test_odd_versions_are_possible_not_dropped():
+    jetty = svc("Jetty", "9.4.z-SNAPSHOT", "cpe:/a:eclipse:jetty:9.4.z-snapshot")
+    m = watch.match_cve(rec([cpe_match("eclipse", "jetty", si="9.4.0", ee="9.4.50")]), [jetty])
+    assert [(x.quality, x.has_version) for x in m] == [("possible", False)]
+    later = svc("Apache httpd", "2.4 or later", "cpe:/a:apache:http_server")
+    m = watch.match_cve(rec([cpe_match("apache", "http_server", si="2.4.0", ee="2.4.62")]), [later])
+    assert [x.quality for x in m] == ["possible"]

@@ -18,7 +18,10 @@ All notable changes to this project are documented here. The format follows
 - All NVD requests (0-day watch and threat intel refresh) share one process-wide limiter: at least 6 s apart.
 - Only CVEs published in the last 30 days or known exploited are drafted (older CVEs that NVD reports as modified
   stay as hits), at most 20 drafts per run (setting *Drafts per run*; known exploited and highest CVSS first; the
-  run summary notes how many more were not drafted).
+  run summary notes how many more were not drafted). Hits held back by the limit are drafted by later runs in the
+  same order, and each eligible hit on the watch page has a **Draft now** button (campaign managers).
+- Version strings that cannot be read reliably (`9.4.z-SNAPSHOT`, `2.x`, `2.0 or later`, distro suffixes after a
+  dash) count as unknown: the match is *possible*, never dropped.
 - For each new hit a **draft campaign** is prepared: intel from NVD / KEV, up to 5 version rules (created
   disabled), matching nuclei templates, and a `campaign.draft` notification. The draft page shows the matched
   assets with quality badges; **Activate** enables the rules, opens suspected issues and sends `campaign.created`;
