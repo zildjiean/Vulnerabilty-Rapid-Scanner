@@ -35,6 +35,43 @@ done
 cat "$(dirname "$0")/nuclei_sample.jsonl"
 """
 
+# Fake subfinder: records what it was given (domains file, provider config and its mode) next to itself.
+# A domain starting with "slow." blocks (for cancel tests), one starting with "fail." exits 1.
+FAKE_SUBFINDER = """#!/bin/sh
+dir="$(dirname "$0")"
+pc=""; dl=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -version) echo "[INF] Current Version: v2.17.0" 1>&2; exit 0;;
+    -update|-up) echo "[INF] subfinder is already updated to latest version" 1>&2; exit 0;;
+    -pc) pc="$2"; shift;;
+    -dL) dl="$2"; shift;;
+  esac
+  shift
+done
+echo "$*" > "$dir/subfinder_rest.txt"
+if [ -n "$pc" ]; then ls -l "$pc" | cut -c1-10 > "$dir/pc_mode.txt"; cat "$pc" > "$dir/pc_seen.yaml"; fi
+if [ -n "$dl" ]; then cat "$dl" > "$dir/domains_seen.txt"; fi
+if grep -q '^slow[.]' "$dl"; then exec sleep 30; fi
+if grep -q '^fail[.]' "$dl"; then echo "[FTL] could not run enumeration" 1>&2; exit 1; fi
+cat "$dir/subfinder_sample.jsonl"
+"""
+
+FAKE_HTTPX = """#!/bin/sh
+dir="$(dirname "$0")"
+l=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -version) echo "[INF] Current Version: v1.12.0" 1>&2; exit 0;;
+    -update|-up) echo "[INF] httpx is already updated to latest version" 1>&2; exit 0;;
+    -l) l="$2"; shift;;
+  esac
+  shift
+done
+cat "$l" > "$dir/hosts_seen.txt"
+cat "$dir/httpx_sample.jsonl"
+"""
+
 
 @pytest.fixture(autouse=True)
 def _fresh_nvd_limiter():
@@ -49,11 +86,11 @@ def _fresh_nvd_limiter():
 def fake_bins(tmp_path):
     bins = tmp_path / "bin"
     bins.mkdir()
-    for name, body in (("nmap", FAKE_NMAP), ("nuclei", FAKE_NUCLEI)):
+    for name, body in (("nmap", FAKE_NMAP), ("nuclei", FAKE_NUCLEI), ("subfinder", FAKE_SUBFINDER), ("httpx", FAKE_HTTPX)):
         p = bins / name
         p.write_text(body)
         p.chmod(0o755)
-    for fx in ("nmap_sample.xml", "nuclei_sample.jsonl"):
+    for fx in ("nmap_sample.xml", "nuclei_sample.jsonl", "subfinder_sample.jsonl", "httpx_sample.jsonl"):
         src = FIXTURES / fx
         if src.exists():
             shutil.copy(src, bins / fx)
@@ -71,6 +108,8 @@ def settings(tmp_path, fake_bins):
         data_dir=data,
         nmap_bin=str(fake_bins / "nmap"),
         nuclei_bin=str(fake_bins / "nuclei"),
+        subfinder_bin=str(fake_bins / "subfinder"),
+        httpx_bin=str(fake_bins / "httpx"),
         secret_key="test-secret-key",
     )
 

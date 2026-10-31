@@ -1,0 +1,15 @@
+{"host":"www.example.com","input":"example.com","source":"crtsh"}
+{"host":"API.Example.com.","input":"example.com","source":"virustotal"}
+{"host":"api.example.com","input":"example.com","source":"crtsh"}
+not json at all
+{"host":"evil.attacker.net","input":"example.com","source":"crtsh"}
+{"host":"notexample.com","input":"example.com","source":"crtsh"}
+{"host":"mail.example.org","input":"example.org","source":"alienvault"}
+{"host":"-bad.example.com","input":"example.com","source":"x"}
+{"host":"*.example.com","input":"example.com","source":"x"}
+{"host":"a b.example.com","input":"example.com","source":"x"}
+{"input":"example.com","source":"crtsh"}
+[1,2,3]
+{"host": 5}
+
+{"host":"dev.example.com","source":"<b>chaos</b>"}

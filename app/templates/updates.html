@@ -10,6 +10,10 @@
   <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-file"/></svg></div><div><div class="kpi-label">nuclei-templates</div><div class="kpi-value" style="font-size:22px">{{ templates.templates_version }}</div><div class="kpi-sub">{% if templates.latest_templates_version != 'unknown' %}latest {{ templates.latest_templates_version }}{% else %}{{ templates.yaml_files }} yaml files{% endif %}</div></div></div>
   <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-layers"/></svg></div><div><div class="kpi-label">Indexed</div><div class="kpi-value num" style="font-size:22px">{{ counts.official }} <span class="muted">/</span> {{ counts.custom }}</div><div class="kpi-sub">official / custom{% if indexing %} · <span class="status st-running">indexing</span>{% endif %}</div></div></div>
 </div>
+<div class="grid grid-4 mb">
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-globe"/></svg></div><div><div class="kpi-label">subfinder</div><div class="kpi-value" style="font-size:22px">{{ versions.subfinder }}</div><div class="kpi-sub">{{ 'subdomain enumeration' if versions.subfinder != 'unknown' else 'not installed' }}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-globe"/></svg></div><div><div class="kpi-label">httpx</div><div class="kpi-value" style="font-size:22px">{{ versions.httpx }}</div><div class="kpi-sub">{{ 'web probe' if versions.httpx != 'unknown' else 'not installed' }}</div></div></div>
+</div>
 {% if not templates.dir_exists %}<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>No nuclei templates downloaded yet. Run "Update nuclei templates" below.</div></div>{% endif %}
 <div class="grid grid-3 mb">
   {% for key, a in actions.items() %}
@@ -27,7 +31,7 @@
   <div class="card-head"><h2><svg class="icon"><use href="#i-terminal"/></svg>Rebuilding the image</h2></div>
   <div class="card-body">
     <pre class="log">docker compose build --pull --no-cache &amp;&amp; docker compose up -d</pre>
-    <p class="muted small" style="margin:10px 0 0">nmap comes from the Debian package of the base image; nuclei is pinned by <code>NUCLEI_VERSION</code> in the Dockerfile. Data, custom templates and downloaded nuclei-templates live in the <code>/data</code> volume and survive rebuilds.</p>
+    <p class="muted small" style="margin:10px 0 0">nmap comes from the Debian package of the base image; nuclei, subfinder and httpx are pinned by <code>NUCLEI_VERSION</code>, <code>SUBFINDER_VERSION</code> and <code>HTTPX_VERSION</code> in the Dockerfile. Data, custom templates and downloaded nuclei-templates live in the <code>/data</code> volume and survive rebuilds.</p>
   </div>
 </div>
 <div class="card">
