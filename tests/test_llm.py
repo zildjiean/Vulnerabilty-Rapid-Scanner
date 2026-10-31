@@ -194,6 +194,10 @@ def test_refusals_are_typed_for_every_provider(fake_anthropic, fake_openai):
     with pytest.raises(llm.LLMError) as ei:
         llm.complete("openai", {"model": "gpt-5"}, {"api_key": "k"}, req(SCHEMA))
     assert not isinstance(ei.value, llm.LLMRefusal)
+    fake_openai('{"yaml": "I cannot ...')                       # truncated JSON that mentions a refusal phrase
+    with pytest.raises(llm.LLMError) as ei:
+        llm.complete("openai", {"model": "gpt-5"}, {"api_key": "k"}, req(SCHEMA))
+    assert not isinstance(ei.value, llm.LLMRefusal)
     fake_openai('{"verdict": "The server cannot be reached; I cannot confirm."}')
     assert llm.complete("openai", {"model": "gpt-5"}, {"api_key": "k"}, req(SCHEMA)).data["verdict"].startswith("The server")
     assert issubclass(llm.LLMRefusal, llm.LLMError)

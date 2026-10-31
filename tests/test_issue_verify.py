@@ -98,6 +98,8 @@ def test_viewer_sees_no_button_and_cannot_verify(env):
     assert 'id="verify"' not in env.get(f"/issues/{sus}").text
     r = env.post(f"/issues/{sus}/template", data={"csrf": get_csrf(env, f"/issues/{sus}"), "template_id": CVE})
     assert r.status_code == 403
+    r = env.post(f"/issues/{sus}/template/save-run", data={"csrf": get_csrf(env, f"/issues/{sus}"), "yaml": "id: x"})
+    assert r.status_code == 403
 
 
 def test_template_cannot_change_while_a_verification_runs(env):

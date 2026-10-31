@@ -14,8 +14,9 @@ from ..authz import require
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import render
 from .. import templates_index as ti
-from ..templates_index import (count_templates, fetch_template_from_url, index_single, is_custom_path, reindex,
-                               remove_from_index, save_custom_template, search_templates)
+from ..templates_index import (TemplateInfo, count_templates, fetch_template_from_url, index_single, is_custom_path,
+                               reindex, remove_from_index, save_custom_template, search_templates,
+                               validate_template_yaml)
 
 router = APIRouter()
 
@@ -48,6 +49,22 @@ async def nuclei_validate(settings, path: Path) -> tuple[bool, str]:
     text = out.decode("utf-8", "replace").strip()
     last = text.splitlines()[-1] if text else ""
     return proc.returncode == 0, last
+
+
+async def validate_and_check(settings, yaml_text: str) -> tuple[TemplateInfo, bool, str]:
+    """Parse a template that is not saved yet and run `nuclei -validate` on a temporary copy.
+
+    Raises ValueError when the YAML is not a nuclei template; returns (info, ok, last_output_line) otherwise."""
+    info = validate_template_yaml(yaml_text)
+    tmp = settings.data_dir / "ai-drafts"
+    tmp.mkdir(parents=True, exist_ok=True)
+    path = tmp / f"{info.template_id}.yaml"
+    path.write_text(yaml_text)
+    try:
+        ok, line = await nuclei_validate(settings, path)
+    finally:
+        path.unlink(missing_ok=True)
+    return info, ok, line
 
 
 def _page(request: Request, db: Session, settings, q: str = "", severity: str = "", error: str | None = None, status_code: int = 200,

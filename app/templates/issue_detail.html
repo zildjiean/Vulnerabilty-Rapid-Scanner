@@ -113,7 +113,7 @@
         {% if verify_draft %}
         <form method="post" action="/issues/{{ issue.id }}/template/save-run" class="stack" data-loading>
           <input type="hidden" name="csrf" value="{{ csrf }}">
-          <div class="row center" style="gap:8px">{{ ai_badge() }}<span class="status {{ 'st-done' if verify_draft.ok else 'st-failed' }}">{{ verify_draft.message }}</span></div>
+          <div class="row center" style="gap:8px">{% if verify_draft.provider %}{{ ai_badge() }}{% endif %}<span class="status {{ 'st-done' if verify_draft.ok else 'st-failed' }}">{{ verify_draft.message }}</span></div>
           {% if verify_draft.notes %}<p class="small text-2">{{ verify_draft.notes }}</p>{% endif %}
           <div class="field"><label for="verify-yaml">Review and edit before running{% if verify_draft.provider %} (drafted by {{ verify_draft.provider }} · {{ verify_draft.model }}){% endif %}</label>
             <textarea id="verify-yaml" name="yaml" rows="16" class="code-input" spellcheck="false">{{ verify_draft.yaml }}</textarea></div>

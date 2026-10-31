@@ -20,7 +20,7 @@ from ..authz import require
 from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, TemplateIndex, User, utcnow
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import SEVERITY_ORDER, render, templates
-from ..templates_index import index_single, save_custom_template, validate_template_yaml
+from ..templates_index import index_single, save_custom_template
 
 router = APIRouter()
 LIST_LIMIT = 1000
@@ -276,30 +276,28 @@ def issue_template(request: Request, issue_id: int, template_id: str = Form(""),
 async def issue_template_save_run(request: Request, issue_id: int, yaml: str = Form(""), db: Session = Depends(get_db),
                                   settings=Depends(get_settings)):
     """Save the reviewed draft as a custom template, link it to the issue and start the verification scan."""
-    from .templates import nuclei_validate
+    from .templates import validate_and_check
     issue = _get(db, issue_id)
     if proof.live_verify_job(db, issue) is not None:   # complete_verify matches findings on the template id
         return _redirect(f"/issues/{issue.id}", err="Wait for the running verification to finish before changing the template.")
     if issue.template_id:
         return _redirect(f"/issues/{issue.id}", err="This issue already has a verification template. Press Verify now to run it.")
+    def failed(message: str):
+        draft = {"yaml": yaml, "ok": False, "message": message, "notes": "", "provider": "", "model": ""}
+        return _detail(request, db, issue, status_code=400, verify_draft=draft)
     try:
-        info = validate_template_yaml(yaml)
-        tmp = settings.data_dir / "ai-drafts"
-        tmp.mkdir(parents=True, exist_ok=True)
-        tmp_path = tmp / f"{info.template_id}.yaml"
-        tmp_path.write_text(yaml)
-        ok, line = await nuclei_validate(settings, tmp_path)
-        tmp_path.unlink(missing_ok=True)
+        info, ok, line = await validate_and_check(settings, yaml)
         if not ok:
             raise ValueError(line or "nuclei -validate failed")
     except ValueError as e:
-        draft = {"yaml": yaml, "ok": False, "message": f"Validation failed: {e}", "notes": "", "provider": "", "model": ""}
-        return _detail(request, db, issue, status_code=400, verify_draft=draft)
+        return failed(f"Validation failed: {e}")
+    if db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == info.template_id, TemplateIndex.source != "custom")):
+        return failed(f"Template id '{info.template_id}' already exists in the library; change the id.")
     path = save_custom_template(settings, yaml)
     index_single(db, path, "custom")
     issue.template_id = info.template_id
     iss._event(db, issue, "verify", _actor(request, db), body=f"Saved verification template {info.template_id} (custom).")
-    audit(db, request, "templates.saved", target=info.template_id, issue=issue.id)
+    audit(db, request, "template.saved", target=info.template_id, issue=issue.id, source="ai-draft")
     db.commit()
     return _verify(request, db, issue, back="")
 

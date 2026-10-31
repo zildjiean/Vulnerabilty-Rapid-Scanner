@@ -63,19 +63,12 @@ async def campaign_draft(request: Request, cve_id: str = Form(""), advisory: str
 # ----------------------------------------------------------------- 2. template draft
 async def draft_from_result(settings, result, provider, cve_id: str = "", advisory: str = "") -> dict:
     """Strip fences, validate the YAML and run nuclei -validate; returns the dict the templates render."""
-    from ..templates_index import validate_template_yaml
-    from .templates import nuclei_validate
+    from .templates import validate_and_check
     yaml_text = re.sub(r"^```(?:ya?ml)?\s*|\s*```$", "", (result.data or {}).get("yaml", "").strip())
     draft = {"yaml": yaml_text, "notes": (result.data or {}).get("notes", ""), "provider": provider.name,
              "model": result.model, "cve_id": cve_id, "advisory": advisory}
     try:
-        info = validate_template_yaml(yaml_text)
-        tmp = settings.data_dir / "ai-drafts"
-        tmp.mkdir(parents=True, exist_ok=True)
-        path = tmp / f"{info.template_id}.yaml"
-        path.write_text(yaml_text)
-        ok, line = await nuclei_validate(settings, path)
-        path.unlink(missing_ok=True)
+        info, ok, line = await validate_and_check(settings, yaml_text)
         draft.update(ok=ok, message="Validation passed (nuclei -validate)." if ok else f"Validation failed: {line}",
                      template_id=info.template_id)
     except ValueError as e:
@@ -137,6 +130,8 @@ async def issue_triage(request: Request, iid: int, db: Session = Depends(get_db)
 async def issue_template_draft(request: Request, iid: int, db: Session = Depends(get_db), settings=Depends(get_settings)):
     from .issues import _detail
     issue = _issue(db, iid)
+    if issue.template_id:
+        return _back(f"/issues/{iid}", "This issue already has a verification template.")
     try:
         result, provider = await ai.generate(request, db, "template_draft", af.SYSTEM, af.issue_template_prompt(db, issue),
                                              schema=af.TEMPLATE_SCHEMA, effort="high")

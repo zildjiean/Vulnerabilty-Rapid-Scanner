@@ -177,7 +177,7 @@ def test_permissions_and_no_provider(auth):
     assert "Explain &amp; remediate" not in auth.get(f"/issues/{iid}").text
     csrf = get_csrf(auth, f"/issues/{iid}")
     for path in (f"/ai/issues/{iid}/explain", f"/ai/issues/{iid}/triage", "/ai/search", "/ai/reports/summary",
-                 "/ai/campaign-draft", "/ai/template-draft"):
+                 "/ai/campaign-draft", "/ai/template-draft", f"/ai/issues/{iid}/template-draft"):
         assert auth.post(path, data={"csrf": csrf}).status_code == 403, path
 
 
@@ -224,7 +224,7 @@ def test_issue_template_draft_then_save_and_run(env):
     prompt = fake.calls[0]["request"].prompt
     assert "CVE-2026-1" in prompt and "authorized internal testing" in prompt and "PHP" in prompt
     assert "HOST-" in prompt and "192.168.1.10" not in prompt            # redacted
-    assert "request:" not in prompt                                     # no proof text is sent
+    assert "Evidence:" not in prompt                                    # no proof text is sent
     r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": "not: [valid"})
     assert r.status_code == 400 and "Validation failed" in r.text and "not: [valid" in r.text   # YAML kept for editing
     r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
@@ -265,6 +265,22 @@ def test_save_run_refuses_while_verifying_or_when_template_already_linked(env):
     linked = seed(env, SPECS)["CVE-2021-41773"]                           # already has a template
     r = env.post(f"/issues/{linked}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
     assert r.status_code == 303 and "err=This+issue+already" in r.headers["location"]
+    fake = script(env, data={"yaml": YAML_OK, "notes": ""})
+    r = env.post(f"/ai/issues/{linked}/template-draft", data={"csrf": csrf}, follow_redirects=False)
+    assert r.status_code == 303 and "err=This%20issue%20already" in r.headers["location"] and not fake.calls   # no LLM call
     with env.app.state.SessionLocal() as db:
         assert db.get(Issue, iid).template_id == "" and db.get(Issue, linked).template_id == "CVE-2021-41773"
         assert db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == "cve-2026-1-php-detect")) is None
+
+
+def test_save_run_rejects_template_id_that_collides_with_the_library(env):
+    iid = suspected(env)
+    clash = YAML_OK.replace("id: cve-2026-1-php-detect", "id: CVE-2026-109619", 1)     # indexed fixture template
+    csrf = get_csrf(env, f"/issues/{iid}")
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": clash})
+    assert r.status_code == 400 and "already exists in the library" in r.text and "id: CVE-2026-109619" in r.text
+    assert '<span class="status st-failed">' in r.text and 'AI</span><span class="status st-failed">' not in r.text   # no AI badge
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, iid).template_id == ""
+        assert db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == "CVE-2026-109619")).source != "custom"
+    assert not list((env.app.state.settings.data_dir / "ai-drafts").glob("*.yaml"))      # temp file cleaned up
