@@ -38,6 +38,14 @@ def _fmt(v) -> str:
     return f"{v:g}" if isinstance(v, float) else str(v)
 
 
+def compact(v) -> str:
+    """Axis label: 950, 1.2k, 2.5M."""
+    for div, suffix in ((1_000_000, "M"), (1_000, "k")):
+        if abs(v) >= div:
+            return f"{round(v / div, 1):g}{suffix}"
+    return _fmt(v)
+
+
 def _slots(n: int) -> float:
     return PW / max(n, 1)
 
@@ -48,7 +56,7 @@ def _scale(top: float):
 
 def _axis(ticks: list) -> list[dict]:
     top = ticks[-1]
-    return [{"value": t, "label": _fmt(t), "y": round(BOTTOM - PH * t / top, 2)} for t in ticks]
+    return [{"value": t, "label": compact(t), "y": round(BOTTOM - PH * t / top, 2)} for t in ticks]
 
 
 def _xlabels(points: list[dict]) -> list[dict]:
@@ -61,9 +69,11 @@ def _xlabels(points: list[dict]) -> list[dict]:
 
 
 def _hits(points: list[dict], labels: list[str]) -> list[dict]:
-    sw = _slots(len(points))
-    return [{"x": round(ML + sw * n, 2), "y": MT, "w": round(sw, 2), "h": PH, "label": lab, "tip": lab}
-            for n, lab in enumerate(labels)]
+    """One full-height target per bucket. Roving tabindex: only the latest bucket is a tab stop; app.js moves
+    between buckets with the arrow keys."""
+    sw, last = _slots(len(points)), len(points) - 1
+    return [{"x": round(ML + sw * n, 2), "y": MT, "w": round(sw, 2), "h": PH, "label": lab, "tip": lab,
+             "tabindex": 0 if n == last else -1} for n, lab in enumerate(labels)]
 
 
 def _bar_path(x: float, y: float, w: float, h: float, r: float = 0) -> str:
@@ -100,9 +110,10 @@ def stacked_bars(points: list[dict], keys: tuple, names: dict | None = None, fie
         if segs:
             segs[-1]["top"] = True
         for i, s in enumerate(segs):
-            # the gap is cut from the bottom of every segment above another one, so the bar keeps its height
-            dh = max(0.5, s["h"] - (GAP if i else 0))
-            s["d"] = _bar_path(s["x"], s["y"], s["w"], dh, RADIUS if s["top"] else 0)
+            # the gap is cut from the bottom of every segment above another one, so the bar keeps its height;
+            # a segment no taller than the gap keeps its full height instead of vanishing (it never overlaps)
+            s["dh"] = s["h"] - GAP if i and s["h"] > GAP else s["h"]
+            s["d"] = _bar_path(s["x"], s["y"], s["w"], s["dh"], RADIUS if s["top"] else 0)
         bars.append({"x": round(x, 2), "w": round(bw, 2), "y": BOTTOM - sc(totals[n]), "h": sc(totals[n]),
                      "total": totals[n], "segments": segs})
     labels = [f"{p['range']}: " + ", ".join(f"{p[field].get(k, 0)} {names[k]}" for k in reversed(keys))
@@ -177,11 +188,10 @@ def trend_charts(t: dict, surface: bool = True) -> list[dict]:
     period = "Period" if per == "week" else "Day"
     out = []
 
-    totals = [sum(p["open"].values()) for p in pts]
     out.append({
         "id": "open", "kind": "stacked", "title": "Open exposure",
         "subtitle": f"Open issues at the end of each {per}, by severity",
-        "desc": f"Open issues went from {totals[0]} to {totals[-1]}.",
+        "desc": f"Open issues went from {pts[0]['open_total']} to {pts[-1]['open_total']}.",
         "legend": [(f"c-{k}", k.capitalize()) for k in reversed(SEVERITY_STACK)],
         "g": stacked_bars(pts, SEVERITY_STACK),
         "head": [period, "Critical", "High", "Medium", "Low", "Other", "Total"],

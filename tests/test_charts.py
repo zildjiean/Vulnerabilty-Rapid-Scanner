@@ -131,3 +131,38 @@ def test_x_labels_stay_inside_the_viewbox():
     for n in (3, 13, 30, 53):
         xs = [x["x"] for x in charts.stacked_bars(pts([sev(1)] * n), SEV)["xlabels"]]
         assert min(xs) - charts.XLABEL_HALF >= 0 and max(xs) + charts.XLABEL_HALF <= charts.W
+
+
+def test_roving_tabindex_only_last_bucket_is_a_tab_stop():
+    for c in (charts.stacked_bars(pts([sev(1)] * 5), SEV),
+              charts.grouped_bars(pts([{"new": 1, "resolved": 0}] * 5), ("new", "resolved")),
+              charts.line(pts([1, 2, 3, 4, 5], "v"), "v")):
+        assert [h["tabindex"] for h in c["hits"]] == [-1, -1, -1, -1, 0]
+
+
+@pytest.mark.parametrize("v,text", [(0, "0"), (5, "5"), (950, "950"), (1000, "1k"), (1200, "1.2k"), (2500, "2.5k"),
+                                    (10000, "10k"), (150000, "150k"), (1000000, "1M"), (2500000, "2.5M"), (0.5, "0.5")])
+def test_compact_axis_labels(v, text):
+    assert charts.compact(v) == text
+
+
+def test_axis_uses_compact_labels():
+    c = charts.stacked_bars(pts([sev(3000)]), SEV)                 # 10% headroom → 3300
+    assert [t["label"] for t in c["ticks"]] == ["0", "1k", "2k", "3k", "4k"]
+
+
+def test_tiny_segments_never_overlap():
+    c = charts.stacked_bars(pts([sev(5000, 1, 1, 1)]), SEV)
+    segs = c["bars"][0]["segments"]
+    assert len(segs) == 4 and all(s["dh"] > 0 for s in segs)
+    for lower, upper in zip(segs, segs[1:]):
+        # the upper segment is drawn from its top down to y + dh, never past the lower segment's top
+        assert upper["y"] + upper["dh"] <= lower["y"] + 1e-9
+
+
+def test_trend_charts_open_desc_uses_total():
+    p = pts([{**sev(1), "other": 2, "open_total": 3, "new": 0, "resolved": 0, "remediated": 0, "mttr_days": None,
+              "sla_pct": None, "with_due": 0, "surface_added": 0, "surface_other": 0}])
+    c = charts.trend_charts({"points": p, "bucket": "week"})
+    assert c[0]["desc"] == "Open issues went from 3 to 3."
+    assert c[0]["rows"][0] == ["R0", 1, 0, 0, 0, 2, 3]

@@ -427,6 +427,8 @@ table.risk-parts td.num{text-align:right;font-variant-numeric:tabular-nums;font-
 .chart-axis text{fill:var(--text-3)}
 .chart-value{fill:var(--text);font-weight:600}
 .c-critical{fill:var(--chart-critical)}.c-high{fill:var(--chart-high)}.c-medium{fill:var(--chart-medium)}.c-low{fill:var(--chart-low)}
+.chart-marks .c-low{stroke:var(--text-3);stroke-width:1}   /* the lightest step is under 3:1 against the surface */
+.chart-legend i.c-low{box-shadow:inset 0 0 0 1px var(--text-3)}
 .c-1{fill:var(--chart-1)}.c-2{fill:var(--chart-2)}
 .chart-marks{pointer-events:none}
 .chart-line{fill:none;stroke:var(--chart-1);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
@@ -440,11 +442,9 @@ table.risk-parts td.num{text-align:right;font-variant-numeric:tabular-nums;font-
 .chart-data .table-wrap{margin-top:6px;max-height:320px;overflow:auto}
 .chart-data table.data th,.chart-data table.data td{padding:4px 10px;font-size:12px}
 .chart-data tbody th{font-weight:500;text-align:left;white-space:nowrap}
-.chart-tip{position:absolute;z-index:20;pointer-events:none;max-width:260px;padding:6px 9px;border-radius:6px;background:var(--text);color:var(--surface);font-size:12px;line-height:1.4;box-shadow:var(--shadow-md);transition:opacity var(--t-fast)}
-@media (prefers-reduced-motion:reduce){.chart-tip{transition:none}}
+.chart-tip{position:absolute;z-index:20;pointer-events:none;max-width:260px;padding:6px 9px;border-radius:6px;background:var(--text);color:var(--surface);font-size:12px;line-height:1.4;box-shadow:var(--shadow-md)}
 .trend-controls{gap:8px;flex-wrap:wrap;margin:0}
 .trend-controls select{width:auto;min-height:32px;padding:4px 28px 4px 8px}
-.sr-only-focusable:not(:focus){position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media (forced-colors:active){
   .chart-marks path,.chart-marker{stroke:CanvasText;stroke-width:1}
   .chart-line{stroke:CanvasText}
@@ -463,6 +463,7 @@ table.risk-parts td.num{text-align:right;font-variant-numeric:tabular-nums;font-
   .print-only{display:block}
   a{color:inherit;text-decoration:none}
   .chart-tip,.chart-data summary{display:none}
+  .chart-legend i,.chart-svg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .chart-data::details-content{content-visibility:visible;display:block}
   .chart-data .table-wrap{max-height:none;overflow:visible}
   .chart{break-inside:avoid}

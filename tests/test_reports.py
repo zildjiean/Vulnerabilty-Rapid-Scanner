@@ -224,3 +224,12 @@ def test_executive_report_charts(data):
     assert data.get("/reports?days=365").text.count('class="chart-hit"') == 4 * 53
     with data.app.state.SessionLocal() as db:
         assert "trend" in reports.executive(db, days=30, now=NOW)            # still feeds the AI summary
+
+
+def test_executive_report_notes_chart_span(data):
+    from app import trends
+    from app.db import utcnow
+    pts = trends.buckets(90, utcnow())
+    start = f"{pts[0]['start']:%b} {pts[0]['start'].day}"
+    r = data.get("/reports?days=90")
+    assert f"Charts cover {start} – {pts[-1]['label']}" in r.text

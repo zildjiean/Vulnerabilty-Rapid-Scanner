@@ -179,12 +179,34 @@
     syncGroupBoxes();
   });
 
-  // ---------- GET filter forms that apply on change: <form data-autosubmit> (a submit button stays for no-JS) ----------
+  // ---------- GET filter forms that apply on change: <form data-autosubmit> ----------
+  // Only a pointer pick submits: arrow keys on a closed select also fire "change", and reloading on every step
+  // would be a change of context on input (WCAG 3.2.2). Keyboard users press the visible Apply button.
+  const REFOCUS = "zdrs-refocus";
   $$("form[data-autosubmit]").forEach((form) => {
-    $$("select", form).forEach((sel) => sel.addEventListener("change", () => form.requestSubmit ? form.requestSubmit() : form.submit()));
+    $$("select", form).forEach((sel) => {
+      let pointer = false;
+      sel.addEventListener("pointerdown", () => { pointer = true; });
+      sel.addEventListener("keydown", () => { pointer = false; });
+      sel.addEventListener("change", () => {
+        if (!pointer) return;
+        pointer = false;
+        try { sessionStorage.setItem(REFOCUS, sel.id); } catch (e) {}
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+      });
+    });
+    form.addEventListener("submit", (e) => {
+      const el = e.submitter || document.activeElement;
+      if (el && el.id) { try { sessionStorage.setItem(REFOCUS, el.id); } catch (err) {} }
+    });
   });
+  try {
+    const id = sessionStorage.getItem(REFOCUS);
+    if (id) { sessionStorage.removeItem(REFOCUS); document.getElementById(id)?.focus({ preventScroll: true }); }
+  } catch (e) {}
 
-  // ---------- Trend charts: tooltip + bucket highlight on hover / focus of .chart-hit ----------
+  // ---------- Trend charts: tooltip, bucket highlight, roving tabindex over .chart-hit ----------
+  const chartFigs = [];
   $$("figure.chart").forEach((fig) => {
     const hits = $$(".chart-hit", fig);
     if (!hits.length) return;
@@ -202,7 +224,7 @@
         tip = document.createElement("div");
         tip.className = "chart-tip";
         tip.setAttribute("role", "tooltip");
-        tip.id = fig.id + "-tip";
+        tip.setAttribute("aria-hidden", "true");   // the hit rect's aria-label already carries the same text
         fig.appendChild(tip);
       }
       tip.textContent = hit.dataset.tip || "";   // text only, never markup
@@ -212,14 +234,26 @@
       tip.style.left = Math.max(0, Math.min(x, fig.clientWidth - tip.offsetWidth)) + "px";
       tip.style.top = Math.max(0, r.top - f.top - tip.offsetHeight - 6) + "px";
     };
-    hits.forEach((hit) => {
+    const focused = () => hits.find((h) => h === document.activeElement);
+    const move = (to) => {
+      hits.forEach((h) => h.setAttribute("tabindex", h === to ? "0" : "-1"));
+      to.focus();
+      show(to);
+    };
+    hits.forEach((hit, i) => {
       hit.addEventListener("mouseenter", () => show(hit));
       hit.addEventListener("focus", () => show(hit));
-      hit.addEventListener("mouseleave", hide);
+      hit.addEventListener("mouseleave", () => { const f = focused(); if (f) show(f); else hide(); });
       hit.addEventListener("blur", hide);
+      hit.addEventListener("keydown", (e) => {
+        const to = { ArrowLeft: hits[i - 1], ArrowRight: hits[i + 1], Home: hits[0], End: hits[hits.length - 1] }[e.key];
+        if (e.key in { ArrowLeft: 1, ArrowRight: 1, Home: 1, End: 1 }) e.preventDefault();
+        if (to) move(to);
+      });
     });
-    fig.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+    chartFigs.push(hide);
   });
+  if (chartFigs.length) document.addEventListener("keydown", (e) => { if (e.key === "Escape") chartFigs.forEach((h) => h()); });
   // printing shows every chart's data table
   const chartTables = () => $$("details.chart-data");
   window.addEventListener("beforeprint", () => chartTables().forEach((d) => { d.dataset.wasOpen = d.open ? "1" : ""; d.open = true; }));
