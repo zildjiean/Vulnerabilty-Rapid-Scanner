@@ -40,6 +40,13 @@ def job_summary(job: Job) -> str:
     targets = p.get("targets") or []
     tpl = p.get("template_ids") or []
     parts = []
+    domains = p.get("domains") or []
+    if domains:
+        parts.append(f"{len(domains)} domain(s): " + ", ".join(domains[:3]) + ("…" if len(domains) > 3 else ""))
+        if p.get("probe") is False:
+            parts.append("no web probe")
+    if p.get("parent_job"):
+        parts.append(f"web probe of {p.get('hosts', 0)} host(s) from discovery job #{p['parent_job']}")
     if targets:
         parts.append(f"{len(targets)} target(s): " + ", ".join(targets[:3]) + ("…" if len(targets) > 3 else ""))
     mode = p.get("mode")
@@ -87,7 +94,7 @@ def job_detail(request: Request, job_id: int, db: Session = Depends(get_db), run
         params = {}
     from ..ai import latest_note
     changes = None
-    if job.kind == "nmap":
+    if job.kind in ("nmap", "discovery"):
         from .. import surface
         counts = surface.job_counts(db, job.id)
         rows = list(db.scalars(surface.query(db, days="all", job_id=job.id, state="all").limit(20)))

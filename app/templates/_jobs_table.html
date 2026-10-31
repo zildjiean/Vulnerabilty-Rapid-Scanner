@@ -13,6 +13,7 @@
     <td class="actions small">
       {% if j.kind == 'nmap' and j.status == 'done' %}<a href="/inventory">Inventory</a>{% endif %}
       {% if j.kind == 'nuclei' and j.status == 'done' %}<a href="/findings?job={{ j.id }}">Findings</a>{% endif %}
+      {% if j.kind in ('discovery', 'discovery_probe') and j.status == 'done' %}<a href="/discovery">Assets</a>{% endif %}
     </td>
   </tr>
   {% else %}
