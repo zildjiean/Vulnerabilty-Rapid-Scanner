@@ -339,6 +339,11 @@ dialog.confirm .actions{display:flex;justify-content:flex-end;gap:8px;margin-top
 .status.is-fixed{background:var(--success-soft);color:var(--success)}
 .status.is-verified{background:var(--success-soft);color:var(--success);font-weight:700}
 .status.is-false_positive,.status.is-accepted_risk{background:var(--surface-3);color:var(--text-2)}
+.status.verify-reproduced{background:var(--success-soft);color:var(--success)}
+.status.verify-not_reproduced{background:var(--surface-3);color:var(--text-2)}
+.status.verify-inconclusive{background:var(--warning-soft);color:var(--warning)}
+.status .icon.sm{width:12px;height:12px;margin-right:4px}
+.timeline li.ev-verify::before{border-color:var(--primary)}
 .badge.conf-confirmed{background:var(--danger-soft);color:var(--danger)}
 .badge.conf-suspected{background:var(--surface-3);color:var(--text-2);border:1px dashed var(--border-strong)}
 .due{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
@@ -404,6 +409,10 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
 
 /* ---------- API ---------- */
 pre.code{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;font-family:var(--font-mono);font-size:12.5px;white-space:pre-wrap;word-break:break-all}
+details.proof summary{cursor:pointer;font-weight:500;padding:6px 0}
+details.proof pre.proof-text{max-height:50vh;overflow:auto;margin-top:6px}
+details.proof [data-proof-more]{margin-top:8px}
+.data tr.selected td{background:var(--primary-soft)}
 .badge.method-get{background:var(--sev-info-bg);color:var(--sev-info)}
 .badge.method-post{background:var(--success-soft);color:var(--success)}
 .badge.method-patch{background:var(--warning-soft);color:var(--warning)}
@@ -424,3 +433,7 @@ pre.code{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid
 .w-md{width:220px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 .ai-ask input{min-height:38px}
+.play-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-height:36px;padding:0;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--primary);cursor:pointer}
+.play-btn:hover{background:var(--primary-soft);border-color:var(--primary)}
+.play-btn.muted{color:var(--text-3)}
+.play-form{display:inline-block;margin:0}

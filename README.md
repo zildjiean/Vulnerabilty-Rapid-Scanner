@@ -47,6 +47,9 @@ Everything runs in one container. No external services, no accounts, works offli
   leaving the scanner (per-provider switch), keys are encrypted, and every call is audited with token usage.
 - **Automatic re-verification**: when a confirmed issue is marked fixed, its template is re-run against the asset
   after a short delay; not found → verified, found → reopened, incomplete scan → stays fixed with a note.
+- **One-click proof**: *Verify now* re-runs an issue's template against its asset and the Proof card shows the exact
+  request/response nuclei matched on (plus a curl command to reproduce it by hand). Issues raised by a version rule
+  can link or AI-draft a verification template first.
 - **Reports**: printable executive summary (open exposure, overdue, MTTR, SLA compliance, weekly trend, riskiest
   assets, scopes, campaigns), campaign and scope reports (Save as PDF from the browser), CSV / JSON issue exports.
 - **REST API** (`/api/v1`) with hashed, role-scoped, expiring API keys: issues, assets, campaigns, scans and jobs.
@@ -101,9 +104,10 @@ Step-by-step user guide in Thai: **[docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md
    yet, upload or pull one under *Templates* and attach it to the campaign.
 5. **Issues** – triage what was found: assign an owner, move it through the lifecycle, watch the SLA, and
    re-scan to verify the fix.
-6. **Reports** – share the executive summary or a campaign report; export issues to CSV / JSON or pull them over
+6. **Proof** – press **Verify now** on an issue to re-run its template and capture proof before assigning the fix.
+7. **Reports** – share the executive summary or a campaign report; export issues to CSV / JSON or pull them over
    the REST API.
-7. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
+8. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
    rebuilding the image: `docker compose build --pull --no-cache && docker compose up -d`.
 
 ## Users and roles

@@ -30,7 +30,7 @@
 | `app/templates/issue_detail.html` | Play button, verify chips, Proof card, Verification template card, timeline kind |
 | `app/templates/_issue_macros.html` | `play_button` macro |
 | `app/templates/issues.html`, `campaign_detail.html` | Play column |
-| `app/static/app.css`, `app/static/app.js` | `.icon-btn`, `.status.verify-*`, proof details, template search |
+| `app/static/app.css`, `app/static/app.js` | `.play-btn`, `.status.verify-*`, proof details, template search |
 | `tests/test_proof.py` (new), `tests/test_issue_verify.py` (new), `tests/test_llm.py`, `tests/test_ai_features.py`, `tests/test_ai_admin.py` | tests |
 | `README.md`, `CHANGELOG.md`, `docs/USER_GUIDE.th.md` | docs |
 
@@ -802,8 +802,8 @@ Expected: FAIL on the first `assert`.
 ```jinja
 {% macro play_button(i, csrf, back) -%}
 {% if i.verify_job_id %}<a class="status st-running" href="/jobs/{{ i.verify_job_id }}" title="Verification running (job #{{ i.verify_job_id }})">verifying</a>
-{% elif i.template_id %}<form method="post" action="/issues/{{ i.id }}/verify" class="play-form" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="icon-btn" aria-label="Verify now: re-run {{ i.template_id }} against {{ i.asset }}" title="Verify now"><svg class="icon"><use href="#i-play"/></svg></button></form>
-{% else %}<a class="icon-btn muted" href="/issues/{{ i.id }}#verify" aria-label="No template yet: pick or draft a verification template" title="No template yet: pick or draft one"><svg class="icon"><use href="#i-play"/></svg></a>{% endif %}
+{% elif i.template_id %}<form method="post" action="/issues/{{ i.id }}/verify" class="play-form" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="back" value="{{ back }}"><button type="submit" class="play-btn" aria-label="Verify now: re-run {{ i.template_id }} against {{ i.asset }}" title="Verify now"><svg class="icon"><use href="#i-play"/></svg></button></form>
+{% else %}<a class="play-btn muted" href="/issues/{{ i.id }}#verify" aria-label="No template yet: pick or draft a verification template" title="No template yet: pick or draft one"><svg class="icon"><use href="#i-play"/></svg></a>{% endif %}
 {%- endmacro %}
 ```
 
@@ -827,9 +827,9 @@ Empty row: `colspan="{{ 7 if playcol else 6 }}"`.
 - [ ] **Step 6: CSS** (append)
 
 ```css
-.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-height:36px;padding:0;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--primary);cursor:pointer}
-.icon-btn:hover{background:var(--primary-soft);border-color:var(--primary)}
-.icon-btn.muted{color:var(--text-3)}
+.play-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-height:36px;padding:0;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--primary);cursor:pointer}
+.play-btn:hover{background:var(--primary-soft);border-color:var(--primary)}
+.play-btn.muted{color:var(--text-3)}
 .play-form{display:inline-block;margin:0}
 ```
 

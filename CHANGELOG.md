@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Verify now (Play)** on every issue: re-runs the issue's nuclei template against that asset only, records
+  *reproduced / not reproduced / inconclusive* on the issue timeline and marks it confirmed when reproduced.
+  Available on the issue page, as a Play icon in the Issues list and in a campaign's exposure table.
+- **Proof** card on the issue page: the HTTP request and response nuclei matched on, the matcher, extracted values
+  and a copyable curl command, for every finding (nuclei records them by default).
+- Suspected issues without a template can link an indexed template or ask the AI to draft a verification template,
+  review it and *Save & run as proof*. When the model declines, the page explains in English how to switch the
+  provider/model under System → AI.
 - Thai user guide ([docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md)) covering setup, every menu and troubleshooting.
 - Compact sidebar: daily pages (Dashboard, Issues, Campaigns, Inventory, Reports) on top; Scanning, Detection library
   and System as collapsible groups that remember their state. Administration links moved under System.

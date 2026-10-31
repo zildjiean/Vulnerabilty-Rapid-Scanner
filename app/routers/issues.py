@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -9,15 +10,17 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from .. import issues as iss
+from .. import proof
 from ..audit import audit
 from ..campaigns import campaigns_for_issue
 from ..ai import latest_note
 from ..ai_features import TRIAGE_LABELS
 from ..reverify import get_reverify_settings
 from ..authz import require
-from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, User, utcnow
-from ..deps import get_db, verify_csrf
+from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, TemplateIndex, User, utcnow
+from ..deps import get_db, get_settings, verify_csrf
 from ..render import SEVERITY_ORDER, render, templates
+from ..templates_index import index_single, save_custom_template
 
 router = APIRouter()
 LIST_LIMIT = 1000
@@ -104,18 +107,22 @@ def _get(db: Session, issue_id: int) -> Issue:
     return issue
 
 
-def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200, error: str | None = None):
+def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200, error: str | None = None, **extra):
     findings = list(db.scalars(select(Finding).where(Finding.issue_id == issue.id).order_by(Finding.id.desc()).limit(50)))
+    wanted = request.query_params.get("proof", "")
+    selected = next((f for f in findings if str(f.id) == wanted), findings[0] if findings else None)
     rule = db.get(Rule, issue.rule_id) if issue.rule_id else None
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
-                  findings=findings, rule=rule, users=assignable_users(db),
+                  findings=findings, rule=rule, users=assignable_users(db), verify_labels=proof.VERIFY_LABELS,
+                  proof=proof.proof_from_finding(selected),
                   transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
                   sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue), reverify=get_reverify_settings(db),
                   ai_explain=latest_note(db, "explain", "issue", issue.id), ai_triage=latest_note(db, "triage", "issue", issue.id),
                   triage_labels=TRIAGE_LABELS, has_evidence=bool(findings),
                   tickets=list(db.scalars(select(IssueTicket).where(IssueTicket.issue_id == issue.id))),
                   ticket_channels=list(db.scalars(select(NotificationChannel).where(
-                      NotificationChannel.kind.in_(("jira", "gitlab")), NotificationChannel.enabled.is_(True)))))
+                      NotificationChannel.kind.in_(("jira", "gitlab")), NotificationChannel.enabled.is_(True)))),
+                  **extra)
 
 
 def _label(issue: Issue) -> str:
@@ -124,6 +131,37 @@ def _label(issue: Issue) -> str:
 
 def _actor(request: Request, db: Session) -> User:
     return db.get(User, request.state.user.id)
+
+
+def _redirect(url: str, **q) -> RedirectResponse:
+    """Redirect with ?msg= / ?err=, replacing any flash left in the URL by an earlier redirect."""
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k not in ("msg", "err")]
+    query += list(q.items())
+    return RedirectResponse(urlunsplit(parts._replace(query=urlencode(query))), status_code=303)
+
+
+def _safe_back(back: str, issue: Issue) -> str:
+    """Only same-site paths are honoured; anything else returns to the issue page."""
+    return back if back.startswith("/") and not back.startswith(("//", "/\\")) else f"/issues/{issue.id}"
+
+
+def _verify(request: Request, db: Session, issue: Issue, back: str):
+    """Shared by the Play button and by 'Save & run as proof'. Must be called from an async route."""
+    url = _safe_back(back, issue)
+    live = proof.live_verify_job(db, issue)
+    if live is not None:
+        return _redirect(url, msg=f"Verification already running (job #{live.id}).")
+    if not issue.template_id:
+        return RedirectResponse(f"/issues/{issue.id}#verify", status_code=303)
+    try:
+        job = proof.start_verify(db, request.app, issue, _actor(request, db))
+    except proof.VerifyError as e:
+        if back:
+            return _redirect(url, err=str(e))
+        return _detail(request, db, issue, status_code=400, error=str(e))
+    audit(db, request, "issue.verify", target=_label(issue), job_id=job.id, template_id=issue.template_id)
+    return _redirect(url, msg=f"Verification started for {issue.asset} (job #{job.id}).")
 
 
 @router.get("/issues/{issue_id}")
@@ -210,6 +248,58 @@ def issue_comment(request: Request, issue_id: int, body: str = Form(""), db: Ses
     db.commit()
     audit(db, request, "issue.commented", target=_label(issue))
     return RedirectResponse(f"/issues/{issue_id}?msg=Comment+added#timeline", status_code=303)
+
+
+@router.post("/issues/{issue_id}/verify", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
+async def issue_verify(request: Request, issue_id: int, back: str = Form(""), db: Session = Depends(get_db)):
+    return _verify(request, db, _get(db, issue_id), back)
+
+
+@router.post("/issues/{issue_id}/template", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
+def issue_template(request: Request, issue_id: int, template_id: str = Form(""), db: Session = Depends(get_db)):
+    issue = _get(db, issue_id)
+    if proof.live_verify_job(db, issue) is not None:   # complete_verify matches findings on the template id
+        return _redirect(f"/issues/{issue.id}", err="Wait for the running verification to finish before changing the template.")
+    tid = template_id.strip()
+    row = db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == tid).limit(1)) if tid else None
+    if row is None:
+        return _detail(request, db, issue, status_code=400, error="Pick a template that exists in the template index.")
+    issue.template_id = tid
+    iss._event(db, issue, "verify", _actor(request, db), body=f"Linked verification template {tid}.")
+    audit(db, request, "issue.template", target=_label(issue), template_id=tid)
+    db.commit()
+    return _redirect(f"/issues/{issue.id}", msg="Template linked. Press Verify now to run it.")
+
+
+@router.post("/issues/{issue_id}/template/save-run",
+             dependencies=[Depends(require("templates.manage")), Depends(require("scan.run")), Depends(verify_csrf)])
+async def issue_template_save_run(request: Request, issue_id: int, yaml: str = Form(""), db: Session = Depends(get_db),
+                                  settings=Depends(get_settings)):
+    """Save the reviewed draft as a custom template, link it to the issue and start the verification scan."""
+    from .templates import validate_and_check
+    issue = _get(db, issue_id)
+    if proof.live_verify_job(db, issue) is not None:   # complete_verify matches findings on the template id
+        return _redirect(f"/issues/{issue.id}", err="Wait for the running verification to finish before changing the template.")
+    if issue.template_id:
+        return _redirect(f"/issues/{issue.id}", err="This issue already has a verification template. Press Verify now to run it.")
+    def failed(message: str):
+        draft = {"yaml": yaml, "ok": False, "message": message, "notes": "", "provider": "", "model": ""}
+        return _detail(request, db, issue, status_code=400, verify_draft=draft)
+    try:
+        info, ok, line = await validate_and_check(settings, yaml)
+        if not ok:
+            raise ValueError(line or "nuclei -validate failed")
+    except ValueError as e:
+        return failed(f"Validation failed: {e}")
+    if db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == info.template_id, TemplateIndex.source != "custom")):
+        return failed(f"Template id '{info.template_id}' already exists in the library; change the id.")
+    path = save_custom_template(settings, yaml)
+    index_single(db, path, "custom")
+    issue.template_id = info.template_id
+    iss._event(db, issue, "verify", _actor(request, db), body=f"Saved verification template {info.template_id} (custom).")
+    audit(db, request, "template.saved", target=info.template_id, issue=issue.id, source="ai-draft")
+    db.commit()
+    return _verify(request, db, issue, back="")
 
 
 # ----------------------------------------------------------------- settings

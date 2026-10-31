@@ -170,6 +170,19 @@ New → Triaged → In progress → Fixed → Verified
 - **Explain & remediate** อธิบายและวิธีแก้ตาม product/version จริง กด **Add to timeline** เพื่อบันทึก
 - **Triage evidence** ประเมินว่าหลักฐานน่าจะจริงหรือ false positive (เป็นคำแนะนำ ไม่เปลี่ยนสถานะเอง)
 
+### ตรวจสอบซ้ำและเก็บหลักฐาน (Verify now / Proof)
+
+- ปุ่ม **Verify now** (ไอคอน ▶) บนหน้า issue, ท้ายแถวในตาราง Issues และในตาราง Exposure ของ Campaign จะรัน nuclei
+  ด้วย template ตัวเดิมต่อ asset นั้นตัวเดียว ผลขึ้นเป็นป้าย **reproduced** / **not reproduced** / **inconclusive**
+  พร้อมบันทึกใน timeline ถ้า reproduced issue จะกลายเป็น confirmed
+- การ์ด **Proof** แสดง HTTP request/response ที่ nuclei ใช้ match, matcher, ค่าที่ดึงได้ และปุ่ม **Copy curl**
+  สำหรับยิงซ้ำด้วยมือ กด *proof* ที่แถวใน Evidence เพื่อดูของ job อื่น
+- issue ที่มาจาก version rule ยังไม่มี template: การ์ด **Verification template** ให้ค้นหา template ที่มีอยู่แล้ว
+  **Link template** หรือกด **Draft verification template with AI** → ตรวจ YAML → **Save & run as proof**
+- ถ้าโมเดล AI ปฏิเสธ หน้าจอจะขึ้นข้อความภาษาอังกฤษแนะนำให้เปลี่ยน provider/model ที่ **System → AI**
+  แล้วลองใหม่ (บางโมเดลไม่ยอมเขียน template ตรวจช่องโหว่แม้เป็นการทดสอบระบบของตัวเอง)
+- ต้องมีสิทธิ์ `scan.run` จึงเห็นปุ่ม Play; viewer เห็น Proof ได้แต่สั่งสแกนไม่ได้
+
 ## 7. รับมือ 0-day: Campaigns, Templates, Version rules
 
 นี่คือ flow หลักเมื่อมีช่องโหว่ใหม่ประกาศ

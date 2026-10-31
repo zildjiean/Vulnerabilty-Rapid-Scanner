@@ -177,5 +177,110 @@ def test_permissions_and_no_provider(auth):
     assert "Explain &amp; remediate" not in auth.get(f"/issues/{iid}").text
     csrf = get_csrf(auth, f"/issues/{iid}")
     for path in (f"/ai/issues/{iid}/explain", f"/ai/issues/{iid}/triage", "/ai/search", "/ai/reports/summary",
-                 "/ai/campaign-draft", "/ai/template-draft"):
+                 "/ai/campaign-draft", "/ai/template-draft", f"/ai/issues/{iid}/template-draft"):
         assert auth.post(path, data={"csrf": csrf}).status_code == 403, path
+
+
+from app import llm
+from app.db import Job, Rule, TemplateIndex
+from app.rules import evaluate_rules
+
+YAML_OK = """id: cve-2026-1-php-detect
+info:
+  name: PHP vulnerable version banner
+  author: ai-draft
+  severity: high
+  tags: cve,php
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: regex
+        part: header
+        regex: ["PHP/8\\\\.3\\\\.1[0-4]"]
+"""
+
+
+def suspected(client, cve="CVE-2026-1"):
+    with client.app.state.SessionLocal() as db:
+        db.add(Rule(name="PHP", product_pattern="php", version_constraint="< 8.3.15", cve_id=cve, severity="high"))
+        db.commit()
+        evaluate_rules(db)
+        db.commit()
+        return db.scalar(select(Issue.id).where(Issue.vuln_id == cve))
+
+
+def test_issue_template_draft_then_save_and_run(env):
+    iid = suspected(env)
+    fake = script(env, data={"yaml": YAML_OK, "notes": "Banner check only."})
+    csrf = get_csrf(env, f"/issues/{iid}")
+    r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": csrf})
+    assert r.status_code == 200 and "cve-2026-1-php-detect" in r.text and "Validation passed" in r.text
+    assert "Save &amp; run as proof" in r.text and "Banner check only." in r.text
+    prompt = fake.calls[0]["request"].prompt
+    assert "CVE-2026-1" in prompt and "authorized internal testing" in prompt and "PHP" in prompt
+    assert "HOST-" in prompt and "192.168.1.10" not in prompt            # redacted
+    assert "Evidence:" not in prompt                                    # no proof text is sent
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": "not: [valid"})
+    assert r.status_code == 400 and "Validation failed" in r.text and "not: [valid" in r.text   # YAML kept for editing
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
+    assert r.status_code == 303 and "Verification+started" in r.headers["location"]
+    with env.app.state.SessionLocal() as db:
+        issue = db.get(Issue, iid)
+        assert issue.template_id == "cve-2026-1-php-detect"
+        job = db.scalar(select(Job).order_by(Job.id.desc()))      # the job may already have finished (fake nuclei)
+        assert json.loads(job.params_json)["verify_issue"] == iid
+        assert db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == "cve-2026-1-php-detect")).source == "custom"
+
+
+def test_issue_template_draft_refusal_shows_english_guidance(env):
+    iid = suspected(env)
+    script(env, error=llm.LLMRefusal("The request was declined by the model's safety classifier (cyber)."))
+    r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": get_csrf(env, f"/issues/{iid}")})
+    assert r.status_code == 400
+    assert "The configured AI model declined this request" in r.text and 'href="/ai"' in r.text
+    assert "authorized security testing" in r.text
+    with env.app.state.SessionLocal() as db:
+        assert db.scalar(select(AiUsage).where(AiUsage.ok.is_(False))) is not None
+    script(env, error="Claude API error 500: boom")                      # other errors use the generic notice
+    r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": get_csrf(env, f"/issues/{iid}")})
+    assert r.status_code == 400 and "boom" in r.text and "declined this request" not in r.text
+
+
+def test_save_run_refuses_while_verifying_or_when_template_already_linked(env):
+    iid = suspected(env)
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="running")
+        db.add(job)
+        db.flush()
+        db.get(Issue, iid).verify_job_id = job.id
+        db.commit()
+    csrf = get_csrf(env, f"/issues/{iid}")
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
+    assert r.status_code == 303 and "err=Wait+for+the+running" in r.headers["location"]
+    linked = seed(env, SPECS)["CVE-2021-41773"]                           # already has a template
+    r = env.post(f"/issues/{linked}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
+    assert r.status_code == 303 and "err=This+issue+already" in r.headers["location"]
+    fake = script(env, data={"yaml": YAML_OK, "notes": ""})
+    r = env.post(f"/ai/issues/{linked}/template-draft", data={"csrf": csrf}, follow_redirects=False)
+    assert r.status_code == 303 and "err=This%20issue%20already" in r.headers["location"] and not fake.calls   # no LLM call
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, iid).template_id == "" and db.get(Issue, linked).template_id == "CVE-2021-41773"
+        assert db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == "cve-2026-1-php-detect")) is None
+
+
+def test_save_run_rejects_template_id_that_collides_with_the_library(env):
+    iid = suspected(env)
+    clash = YAML_OK.replace("id: cve-2026-1-php-detect", "id: CVE-2026-109619", 1)     # indexed fixture template
+    csrf = get_csrf(env, f"/issues/{iid}")
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": clash})
+    assert r.status_code == 400 and "already exists in the library" in r.text and "id: CVE-2026-109619" in r.text
+    assert '<span class="status st-failed">' in r.text and 'AI</span><span class="status st-failed">' not in r.text   # no AI badge
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, iid).template_id == ""
+        assert db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == "CVE-2026-109619")).source != "custom"
+    assert not list((env.app.state.settings.data_dir / "ai-drafts").glob("*.yaml"))      # temp file cleaned up

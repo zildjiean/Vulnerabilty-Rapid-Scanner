@@ -5,13 +5,15 @@
 {% set page_title = issue.title or issue.vuln_id %}
 {% set page_subtitle = issue.vuln_id ~ " on " ~ issue.asset ~ ((" (" ~ issue.hostname ~ ")") if issue.hostname and issue.hostname != issue.address else "") %}
 {% set manage = can('issues.manage') %}
-{% block page_actions %}<a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
+{% block page_actions %}{% if can('scan.run') and issue.template_id and not issue.verify_job_id %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="btn primary" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>{% endif %}<a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
 {% block content %}
 <div class="issue-head card mb"><div class="card-body row center" style="gap:10px">
   <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="Changed manually; scans no longer raise it">(manual)</span>{% endif %}
   {{ status_badge(issue.status) }} {{ confidence_badge(issue.confidence) }}
   {% if issue.status == 'fixed' and issue.reverify_job_id %}<span class="status st-running" title="Re-verification scan"><a href="/jobs/{{ issue.reverify_job_id }}">re-verifying (job #{{ issue.reverify_job_id }})</a></span>
   {% elif issue.status == 'fixed' and issue.reverify_requested_at %}<span class="status st-queued">{% if reverify.enabled %}re-verify queued{% else %}re-verify paused (Settings){% endif %}</span>{% endif %}
+  {% if issue.verify_job_id %}<span class="status st-running" title="Verification scan"><a href="/jobs/{{ issue.verify_job_id }}">verifying (job #{{ issue.verify_job_id }})</a></span>
+  {% elif issue.verify_result %}<span class="status verify-{{ issue.verify_result }}" title="{{ 'Last verified ' ~ issue.last_verified_at.strftime('%Y-%m-%d %H:%M') ~ ' UTC' if issue.last_verified_at else '' }}"><svg class="icon sm"><use href="#i-play"/></svg>{{ verify_labels.get(issue.verify_result, issue.verify_result) }}</span>{% endif %}
   {% if issue_is_overdue(issue) %}<span class="due overdue"><svg class="icon sm"><use href="#i-clock"/></svg>Overdue since {{ issue.due_at.strftime('%Y-%m-%d') }}</span>{% endif %}
   <span class="spacer"></span>
   <span class="small text-2">Owner: <b>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else 'unassigned' }}</b></span>
@@ -39,15 +41,37 @@
       <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>Evidence <span class="chip num">{{ findings|length }}</span></h2></div>
       <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Severity</th><th>Matched at</th><th>Job</th><th>Time</th></tr></thead>
+        <thead><tr><th>Severity</th><th>Matched at</th><th>Job</th><th>Time</th><th>Proof</th></tr></thead>
         <tbody>
         {% for fd in findings %}
-        <tr><td><span class="badge sev-{{ fd.severity }}">{{ fd.severity }}</span></td><td class="cell-mono small"><span class="truncate" title="{{ fd.matched_at }}">{{ fd.matched_at }}</span></td><td><a href="/jobs/{{ fd.job_id }}">Job #{{ fd.job_id }}</a></td><td class="small text-2 num">{{ fd.created_at.strftime('%Y-%m-%d %H:%M') }}</td></tr>
-        {% else %}<tr data-empty="1"><td colspan="4"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>No scan evidence yet</b>{% if issue.confidence == 'suspected' %}Suspected from the installed version. Run a <a href="/nuclei">nuclei scan</a> against {{ issue.asset }} to confirm.{% endif %}</div></td></tr>{% endfor %}
+        <tr{% if proof and proof.finding_id == fd.id %} class="selected"{% endif %}><td><span class="badge sev-{{ fd.severity }}">{{ fd.severity }}</span></td><td class="cell-mono small"><span class="truncate" title="{{ fd.matched_at }}">{{ fd.matched_at }}</span></td><td><a href="/jobs/{{ fd.job_id }}">Job #{{ fd.job_id }}</a></td><td class="small text-2 num">{{ fd.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/issues/{{ issue.id }}?proof={{ fd.id }}#proof">proof</a></td></tr>
+        {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>No scan evidence yet</b>{% if issue.confidence == 'suspected' %}Suspected from the installed version. Run a <a href="/nuclei">nuclei scan</a> against {{ issue.asset }} to confirm.{% endif %}</div></td></tr>{% endfor %}
         </tbody>
       </table>
       </div>
     </div>
+    {% if proof %}
+    <div class="card" id="proof">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Proof <span class="small text-2 cell-mono">{{ proof.template_id }} · <a href="/jobs/{{ proof.job_id }}">job #{{ proof.job_id }}</a>{% if proof.timestamp %}{% set tz = proof.timestamp[19:] %} · {{ proof.timestamp[:19]|replace('T', ' ') }}{{ tz.split('.')[-1].lstrip('0123456789') if '.' in tz else tz }}{% endif %}</span></h2>
+        {% if proof.curl %}<button type="button" class="sm ghost" data-copy="{{ proof.curl }}"><svg class="icon sm"><use href="#i-copy"/></svg>Copy curl</button>{% endif %}</div>
+      <div class="card-body stack">
+        <dl class="kv">
+          <dt>Matched at</dt><dd class="cell-mono">{{ proof.matched_at }}</dd>
+          {% if proof.matcher %}<dt>Matcher</dt><dd class="cell-mono">{{ proof.matcher }}{% if not proof.matcher_status %} <span class="small text-2">(matcher-status false)</span>{% endif %}</dd>{% endif %}
+          {% if proof.extracted %}<dt>Extracted</dt><dd class="cell-mono">{{ proof.extracted|join(', ') }}</dd>{% endif %}
+        </dl>
+        {% if proof.has_http %}
+        {% for label, part in [('Request', proof.request), ('Response', proof.response)] if part %}
+        <details class="proof"{{ ' open' if label == 'Request' }}>
+          <summary>{{ label }} <span class="small text-2">({{ (part.text|length) + (part.rest|length) }} chars)</span></summary>
+          <pre class="code proof-text">{{ part.text }}<span class="proof-rest" hidden>{{ part.rest }}</span></pre>
+          {% if part.rest %}<button type="button" class="sm ghost" data-proof-more>Show full {{ label|lower }}</button>{% endif %}
+        </details>
+        {% endfor %}
+        {% else %}<p class="small text-2">nuclei did not record a request/response for this template type ({{ proof.type or 'unknown' }}); the matched location above is the evidence.</p>{% endif %}
+      </div>
+    </div>
+    {% endif %}
     <div class="card" id="timeline">
       <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Timeline</h2></div>
       <div class="card-body">
@@ -63,7 +87,7 @@
               {% elif e.kind == 'assigned' %}{% if e.to_value %}Assigned to {{ e.to_value }}{% else %}Unassigned{% endif %}{% if e.from_value %} <span class="text-2">(was {{ e.from_value }})</span>{% endif %}
               {% elif e.kind == 'severity' %}Severity {{ e.from_value }} → {{ e.to_value }}{% if e.body %} <span class="text-2 small">({{ e.body }})</span>{% endif %}
               {% elif e.kind == 'comment' %}<div class="comment">{{ e.body }}</div>
-              {% elif e.kind in ('ticket', 'reverify') %}{{ e.body }}
+              {% elif e.kind in ('ticket', 'reverify', 'verify') %}{{ e.body }}
               {% else %}{{ e.kind }} {{ e.body }}{% endif %}
             </div>
           </li>
@@ -80,6 +104,36 @@
     </div>
   </div>
   <div class="stack">
+    {% if not issue.template_id and can('scan.run') %}
+    <div class="card" id="verify">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Verification template</h2></div>
+      <div class="card-body stack">
+        <p class="small text-2">This issue comes from a version rule, so there is no nuclei template to run yet. Pick one from the library{% if ai_ready and can('templates.manage') %} or let the AI draft a detection check{% endif %}; <b>Verify now</b> then re-runs it against {{ issue.asset }} and keeps the proof.</p>
+        {% if verify_refusal %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div><b>The configured AI model declined this request</b> ({{ verify_refusal }}). Writing a verification template for your own assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model under <a href="/ai">System → AI</a> to one that supports authorized security testing, then try again.</div></div>{% endif %}
+        {% if verify_draft %}
+        <form method="post" action="/issues/{{ issue.id }}/template/save-run" class="stack" data-loading>
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="row center" style="gap:8px">{% if verify_draft.provider %}{{ ai_badge() }}{% endif %}<span class="status {{ 'st-done' if verify_draft.ok else 'st-failed' }}">{{ verify_draft.message }}</span></div>
+          {% if verify_draft.notes %}<p class="small text-2">{{ verify_draft.notes }}</p>{% endif %}
+          <div class="field"><label for="verify-yaml">Review and edit before running{% if verify_draft.provider %} (drafted by {{ verify_draft.provider }} · {{ verify_draft.model }}){% endif %}</label>
+            <textarea id="verify-yaml" name="yaml" rows="16" class="code-input" spellcheck="false">{{ verify_draft.yaml }}</textarea></div>
+          <div><button type="submit" class="primary"><svg class="icon"><use href="#i-play"/></svg>Save &amp; run as proof</button></div>
+        </form>
+        {% endif %}
+        {% if can('issues.manage') %}
+        <form method="post" action="/issues/{{ issue.id }}/template" class="stack" id="verify-search">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="field"><label for="verify-q">Use an existing template</label><input id="verify-q" type="search" placeholder="Search the template index: CVE id, product, keyword" autocomplete="off"></div>
+          <div id="verify-results" class="stack" aria-live="polite"></div>
+          <div><button type="submit"><svg class="icon"><use href="#i-link"/></svg>Link template</button></div>
+        </form>
+        {% endif %}
+        {% if ai_ready and can('templates.manage') %}
+        <form method="post" action="/ai/issues/{{ issue.id }}/template-draft" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>Draft verification template with AI</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     {% if ai_ready or ai_explain or ai_triage %}
     <div class="card" id="ai">
       <div class="card-head"><h2>{{ ai_badge() }} AI assistant</h2></div>

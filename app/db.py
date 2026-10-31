@@ -198,6 +198,9 @@ class Issue(Base):
     overdue_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     reverify_requested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     reverify_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    verify_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)       # one-click "Verify now" scan
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verify_result: Mapped[str] = mapped_column(String(16), default="")              # "" | reproduced | not_reproduced | inconclusive
     assignee: Mapped["User | None"] = relationship()
     scope: Mapped["Scope | None"] = relationship()
     events: Mapped[list["IssueEvent"]] = relationship(back_populates="issue", cascade="all, delete-orphan",
@@ -452,6 +455,9 @@ _ADDED_COLUMNS = [
     ("issues", "overdue_notified_at", "DATETIME"),
     ("issues", "reverify_requested_at", "DATETIME"),
     ("issues", "reverify_job_id", "INTEGER"),
+    ("issues", "verify_job_id", "INTEGER"),
+    ("issues", "last_verified_at", "DATETIME"),
+    ("issues", "verify_result", "VARCHAR(16) NOT NULL DEFAULT ''"),
 ]
 
 

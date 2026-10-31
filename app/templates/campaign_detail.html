@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_campaign_macros.html" import kev_badge, progress_bar %}
-{% from "_issue_macros.html" import status_badge, confidence_badge, due_cell %}
+{% from "_issue_macros.html" import status_badge, confidence_badge, due_cell, play_button %}
+{% set playcol = can('scan.run') %}
 {% set section = "Campaigns" %}
 {% set page_title = c.name %}
 {% set page_subtitle = (c.cve_id ~ " · ") if c.cve_id and c.cve_id != c.name else "" %}
@@ -43,7 +44,7 @@
       <div class="card-head"><h2><svg class="icon"><use href="#i-server"/></svg>Exposure <span class="chip num">{{ issues|length }}</span></h2><a class="btn sm ghost" href="/issues?q={{ c.cve_id }}">Open in Issues<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
       <div class="table-wrap">
       <table class="data">
-        <thead><tr><th data-sort="text">Asset</th><th data-sort="text">Issue</th><th>Confidence</th><th data-sort="text">Status</th><th>Assignee</th><th>Due</th></tr></thead>
+        <thead><tr><th data-sort="text">Asset</th><th data-sort="text">Issue</th><th>Confidence</th><th data-sort="text">Status</th><th>Assignee</th><th>Due</th>{% if playcol %}<th><span class="sr-only">Verify</span></th>{% endif %}</tr></thead>
         <tbody>
         {% for i in issues %}
         <tr class="{{ 'row-overdue' if issue_is_overdue(i) }}">
@@ -52,9 +53,10 @@
           <td>{{ confidence_badge(i.confidence) }}</td><td>{{ status_badge(i.status) }}</td>
           <td class="small">{{ (i.assignee.display_name or i.assignee.username) if i.assignee else '—' }}</td>
           <td class="small">{{ due_cell(i) }}</td>
+          {% if playcol %}<td class="num">{{ play_button(i, csrf, '/campaigns/' ~ c.id) }}</td>{% endif %}
         </tr>
         {% else %}
-        <tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No exposed assets found</b>{% if not rules %}Add a version rule below to match the inventory, or run Verify against extra targets.{% else %}The inventory has nothing matching the rules. Re-run nmap after adding hosts.{% endif %}</div></td></tr>
+        <tr data-empty="1"><td colspan="{{ 7 if playcol else 6 }}"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No exposed assets found</b>{% if not rules %}Add a version rule below to match the inventory, or run Verify against extra targets.{% else %}The inventory has nothing matching the rules. Re-run nmap after adding hosts.{% endif %}</div></td></tr>
         {% endfor %}
         </tbody>
       </table>
