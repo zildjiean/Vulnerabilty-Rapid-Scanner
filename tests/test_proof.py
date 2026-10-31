@@ -1,7 +1,19 @@
 import json
 
-from app.db import Finding
+import pytest
+from sqlalchemy import select
+
+from app import proof
+from app.db import Finding, Issue, IssueEvent, Job, Rule
 from app.proof import PROOF_LIMIT, proof_from_finding
+from app.rules import evaluate_rules
+from app.templates_index import reindex
+from tests.conftest import wait_job
+from tests.test_inventory import seed_inventory
+from tests.test_issue_routes import seed
+
+CVE = "CVE-2026-109619"   # fixture template; the fake nuclei reports it on http://192.168.1.10:8080
+SPECS = [(CVE, "critical", "192.168.1.10", "8080", CVE), ("exposed-panel", "medium", "10.0.0.6", "8080", None)]
 
 
 def finding(raw: dict, **cols) -> Finding:
@@ -33,4 +45,109 @@ def test_long_response_is_split_at_the_limit_and_bad_json_is_tolerated():
     p = proof_from_finding(finding({"response": "A" * (PROOF_LIMIT + 10)}))
     assert len(p["response"]["text"]) == PROOF_LIMIT and p["response"]["rest"] == "A" * 10
     assert proof_from_finding(Finding(id=1, job_id=1, raw_json="{not json"))["has_http"] is False
+    assert proof_from_finding(Finding(id=1, job_id=1, raw_json="[]"))["has_http"] is False
+    assert proof_from_finding(finding({"extracted-results": "8.3.10"}))["extracted"] == ["8.3.10"]
     assert proof_from_finding(None) is None
+
+
+@pytest.fixture
+def env(auth):
+    seed_inventory(auth)
+    with auth.app.state.SessionLocal() as db:
+        reindex(db, auth.app.state.settings)
+        db.commit()
+    return auth
+
+
+def get(client, iid):
+    with client.app.state.SessionLocal() as db:
+        i = db.get(Issue, iid)
+        db.expunge(i)
+        return i
+
+
+def events(client, iid):
+    with client.app.state.SessionLocal() as db:
+        return [(e.kind, e.body) for e in db.scalars(select(IssueEvent).where(IssueEvent.issue_id == iid).order_by(IssueEvent.id))]
+
+
+def start(client, iid):
+    def _go():
+        with client.app.state.SessionLocal() as db:
+            return proof.start_verify(db, client.app, db.get(Issue, iid), actor=None).id
+    return client.portal.call(_go)
+
+
+def test_start_verify_runs_the_template_against_the_asset_and_reproduces(env):
+    ids = seed(env, SPECS)
+    iid = ids[CVE]
+    jid = start(env, iid)
+    with env.app.state.SessionLocal() as db:
+        job = db.get(Job, jid)
+        params = json.loads(job.params_json)
+        assert params["verify_issue"] == iid and params["targets"] == ["http://192.168.1.10:8080"]
+        assert params["template_ids"] == [CVE] and CVE + ".yaml" in job.command
+    assert any(kind == "verify" and "started" in body for kind, body in events(env, iid))
+    wait_job(env, jid)   # the fake nuclei finishes fast, so verify_job_id is only checked after completion
+    i = get(env, iid)
+    assert i.verify_result == "reproduced" and i.verify_job_id is None and i.last_verified_at is not None
+    assert i.confidence == "confirmed"
+    assert any(kind == "verify" and "reproduced it" in body for kind, body in events(env, iid))
+
+
+def test_complete_verify_not_reproduced_and_inconclusive(env):
+    ids = seed(env, SPECS)
+    iid = ids[CVE]
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issue": iid}))
+        db.add(job)
+        db.flush()
+        db.get(Issue, iid).verify_job_id = job.id
+        assert proof.complete_verify(db, job, []) == "not_reproduced"
+        db.commit()
+    assert get(env, iid).verify_result == "not_reproduced"
+    assert any("did not reproduce" in body for kind, body in events(env, iid) if kind == "verify")
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issue": iid}))
+        db.add(job)
+        db.flush()
+        db.get(Issue, iid).verify_job_id = job.id
+        assert proof.complete_verify(db, job, ["Target was dropped as unresponsive"]) == "inconclusive"
+        db.commit()
+    assert get(env, iid).verify_result == "inconclusive"
+    with env.app.state.SessionLocal() as db:   # a stale job (not the one on the issue) is ignored
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issue": iid}))
+        db.add(job)
+        db.flush()
+        assert proof.complete_verify(db, job, []) == ""
+
+
+def test_start_verify_errors(env):
+    ids = seed(env, SPECS)
+    with env.app.state.SessionLocal() as db:
+        with pytest.raises(proof.VerifyError, match="not in the template index"):
+            proof.start_verify(db, env.app, db.get(Issue, ids["exposed-panel"]), actor=None)
+        db.add(Rule(name="PHP", product_pattern="php", version_constraint="< 8.3.15", cve_id="CVE-2026-1", severity="high"))
+        db.commit()
+        evaluate_rules(db)
+        db.commit()
+        suspected = db.scalar(select(Issue).where(Issue.vuln_id == "CVE-2026-1"))
+        assert suspected.template_id == ""
+        with pytest.raises(proof.VerifyError, match="no nuclei template"):
+            proof.start_verify(db, env.app, suspected, actor=None)
+
+
+def test_dead_verify_job_is_cleaned_up(env):
+    ids = seed(env, SPECS)
+    iid = ids[CVE]
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="failed", params_json=json.dumps({"verify_issue": iid}))
+        db.add(job)
+        db.flush()
+        db.get(Issue, iid).verify_job_id = job.id
+        db.commit()
+        assert proof.cleanup_dead_verify_jobs(db) == 1
+        db.commit()
+    i = get(env, iid)
+    assert i.verify_job_id is None and i.verify_result == ""
+    assert any("failed" in body for kind, body in events(env, iid) if kind == "verify")

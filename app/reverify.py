@@ -38,7 +38,8 @@ def _note(db: Session, issue: Issue, body: str) -> None:
     db.add(IssueEvent(issue_id=issue.id, kind="reverify", username="system", body=body))
 
 
-def _target(db: Session, issue: Issue) -> str:
+def issue_target(db: Session, issue: Issue) -> str:
+    """Scan target for an issue: scheme://address:port from the inventory service, or the bare asset."""
     from .routers.inventory import service_to_target
     svc = None
     if issue.port.isdigit():
@@ -64,6 +65,8 @@ async def run_reverify(app, now=None) -> list[int]:
     started: list[int] = []
     with app.state.SessionLocal() as db:
         _cleanup_dead_jobs(db)
+        from .proof import cleanup_dead_verify_jobs
+        cleanup_dead_verify_jobs(db)
         cfg = get_reverify_settings(db)
         if not cfg["enabled"]:
             db.commit()
@@ -83,7 +86,7 @@ async def run_reverify(app, now=None) -> list[int]:
         for path, issues in by_path.items():
             targets: list[str] = []
             for issue in issues:
-                t = _target(db, issue)
+                t = issue_target(db, issue)
                 if t not in targets:
                     targets.append(t)
             params = {"targets": targets, "template_ids": [issues[0].template_id], "mode": "selected",
