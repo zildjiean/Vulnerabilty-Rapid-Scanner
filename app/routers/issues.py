@@ -17,7 +17,7 @@ from ..ai import latest_note
 from ..ai_features import TRIAGE_LABELS
 from ..reverify import get_reverify_settings
 from ..authz import require
-from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, User, utcnow
+from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, TemplateIndex, User, utcnow
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import SEVERITY_ORDER, render, templates
 
@@ -252,6 +252,20 @@ def issue_comment(request: Request, issue_id: int, body: str = Form(""), db: Ses
 @router.post("/issues/{issue_id}/verify", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
 async def issue_verify(request: Request, issue_id: int, back: str = Form(""), db: Session = Depends(get_db)):
     return _verify(request, db, _get(db, issue_id), back)
+
+
+@router.post("/issues/{issue_id}/template", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
+def issue_template(request: Request, issue_id: int, template_id: str = Form(""), db: Session = Depends(get_db)):
+    issue = _get(db, issue_id)
+    tid = template_id.strip()
+    row = db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == tid).limit(1)) if tid else None
+    if row is None:
+        return _detail(request, db, issue, status_code=400, error="Pick a template that exists in the template index.")
+    issue.template_id = tid
+    iss._event(db, issue, "verify", _actor(request, db), body=f"Linked verification template {tid}.")
+    audit(db, request, "issue.template", target=_label(issue), template_id=tid)
+    db.commit()
+    return _redirect(f"/issues/{issue.id}", msg="Template linked. Press Verify now to run it.")
 
 
 # ----------------------------------------------------------------- settings

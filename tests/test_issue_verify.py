@@ -159,3 +159,19 @@ def test_play_icons_in_list_and_campaign_only_for_scanners(env):
     make_user(env, "vera", "viewer")
     login_as(env, "vera")
     assert "/verify" not in env.get("/issues").text and "/verify" not in env.get(f"/campaigns/{cid}").text
+
+
+def test_link_existing_template_then_play_works(env):
+    iid = suspected_issue(env)
+    page = env.get(f"/issues/{iid}").text
+    # the card's copy mentions "Verify now", so check for the button itself
+    assert 'id="verify"' in page and "Use an existing template" in page and f'action="/issues/{iid}/verify"' not in page
+    csrf = get_csrf(env, f"/issues/{iid}")
+    r = env.post(f"/issues/{iid}/template", data={"csrf": csrf, "template_id": "does-not-exist"})
+    assert r.status_code == 400 and "exists in the template index" in r.text
+    r = env.post(f"/issues/{iid}/template", data={"csrf": csrf, "template_id": CVE}, follow_redirects=False)
+    assert r.status_code == 303
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, iid).template_id == CVE
+    page = env.get(f"/issues/{iid}").text
+    assert "Verify now" in page and 'id="verify"' not in page and f"Linked verification template {CVE}" in page

@@ -104,6 +104,36 @@
     </div>
   </div>
   <div class="stack">
+    {% if not issue.template_id and can('scan.run') %}
+    <div class="card" id="verify">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Verification template</h2></div>
+      <div class="card-body stack">
+        <p class="small text-2">This issue comes from a version rule, so there is no nuclei template to run yet. Pick one from the library{% if ai_ready and can('templates.manage') %} or let the AI draft a detection check{% endif %}; <b>Verify now</b> then re-runs it against {{ issue.asset }} and keeps the proof.</p>
+        {% if verify_refusal %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div><b>The configured AI model declined this request</b> ({{ verify_refusal }}). Writing a verification template for your own assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model under <a href="/ai">System → AI</a> to one that supports authorized security testing, then try again.</div></div>{% endif %}
+        {% if verify_draft %}
+        <form method="post" action="/issues/{{ issue.id }}/template/save-run" class="stack" data-loading>
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="row center" style="gap:8px">{{ ai_badge() }}<span class="status {{ 'st-done' if verify_draft.ok else 'st-failed' }}">{{ verify_draft.message }}</span></div>
+          {% if verify_draft.notes %}<p class="small text-2">{{ verify_draft.notes }}</p>{% endif %}
+          <div class="field"><label for="verify-yaml">Review and edit before running{% if verify_draft.provider %} (drafted by {{ verify_draft.provider }} · {{ verify_draft.model }}){% endif %}</label>
+            <textarea id="verify-yaml" name="yaml" rows="16" class="code-input" spellcheck="false">{{ verify_draft.yaml }}</textarea></div>
+          <div><button type="submit" class="primary"><svg class="icon"><use href="#i-play"/></svg>Save &amp; run as proof</button></div>
+        </form>
+        {% endif %}
+        {% if can('issues.manage') %}
+        <form method="post" action="/issues/{{ issue.id }}/template" class="stack" id="verify-search">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="field"><label for="verify-q">Use an existing template</label><input id="verify-q" type="search" placeholder="Search the template index: CVE id, product, keyword" autocomplete="off"></div>
+          <div id="verify-results" class="stack" aria-live="polite"></div>
+          <div><button type="submit"><svg class="icon"><use href="#i-link"/></svg>Link template</button></div>
+        </form>
+        {% endif %}
+        {% if ai_ready and can('templates.manage') %}
+        <form method="post" action="/ai/issues/{{ issue.id }}/template-draft" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>Draft verification template with AI</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     {% if ai_ready or ai_explain or ai_triage %}
     <div class="card" id="ai">
       <div class="card-head"><h2>{{ ai_badge() }} AI assistant</h2></div>

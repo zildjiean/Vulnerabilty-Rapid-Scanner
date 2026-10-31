@@ -192,6 +192,31 @@
     b.remove();
   }));
 
+  // ---------- Issue page: search the template index to link a verification template ----------
+  const vq = document.getElementById("verify-q"), vres = document.getElementById("verify-results");
+  if (vq && vres) {
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    let timer;
+    const run = async () => {
+      const q = vq.value.trim();
+      if (q.length < 2) { vres.innerHTML = ""; return; }
+      try {
+        const rows = await (await fetch("/templates/search?q=" + encodeURIComponent(q))).json();
+        vres.innerHTML = rows.length ? "" : '<p class="small text-2">No templates match.</p>';
+        rows.slice(0, 20).forEach((row, i) => {
+          const l = document.createElement("label");
+          l.className = "list-row row center";
+          l.style.gap = "8px";
+          l.innerHTML = `<input type="radio" name="template_id" value="${esc(row.template_id)}"${i === 0 ? " checked" : ""}>` +
+            `<span class="cell-mono small">${esc(row.template_id)}</span><span class="small">${esc(row.name)}</span>` +
+            `<span class="badge sev-${esc(row.severity)}">${esc(row.severity)}</span>`;
+          vres.appendChild(l);
+        });
+      } catch (e) { vres.innerHTML = '<p class="small text-2">Search failed; try again.</p>'; }
+    };
+    vq.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+  }
+
   // ---------- Schedule form: show the fields that apply to the chosen kind / frequency ----------
   $$(".schedule-form").forEach((form) => {
     const kind = $("[data-schedule-kind]", form);
