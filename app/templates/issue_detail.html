@@ -44,7 +44,7 @@
         <thead><tr><th>Severity</th><th>Matched at</th><th>Job</th><th>Time</th><th>Proof</th></tr></thead>
         <tbody>
         {% for fd in findings %}
-        <tr><td><span class="badge sev-{{ fd.severity }}">{{ fd.severity }}</span></td><td class="cell-mono small"><span class="truncate" title="{{ fd.matched_at }}">{{ fd.matched_at }}</span></td><td><a href="/jobs/{{ fd.job_id }}">Job #{{ fd.job_id }}</a></td><td class="small text-2 num">{{ fd.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/issues/{{ issue.id }}?proof={{ fd.id }}#proof">proof</a></td></tr>
+        <tr{% if proof and proof.finding_id == fd.id %} class="selected"{% endif %}><td><span class="badge sev-{{ fd.severity }}">{{ fd.severity }}</span></td><td class="cell-mono small"><span class="truncate" title="{{ fd.matched_at }}">{{ fd.matched_at }}</span></td><td><a href="/jobs/{{ fd.job_id }}">Job #{{ fd.job_id }}</a></td><td class="small text-2 num">{{ fd.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/issues/{{ issue.id }}?proof={{ fd.id }}#proof">proof</a></td></tr>
         {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>No scan evidence yet</b>{% if issue.confidence == 'suspected' %}Suspected from the installed version. Run a <a href="/nuclei">nuclei scan</a> against {{ issue.asset }} to confirm.{% endif %}</div></td></tr>{% endfor %}
         </tbody>
       </table>
@@ -52,7 +52,7 @@
     </div>
     {% if proof %}
     <div class="card" id="proof">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Proof <span class="small text-2 cell-mono">{{ proof.template_id }} · <a href="/jobs/{{ proof.job_id }}">job #{{ proof.job_id }}</a>{% if proof.timestamp %} · {{ proof.timestamp[:19]|replace('T', ' ') }} UTC{% endif %}</span></h2>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Proof <span class="small text-2 cell-mono">{{ proof.template_id }} · <a href="/jobs/{{ proof.job_id }}">job #{{ proof.job_id }}</a>{% if proof.timestamp %}{% set tz = proof.timestamp[19:] %} · {{ proof.timestamp[:19]|replace('T', ' ') }}{{ tz.split('.')[-1].lstrip('0123456789') if '.' in tz else tz }}{% endif %}</span></h2>
         {% if proof.curl %}<button type="button" class="sm ghost" data-copy="{{ proof.curl }}"><svg class="icon sm"><use href="#i-copy"/></svg>Copy curl</button>{% endif %}</div>
       <div class="card-body stack">
         <dl class="kv">

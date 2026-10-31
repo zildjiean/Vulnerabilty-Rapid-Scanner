@@ -118,3 +118,5 @@ def test_proof_card_shows_request_response_and_curl(env):
     page = env.get(f"/issues/{iid}").text
     assert "did not record a request/response" in page
     assert "GET /index.php HTTP/1.1" in env.get(f"/issues/{iid}?proof={first_id}").text
+    r = env.get(f"/issues/{iid}?proof=%C2%B2")          # '²'.isdigit() is True but int() rejects it
+    assert r.status_code == 200 and "did not record a request/response" in r.text

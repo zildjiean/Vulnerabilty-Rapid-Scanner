@@ -109,7 +109,7 @@ def _get(db: Session, issue_id: int) -> Issue:
 def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200, error: str | None = None, **extra):
     findings = list(db.scalars(select(Finding).where(Finding.issue_id == issue.id).order_by(Finding.id.desc()).limit(50)))
     wanted = request.query_params.get("proof", "")
-    selected = next((f for f in findings if wanted.isdigit() and f.id == int(wanted)), findings[0] if findings else None)
+    selected = next((f for f in findings if str(f.id) == wanted), findings[0] if findings else None)
     rule = db.get(Rule, issue.rule_id) if issue.rule_id else None
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
                   findings=findings, rule=rule, users=assignable_users(db), verify_labels=proof.VERIFY_LABELS,

@@ -412,6 +412,7 @@ pre.code{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid
 details.proof summary{cursor:pointer;font-weight:500;padding:6px 0}
 details.proof pre.proof-text{max-height:50vh;overflow:auto;margin-top:6px}
 details.proof [data-proof-more]{margin-top:8px}
+.data tr.selected td{background:var(--primary-soft)}
 .badge.method-get{background:var(--sev-info-bg);color:var(--sev-info)}
 .badge.method-post{background:var(--success-soft);color:var(--success)}
 .badge.method-patch{background:var(--warning-soft);color:var(--warning)}
