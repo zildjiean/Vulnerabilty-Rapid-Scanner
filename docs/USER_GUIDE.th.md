@@ -3,6 +3,9 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.0.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+[CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
+
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
 
 ## สารบัญ
@@ -172,6 +175,8 @@ New → Triaged → In progress → Fixed → Verified
 
 ### ตรวจสอบซ้ำและเก็บหลักฐาน (Verify now / Proof)
 
+![Verify now และการ์ด Proof](screenshots/proof.png)
+
 - ปุ่ม **Verify now** (ไอคอน ▶) บนหน้า issue, ท้ายแถวในตาราง Issues และในตาราง Exposure ของ Campaign จะรัน nuclei
   ด้วย template ตัวเดิมต่อ asset นั้นตัวเดียว ผลขึ้นเป็นป้าย **reproduced** / **not reproduced** / **inconclusive**
   พร้อมบันทึกใน timeline ถ้า reproduced issue จะกลายเป็น confirmed
@@ -182,6 +187,8 @@ New → Triaged → In progress → Fixed → Verified
 - ถ้าโมเดล AI ปฏิเสธ หน้าจอจะขึ้นข้อความภาษาอังกฤษแนะนำให้เปลี่ยน provider/model ที่ **System → AI**
   แล้วลองใหม่ (บางโมเดลไม่ยอมเขียน template ตรวจช่องโหว่แม้เป็นการทดสอบระบบของตัวเอง)
 - ต้องมีสิทธิ์ `scan.run` จึงเห็นปุ่ม Play; viewer เห็น Proof ได้แต่สั่งสแกนไม่ได้
+
+![การ์ด Verification template ของ issue ที่มาจาก version rule](screenshots/verify-template.png)
 
 ## 7. รับมือ 0-day: Campaigns, Templates, Version rules
 
@@ -340,7 +347,14 @@ git pull
 docker compose build --pull --no-cache && docker compose up -d
 ```
 
-ข้อมูลใน `/data` ไม่หาย
+ข้อมูลใน `/data` ไม่หาย ตาราง/คอลัมน์ใหม่ของเวอร์ชันใหม่ถูกเพิ่มให้อัตโนมัติตอนเริ่มระบบ
+ก่อนอัปเกรดควรสำรองฐานข้อมูล:
+
+```bash
+docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
+```
+
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.0.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

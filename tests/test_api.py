@@ -56,7 +56,9 @@ def test_authentication_failures(auth):
     auth.cookies.clear()
     assert auth.get("/api/v1/me").status_code == 401
     assert api(auth, "zdrs_wrong", "GET", "/me").status_code == 401
-    assert auth.get("/api/v1/me", headers={"X-API-Key": key}).status_code == 200
+    r = auth.get("/api/v1/me", headers={"X-API-Key": key})
+    from app import __version__
+    assert r.status_code == 200 and r.json()["version"] == __version__
     # a logged-in browser session is not accepted on the API
     login_as(auth, "admin", NEW_PASSWORD)
     assert auth.get("/api/v1/me").status_code == 401

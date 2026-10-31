@@ -1,5 +1,6 @@
 # 0-Day Rapid Scanner
 
+[![Version](https://img.shields.io/badge/version-1.0.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -71,6 +72,8 @@ Everything runs in one container. No external services, no accounts, works offli
 | ![Issues](docs/screenshots/issues.png) | ![Campaign](docs/screenshots/campaign.png) |
 | **Inventory grouped by product** | **Nuclei scan** |
 | ![Inventory](docs/screenshots/inventory.png) | ![Nuclei scan](docs/screenshots/nuclei.png) |
+| **Verify now and Proof** | **Verification template for a suspected issue** |
+| ![Proof](docs/screenshots/proof.png) | ![Verification template](docs/screenshots/verify-template.png) |
 
 <sub>Screenshots use fictional demo data (RFC 5737 documentation addresses, example.com hosts, made-up CVE ids).</sub>
 
