@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-31
+
+### Added
+- **Trends** on the Dashboard: five charts computed from issue history, so past data shows at once:
+  *Open exposure* (open issues at the end of each period, stacked by severity), *New vs resolved*,
+  *Mean time to remediate (days)*, *SLA compliance (%)* and *Surface changes* (added vs other). Period 30 days
+  (daily), 90 days, 6 or 12 months (weekly) and a scope filter (`trend_days`, `trend_scope`).
+- Charts are server-rendered SVG (no external library, works offline) with light and dark colours checked for
+  colour-blind separation and contrast, a tooltip, one keyboard stop per chart (arrow keys, Home / End move
+  between periods), screen-reader labels and a **Show data** table that also prints.
+- The Executive report shows charts 1–4 for its period in place of the weekly trend table.
+- `GET /api/v1/trends?days=&scope=` (404 for an unknown scope).
+
+### Known limitations
+- A reopened issue counts by its current state for its whole history.
+
 ## [1.6.0] - 2026-10-31
 
 ### Added
@@ -238,7 +254,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.3.0...v1.4.0

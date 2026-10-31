@@ -179,6 +179,83 @@
     syncGroupBoxes();
   });
 
+  // ---------- GET filter forms that apply on change: <form data-autosubmit> ----------
+  // Only a pointer pick submits: arrow keys on a closed select also fire "change", and reloading on every step
+  // would be a change of context on input (WCAG 3.2.2). Keyboard users press the visible Apply button.
+  const REFOCUS = "zdrs-refocus";
+  $$("form[data-autosubmit]").forEach((form) => {
+    $$("select", form).forEach((sel) => {
+      let pointer = false;
+      sel.addEventListener("pointerdown", () => { pointer = true; });
+      sel.addEventListener("keydown", () => { pointer = false; });
+      sel.addEventListener("change", () => {
+        if (!pointer) return;
+        pointer = false;
+        try { sessionStorage.setItem(REFOCUS, sel.id); } catch (e) {}
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+      });
+    });
+    form.addEventListener("submit", (e) => {
+      const el = e.submitter || document.activeElement;
+      if (el && el.id) { try { sessionStorage.setItem(REFOCUS, el.id); } catch (err) {} }
+    });
+  });
+  try {
+    const id = sessionStorage.getItem(REFOCUS);
+    if (id) { sessionStorage.removeItem(REFOCUS); document.getElementById(id)?.focus({ preventScroll: true }); }
+  } catch (e) {}
+
+  // ---------- Trend charts: tooltip, bucket highlight, roving tabindex over .chart-hit ----------
+  const chartFigs = [];
+  $$("figure.chart").forEach((fig) => {
+    const hits = $$(".chart-hit", fig);
+    if (!hits.length) return;
+    let tip = null, active = null;
+    const hide = () => {
+      if (active) active.classList.remove("is-active");
+      active = null;
+      if (tip) tip.hidden = true;
+    };
+    const show = (hit) => {
+      if (active && active !== hit) active.classList.remove("is-active");
+      active = hit;
+      hit.classList.add("is-active");
+      if (!tip) {
+        tip = document.createElement("div");
+        tip.className = "chart-tip";
+        tip.setAttribute("role", "tooltip");
+        tip.setAttribute("aria-hidden", "true");   // the hit rect's aria-label already carries the same text
+        fig.appendChild(tip);
+      }
+      tip.textContent = hit.dataset.tip || "";   // text only, never markup
+      tip.hidden = false;
+      const f = fig.getBoundingClientRect(), r = hit.getBoundingClientRect();
+      const x = r.left - f.left + r.width / 2 - tip.offsetWidth / 2;
+      tip.style.left = Math.max(0, Math.min(x, fig.clientWidth - tip.offsetWidth)) + "px";
+      tip.style.top = Math.max(0, r.top - f.top - tip.offsetHeight - 6) + "px";
+    };
+    const focused = () => hits.find((h) => h === document.activeElement);
+    const rove = (to) => hits.forEach((h) => h.setAttribute("tabindex", h === to ? "0" : "-1"));
+    const move = (to) => { rove(to); to.focus(); };
+    hits.forEach((hit, i) => {
+      hit.addEventListener("mouseenter", () => show(hit));
+      hit.addEventListener("focus", () => { rove(hit); show(hit); });
+      hit.addEventListener("mouseleave", () => { const f = focused(); if (f) show(f); else hide(); });
+      hit.addEventListener("blur", hide);
+      hit.addEventListener("keydown", (e) => {
+        const to = { ArrowLeft: hits[i - 1], ArrowRight: hits[i + 1], Home: hits[0], End: hits[hits.length - 1] }[e.key];
+        if (e.key in { ArrowLeft: 1, ArrowRight: 1, Home: 1, End: 1 }) e.preventDefault();
+        if (to) move(to);
+      });
+    });
+    chartFigs.push(hide);
+  });
+  if (chartFigs.length) document.addEventListener("keydown", (e) => { if (e.key === "Escape") chartFigs.forEach((h) => h()); });
+  // printing shows every chart's data table
+  const chartTables = () => $$("details.chart-data");
+  window.addEventListener("beforeprint", () => chartTables().forEach((d) => { d.dataset.wasOpen = d.open ? "1" : ""; d.open = true; }));
+  window.addEventListener("afterprint", () => chartTables().forEach((d) => { d.open = d.dataset.wasOpen === "1"; }));
+
   // ---------- Copy to clipboard: <button data-copy="text"> ----------
   $$("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied to clipboard"); }

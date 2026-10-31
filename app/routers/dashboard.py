@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+import re
+
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..db import Finding, Host, Rule, RuleMatch, Service, TemplateIndex
+from ..db import Finding, Host, Rule, RuleMatch, Scope, Service, TemplateIndex
 from ..deps import get_db
 from ..render import SEVERITIES, render
 from .jobs import job_summary, recent_jobs
@@ -24,8 +26,20 @@ def top_risks(db: Session, limit: int = 5) -> list:
     return [(i, scores[i.id]) for i in active[:limit]]
 
 
+def parse_scope_id(value) -> int | None:
+    """A scope id from a query string: ASCII digits only and short enough for SQLite, else None."""
+    return int(value) if isinstance(value, str) and re.fullmatch(r"[0-9]{1,18}", value) else None
+
+
+def trend_scope(db: Session, value: str) -> int | None:
+    """The scope id to chart, or None (all scopes) when it is malformed or not a scope."""
+    sid = parse_scope_id(value)
+    return sid if sid is not None and db.get(Scope, sid) is not None else None
+
+
 @router.get("/")
-def dashboard(request: Request, db: Session = Depends(get_db)):
+def dashboard(request: Request, trend_days: str = "", trend_scope_id: str = Query("", alias="trend_scope"),
+              db: Session = Depends(get_db)):
     sev_counts = {s: 0 for s in SEVERITIES}
     for sev, n in db.execute(select(Finding.severity, func.count()).group_by(Finding.severity)).all():
         sev_counts[sev] = n
@@ -45,7 +59,11 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
                                             .order_by(Campaign.created_at.desc()).limit(5))]
     drafts = db.scalar(select(func.count(Campaign.id)).where(Campaign.status == "draft")) or 0
     from .. import surface
+    from .. import trends
+    from ..charts import trend_charts
+    t = trends.trends(db, trends.parse_days(trend_days), trend_scope(db, trend_scope_id))
     return render(request, "dashboard.html", active="dashboard", stats=stats, sev_counts=sev_counts, kpis=issue_kpis(db),
                   active_campaigns=active_campaigns, drafts_waiting=drafts, top_risks=top_risks(db),
                   jobs=recent_jobs(db, limit=10), job_summary=job_summary, surface_counts=surface.open_counts(db, 7),
-                  surface_labels=surface.KIND_LABELS)
+                  surface_labels=surface.KIND_LABELS, trend=t, trend_charts=trend_charts(t),
+                  trend_periods=trends.PERIOD_LABELS, trend_scopes=list(db.scalars(select(Scope).order_by(Scope.name))))

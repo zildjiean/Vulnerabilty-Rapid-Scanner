@@ -22,30 +22,18 @@
   <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-activity"/></svg></div><div><div class="kpi-label">Mean time to remediate</div><div class="kpi-value">{{ '%.1f'|format(r.mttr_days) ~ ' d' if r.mttr_days is not none else '—' }}</div><div class="kpi-sub">first seen → fixed, this period</div></div></div>
   <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div><div class="kpi-label">SLA compliance</div><div class="kpi-value">{{ (r.sla_pct ~ '%') if r.sla_pct is not none else '—' }}</div><div class="kpi-sub">fixed within the due date</div></div></div>
 </div>
-<div class="grid grid-2 mb">
-  <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>New vs resolved per week</h2><span class="small text-2">{{ r.new_in_period }} new · {{ r.resolved_in_period }} resolved</span></div>
-    <div class="card-body">
-      {% set bw = 100 / r.trend|length %}
-      <svg class="trend" viewBox="0 0 100 44" preserveAspectRatio="none" role="img" aria-label="Weekly new and resolved issues">
-        {% for t in r.trend %}
-        {% set x = loop.index0 * bw %}
-        <rect class="bar-new" x="{{ x + bw * 0.12 }}" width="{{ bw * 0.36 }}" y="{{ 40 - 38 * t.new / r.trend_peak }}" height="{{ 38 * t.new / r.trend_peak }}"><title>{{ t.start.strftime('%m-%d') }}: {{ t.new }} new</title></rect>
-        <rect class="bar-resolved" x="{{ x + bw * 0.52 }}" width="{{ bw * 0.36 }}" y="{{ 40 - 38 * t.resolved / r.trend_peak }}" height="{{ 38 * t.resolved / r.trend_peak }}"><title>{{ t.start.strftime('%m-%d') }}: {{ t.resolved }} resolved</title></rect>
-        {% endfor %}
-        <line x1="0" x2="100" y1="40" y2="40" class="axis"/>
-      </svg>
-      <div class="row between small text-2"><span>{{ r.trend[0].start.strftime('%Y-%m-%d') }}</span><span class="legend"><span><i style="background:var(--danger)"></i>new</span><span><i style="background:var(--success)"></i>resolved</span></span><span>{{ r.now.strftime('%Y-%m-%d') }}</span></div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-layers"/></svg>By scope</h2></div>
-    <div class="table-wrap"><table class="data">
-      <thead><tr><th>Scope</th><th>Open</th><th>Critical</th><th>Overdue</th><th class="no-print"></th></tr></thead>
-      <tbody>{% for s in r.scopes %}<tr><td>{{ s.name }} {% if s.criticality %}<span class="badge crit-{{ s.criticality }}">{{ s.criticality }}</span>{% endif %}</td><td class="num">{{ s.open }}</td><td class="num">{{ s.critical }}</td><td class="num {{ 'text-danger' if s.overdue }}">{{ s.overdue }}</td><td class="no-print">{% if s.id %}<a class="small" href="/reports/scopes/{{ s.id }}">report</a>{% endif %}</td></tr>
-      {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><b>No open issues</b></div></td></tr>{% endfor %}</tbody>
-    </table></div>
-  </div>
+{% from "_chart_macros.html" import chart %}
+<section class="card mb" id="trends-card" aria-labelledby="trends-title">
+  <div class="card-head"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>Trends</h2>{% set first = trend.points[0].start %}<span class="small text-2">Charts cover {{ first.strftime('%b') }} {{ first.day }}{% if first.year != trend.points[-1].end.year %}, {{ first.year }}{% endif %} – {{ trend.points[-1].label }}{% if first.year != trend.points[-1].end.year %}, {{ trend.points[-1].end.year }}{% endif %}{% if trend.days != r.days %} (nearest chart period to {{ r.days }} days){% endif %}</span></div>
+  <div class="card-body"><div class="chart-grid-2">{% for c in trend_charts %}{{ chart(c) }}{% endfor %}</div></div>
+</section>
+<div class="card mb">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-layers"/></svg>By scope</h2></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Scope</th><th>Open</th><th>Critical</th><th>Overdue</th><th class="no-print"></th></tr></thead>
+    <tbody>{% for s in r.scopes %}<tr><td>{{ s.name }} {% if s.criticality %}<span class="badge crit-{{ s.criticality }}">{{ s.criticality }}</span>{% endif %}</td><td class="num">{{ s.open }}</td><td class="num">{{ s.critical }}</td><td class="num {{ 'text-danger' if s.overdue }}">{{ s.overdue }}</td><td class="no-print">{% if s.id %}<a class="small" href="/reports/scopes/{{ s.id }}">report</a>{% endif %}</td></tr>
+    {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><b>No open issues</b></div></td></tr>{% endfor %}</tbody>
+  </table></div>
 </div>
 <div class="card mb">
   <div class="card-head"><h2><svg class="icon"><use href="#i-server"/></svg>Riskiest assets</h2><span class="small text-2">weighted: critical 10 · high 5 · medium 2 · low 1</span></div>

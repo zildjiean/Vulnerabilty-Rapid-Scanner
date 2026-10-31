@@ -209,3 +209,27 @@ def test_huge_proof_is_capped_on_the_issue_page_and_report(auth):
         page = auth.get(url).text
         assert "… 50 more characters not shown" in page, url
         assert REPORT_FULL_LIMIT <= page.count("Q") < REPORT_FULL_LIMIT + 50, url   # the page splits it at 4,000
+
+
+def test_executive_report_charts(data):
+    r = data.get("/reports?days=30")
+    assert r.status_code == 200
+    for title in ("Open exposure", "New vs resolved", "Mean time to remediate (days)", "SLA compliance (%)"):
+        assert title in r.text
+    assert "Surface changes</" not in r.text
+    assert r.text.count('class="chart-hit"') == 4 * 30                # 30 days → daily buckets
+    assert r.text.count("<summary>Show data</summary>") == 4 and "<table" in r.text
+    assert 'class="trend"' not in r.text                               # the old weekly bar chart is gone
+    assert data.get("/reports?days=7").text.count('class="chart-hit"') == 4 * 30     # nearest period
+    assert data.get("/reports?days=365").text.count('class="chart-hit"') == 4 * 53
+    with data.app.state.SessionLocal() as db:
+        assert "trend" in reports.executive(db, days=30, now=NOW)            # still feeds the AI summary
+
+
+def test_executive_report_notes_chart_span(data):
+    from app import trends
+    from app.db import utcnow
+    pts = trends.buckets(90, utcnow())
+    start = f"{pts[0]['start']:%b} {pts[0]['start'].day}"
+    r = data.get("/reports?days=90")
+    assert f"Charts cover {start} – {pts[-1]['label']}" in r.text

@@ -32,9 +32,13 @@ def executive_report(request: Request, days: str = str(rep.DEFAULT_DAYS), db: Se
     d = _days(days)
     campaigns = [(c, camp.progress(camp.campaign_issues(db, c)))
                  for c in db.scalars(select(Campaign).where(Campaign.status == "active").order_by(Campaign.created_at.desc()))]
+    from .. import trends
     from ..ai import latest_note
+    from ..charts import trend_charts
+    t = trends.trends(db, trends.nearest_days(d))
     return render(request, "report_executive.html", active="reports", r=rep.executive(db, d), periods=rep.PERIODS,
-                  campaigns=campaigns, ai_summary=latest_note(db, "summary", "report", d))
+                  campaigns=campaigns, ai_summary=latest_note(db, "summary", "report", d), trend=t,
+                  trend_charts=trend_charts(t, surface=False))
 
 
 def _proof_on(value: str) -> bool:

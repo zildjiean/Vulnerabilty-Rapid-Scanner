@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-1.6.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -63,7 +63,9 @@ Everything runs in one container. No external services, no accounts, works offli
   can link or AI-draft a verification template first. A reproduced issue is marked **Verified** (confidence
   levels: Suspected → Confirmed → Verified) with a badge that links straight to its proof. **Verify selected** on the
   Issues list (and **Verify all with proof** on a campaign) verifies many issues at once, one nuclei job per template.
-- **Reports**: printable executive summary (open exposure, overdue, MTTR, SLA compliance, weekly trend, riskiest
+- **Trend charts** on the Dashboard: open exposure by severity, new vs resolved, MTTR, SLA compliance and surface
+  changes over 30 days to 12 months, per scope, as accessible server-rendered SVG with data tables.
+- **Reports**: printable executive summary (open exposure, overdue, MTTR, SLA compliance, trend charts, riskiest
   assets, scopes, campaigns), campaign and scope reports with an **Evidence** appendix of verified issues' proof, a
   per-issue evidence report (**Print proof**: risk, intel, timeline, full request/response), all savable as PDF from the
   browser, and CSV / JSON issue exports.
