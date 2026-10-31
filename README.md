@@ -58,9 +58,12 @@ Everything runs in one container. No external services, no accounts, works offli
 - **One-click proof**: *Verify now* re-runs an issue's template against its asset and the Proof card shows the exact
   request/response nuclei matched on (plus a curl command to reproduce it by hand). Issues raised by a version rule
   can link or AI-draft a verification template first. A reproduced issue is marked **Verified** (confidence
-  levels: Suspected → Confirmed → Verified) with a badge that links straight to its proof.
+  levels: Suspected → Confirmed → Verified) with a badge that links straight to its proof. **Verify selected** on the
+  Issues list (and **Verify all with proof** on a campaign) verifies many issues at once, one nuclei job per template.
 - **Reports**: printable executive summary (open exposure, overdue, MTTR, SLA compliance, weekly trend, riskiest
-  assets, scopes, campaigns), campaign and scope reports (Save as PDF from the browser), CSV / JSON issue exports.
+  assets, scopes, campaigns), campaign and scope reports with an **Evidence** appendix of verified issues' proof, a
+  per-issue evidence report (**Print proof**: risk, intel, timeline, full request/response), all savable as PDF from the
+  browser, and CSV / JSON issue exports.
 - **REST API** (`/api/v1`) with hashed, role-scoped, expiring API keys: issues, assets, campaigns, scans and jobs.
   See *System → API → API reference* in the app.
 - **Notifications and ticketing**: Slack, Microsoft Teams, email, signed webhooks, Jira and GitLab. Rules pick
