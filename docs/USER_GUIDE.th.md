@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.6.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.7.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -50,7 +50,7 @@ docker compose up -d --build
 
 | ส่วน | เมนู | ใช้ทำอะไร |
 |---|---|---|
-| ส่วนบน (ใช้ทุกวัน) | Dashboard | ภาพรวม: issue ที่เปิดอยู่, เกิน SLA, campaign ที่ active, งานล่าสุด |
+| ส่วนบน (ใช้ทุกวัน) | Dashboard | ภาพรวม: issue ที่เปิดอยู่, เกิน SLA, campaign ที่ active, กราฟแนวโน้ม, งานล่าสุด |
 | | Issues | รายการช่องโหว่ต่อ asset ที่ต้องจัดการ |
 | | Campaigns | ติดตาม CVE / 0-day แต่ละตัว |
 | | 0-day watch | ระบบเฝ้าดู CVE ใหม่จาก NVD / CISA KEV ทุกชั่วโมง แล้วสร้าง draft campaign ให้เมื่อกระทบ asset ของคุณ |
@@ -309,9 +309,26 @@ inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE
 
 ## 9. รายงานและ API
 
+### กราฟแนวโน้มบน Dashboard (Trends)
+
+การ์ด **Trends** บน Dashboard คำนวณจากประวัติ issue ที่มีอยู่แล้ว จึงเห็นย้อนหลังได้ทันที
+
+| กราฟ | แสดงอะไร |
+|---|---|
+| *Open exposure* | จำนวน issue ที่ยังเปิดอยู่ ณ ปลายแต่ละช่วง แยกสีตาม severity (เข้ม = critical) |
+| *New vs resolved* | issue ใหม่เทียบกับที่ปิดได้ในแต่ละช่วง |
+| *Mean time to remediate* | จำนวนวันเฉลี่ยจากพบจนแก้เสร็จ ของ issue ที่ปิดในช่วงนั้น |
+| *SLA compliance* | % ของ issue ที่ปิดทันกำหนด SLA ในช่วงนั้น |
+| *Surface changes* | การเปลี่ยนแปลงจากเมนู Changes: เพิ่มขึ้น (host ใหม่, พอร์ตเปิด) เทียบกับอื่นๆ |
+
+- เลือกช่วง **30 วัน** (รายวัน), **90 วัน**, **6 เดือน** หรือ **12 เดือน** (รายสัปดาห์) และเลือก **Scope** แล้วกด **Apply**
+- ชี้หรือกด Tab เข้าไปที่กราฟเพื่อดูตัวเลขของแต่ละช่วง ใช้ลูกศรซ้าย/ขวา (Home / End) เลื่อนช่วง
+- กด **Show data** ใต้กราฟเพื่อดูเป็นตาราง
+- ข้อจำกัด: issue ที่ถูกเปิดใหม่ (reopened) นับตามสถานะปัจจุบันตลอดช่วง
+
 ### Reports
 
-- **Executive summary** issue ที่เปิดอยู่, เกินกำหนด, MTTR, การทำตาม SLA, แนวโน้มรายสัปดาห์, asset เสี่ยงสุด, scope, campaign
+- **Executive summary** issue ที่เปิดอยู่, เกินกำหนด, MTTR, การทำตาม SLA, กราฟแนวโน้ม (4 กราฟแรกของ Trends ตามช่วงของรายงาน), asset เสี่ยงสุด, scope, campaign
   - กด **Write summary with AI** ให้ AI เขียนบทสรุปผู้บริหาร (ถ้าตั้งไว้)
 - **Campaign report** และ **Scope report**
   - ท้ายรายงานมีภาคผนวก **Evidence** แสดงหลักฐานของทุก issue ที่เป็น **Verified**: asset, ชื่อ issue, เวลาที่ตรวจ,
@@ -441,7 +458,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.6.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.7.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 
