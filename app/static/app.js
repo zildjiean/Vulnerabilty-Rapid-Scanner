@@ -179,6 +179,52 @@
     syncGroupBoxes();
   });
 
+  // ---------- GET filter forms that apply on change: <form data-autosubmit> (a submit button stays for no-JS) ----------
+  $$("form[data-autosubmit]").forEach((form) => {
+    $$("select", form).forEach((sel) => sel.addEventListener("change", () => form.requestSubmit ? form.requestSubmit() : form.submit()));
+  });
+
+  // ---------- Trend charts: tooltip + bucket highlight on hover / focus of .chart-hit ----------
+  $$("figure.chart").forEach((fig) => {
+    const hits = $$(".chart-hit", fig);
+    if (!hits.length) return;
+    let tip = null, active = null;
+    const hide = () => {
+      if (active) active.classList.remove("is-active");
+      active = null;
+      if (tip) tip.hidden = true;
+    };
+    const show = (hit) => {
+      if (active && active !== hit) active.classList.remove("is-active");
+      active = hit;
+      hit.classList.add("is-active");
+      if (!tip) {
+        tip = document.createElement("div");
+        tip.className = "chart-tip";
+        tip.setAttribute("role", "tooltip");
+        tip.id = fig.id + "-tip";
+        fig.appendChild(tip);
+      }
+      tip.textContent = hit.dataset.tip || "";   // text only, never markup
+      tip.hidden = false;
+      const f = fig.getBoundingClientRect(), r = hit.getBoundingClientRect();
+      const x = r.left - f.left + r.width / 2 - tip.offsetWidth / 2;
+      tip.style.left = Math.max(0, Math.min(x, fig.clientWidth - tip.offsetWidth)) + "px";
+      tip.style.top = Math.max(0, r.top - f.top - tip.offsetHeight - 6) + "px";
+    };
+    hits.forEach((hit) => {
+      hit.addEventListener("mouseenter", () => show(hit));
+      hit.addEventListener("focus", () => show(hit));
+      hit.addEventListener("mouseleave", hide);
+      hit.addEventListener("blur", hide);
+    });
+    fig.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+  });
+  // printing shows every chart's data table
+  const chartTables = () => $$("details.chart-data");
+  window.addEventListener("beforeprint", () => chartTables().forEach((d) => { d.dataset.wasOpen = d.open ? "1" : ""; d.open = true; }));
+  window.addEventListener("afterprint", () => chartTables().forEach((d) => { d.open = d.dataset.wasOpen === "1"; }));
+
   // ---------- Copy to clipboard: <button data-copy="text"> ----------
   $$("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied to clipboard"); }

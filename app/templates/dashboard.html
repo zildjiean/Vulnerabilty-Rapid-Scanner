@@ -29,6 +29,18 @@
     {% else %}<div class="kpi-sub">no findings yet</div>{% endif %}</div></div>
   <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Potential 0-day</div><div class="kpi-value" data-stat="rule_matches">{{ stats.rule_matches }}</div><div class="kpi-sub">{{ stats.rules }} rule(s) enabled · {{ stats.templates }} templates indexed</div></div></div>
 </div>
+{% from "_chart_macros.html" import chart %}
+<section class="card mb" id="trends-card" aria-labelledby="trends-title">
+  <div class="card-head wrap"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>Trends</h2>
+    <form method="get" action="/" class="row trend-controls" data-autosubmit>
+      <label class="small text-2" for="trend-days">Period</label>
+      <select id="trend-days" name="trend_days" class="sm">{% for d, label in trend_periods.items() %}<option value="{{ d }}"{{ ' selected' if d == trend.days }}>{{ label }}</option>{% endfor %}</select>
+      <label class="small text-2" for="trend-scope">Scope</label>
+      <select id="trend-scope" name="trend_scope" class="sm"><option value=""{{ ' selected' if trend.scope_id is none }}>All scopes</option>{% for s in trend_scopes %}<option value="{{ s.id }}"{{ ' selected' if s.id == trend.scope_id }}>{{ s.name }}</option>{% endfor %}</select>
+      <button type="submit" class="sm sr-only-focusable">Apply</button>
+    </form></div>
+  <div class="card-body"><div class="chart-grid-2">{% for c in trend_charts %}{{ chart(c) }}{% endfor %}</div></div>
+</section>
 <div class="card mb" id="surface-card">
   <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Surface changes (7 days)</h2><a class="btn sm ghost" href="/changes?days=7">Review changes<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
   <div class="card-body">

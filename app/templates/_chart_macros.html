@@ -1,0 +1,37 @@
+{# Server-rendered SVG charts; geometry comes from app/charts.py. All text goes through autoescape. #}
+{% macro chart(c, prefix="") %}
+{% set id = prefix ~ "chart-" ~ c.id %}{% set g = c.g %}
+<figure class="chart" id="{{ id }}">
+  <figcaption><b>{{ c.title }}</b><span class="small text-2">{{ c.subtitle }}</span></figcaption>
+  {% if c.legend %}<div class="legend chart-legend" aria-hidden="true">{% for cls, label in c.legend %}<span><i class="{{ cls }}"></i>{{ label }}</span>{% endfor %}</div>{% endif %}
+  {% if g.empty %}<p class="chart-empty small text-2">No data in this period</p>
+  {% else %}
+  <svg class="chart-svg" viewBox="0 0 {{ g.w }} {{ g.h }}" role="img" aria-labelledby="{{ id }}-t {{ id }}-d" focusable="false">
+    <title id="{{ id }}-t">{{ c.title }}</title><desc id="{{ id }}-d">{{ c.desc }}</desc>
+    <g class="chart-grid">{% for t in g.ticks %}<line x1="{{ g.left }}" x2="{{ g.right }}" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}</g>
+    <g class="chart-axis">{% for t in g.ticks %}<text x="{{ g.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.label }}</text>{% endfor %}
+      {% for x in g.xlabels %}<text x="{{ x.x }}" y="{{ x.y }}" text-anchor="middle">{{ x.label }}</text>{% endfor %}</g>
+    <g class="chart-hits">{% for h in g.hits %}<rect class="chart-hit" tabindex="0" x="{{ h.x }}" y="{{ h.y }}" width="{{ h.w }}" height="{{ h.h }}" aria-label="{{ h.label }}" data-tip="{{ h.tip }}"/>{% endfor %}</g>
+    <g class="chart-marks">
+    {% if c.kind == "stacked" %}
+      {% for b in g.bars %}{% for s in b.segments %}<path class="c-{{ s.key }}" d="{{ s.d }}"/>{% endfor %}{% endfor %}
+      {% if g.total_label %}<text class="chart-value" x="{{ g.total_label.x }}" y="{{ g.total_label.y }}" text-anchor="middle">{{ g.total_label.text }}</text>{% endif %}
+    {% elif c.kind == "grouped" %}
+      {% for grp in g.groups %}{% for b in grp.bars if b.d %}<path class="c-{{ loop.index }}" d="{{ b.d }}"/>{% endfor %}{% endfor %}
+    {% else %}
+      {% for s in g.segments if s.points|length > 1 %}<path class="chart-line s-1" d="{{ s.d }}"/>{% endfor %}
+      {% for m in g.markers %}<circle class="chart-marker c-1" cx="{{ m.cx }}" cy="{{ m.cy }}" r="{{ m.r }}"/>{% endfor %}
+    {% endif %}
+    </g>
+    <line class="chart-baseline" x1="{{ g.left }}" x2="{{ g.right }}" y1="{{ g.bottom }}" y2="{{ g.bottom }}"/>
+  </svg>
+  {% endif %}
+  <details class="chart-data"><summary>Show data</summary>
+    <div class="table-wrap"><table class="data">
+      <caption class="sr-only">{{ c.title }}</caption>
+      <thead><tr>{% for h in c.head %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in c.rows %}<tr>{% for v in row %}{% if loop.first %}<th scope="row">{{ v }}</th>{% else %}<td class="num">{{ v }}</td>{% endif %}{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+  </details>
+</figure>
+{% endmacro %}
