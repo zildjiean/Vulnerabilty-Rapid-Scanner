@@ -9,7 +9,7 @@
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Your details</h2></div>
     <div class="card-body stack">
-      <div class="field"><label>Username</label><input value="{{ user.username }}" disabled></div>
+      <div class="field"><label for="username">Username</label><input id="username" value="{{ user.username }}" disabled></div>
       <div class="field"><label for="display_name">Display name</label><input id="display_name" name="display_name" value="{{ user.display_name }}" autocomplete="name"></div>
       <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ user.email }}" autocomplete="email"><span class="hint">Used for notifications in a later release.</span></div>
       <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save</button></div>

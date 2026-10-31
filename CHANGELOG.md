@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-31
+
+### Fixed
+UI/UX audit of all 35 pages in light and dark theme at 1440 px and 375 px (contrast, labels, control names,
+target size, headings, horizontal overflow):
+- Phones: 12 pages no longer scroll sideways (issue and campaign details, dashboard, nmap, schedules, scopes, rules,
+  users, API keys, integrations, AI, reports). Long values wrap; choice cards stack; the user chip shows only the
+  avatar below 520 px and topbar buttons keep their size.
+- Contrast: the *Known exploited* badge in dark mode (2.8:1 → 6.4:1), inline code in hints and the nuclei scan
+  footer note now meet WCAG AA 4.5:1.
+- Readability: sidebar group labels, the brand tagline and the role label are at least 11.5 px.
+- Forms: the read-only Username field on the profile and user pages has a label; checkboxes and radios are 18 px.
+- The sidebar version link meets the 24 px minimum target size.
+
 ## [1.2.0] - 2026-10-31
 
 ### Added
@@ -136,7 +150,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v0.1.0...v1.0.0
