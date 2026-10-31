@@ -216,6 +216,17 @@ def changes_list(days: str = "", kind: str = "", job: str = "", state: str = "op
                       for c in rows], "count": len(rows)}
 
 
+# ----------------------------------------------------------------- trends
+@router.get("/trends", dependencies=VIEW)
+def trends_series(days: str = "", scope: str = "", db: Session = Depends(get_db)):
+    """Dashboard trend series: ``days`` 30 / 90 / 180 / 365 (default 90), optional ``scope`` id."""
+    from .. import trends
+    from .dashboard import trend_scope
+    t = trends.trends(db, trends.parse_days(days), trend_scope(db, scope))
+    t["points"] = [{**p, "start": _ts(p["start"]), "end": _ts(p["end"])} for p in t["points"]]
+    return t
+
+
 # ----------------------------------------------------------------- scans and jobs
 class NmapIn(BaseModel):
     targets: list[str]

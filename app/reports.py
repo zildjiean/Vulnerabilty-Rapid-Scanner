@@ -15,6 +15,24 @@ SEVERITIES = ("critical", "high", "medium", "low")
 RISK_WEIGHT = {"critical": 10, "high": 5, "medium": 2, "low": 1}
 DEFAULT_DAYS = 30
 PERIODS = (7, 30, 90, 180, 365)
+REMEDIATED = ("fixed", "verified")   # counted for MTTR / SLA; false positives and accepted risk are excluded
+
+
+def is_resolved(i: Issue) -> bool:
+    return i.status in RESOLVED and i.resolved_at is not None
+
+
+def mttr_days(remediated: list[Issue]) -> float | None:
+    """Mean days from first seen to resolved."""
+    if not remediated:
+        return None
+    return sum((i.resolved_at - i.first_seen).total_seconds() for i in remediated) / len(remediated) / 86400
+
+
+def sla_percent(remediated: list[Issue]) -> int | None:
+    """Share of remediated issues with a due date that were resolved on or before it."""
+    with_due = [i for i in remediated if i.due_at]
+    return round(100 * sum(1 for i in with_due if i.resolved_at <= i.due_at) / len(with_due)) if with_due else None
 
 
 def executive(db: Session, days: int = DEFAULT_DAYS, now: datetime | None = None) -> dict:
@@ -23,12 +41,9 @@ def executive(db: Session, days: int = DEFAULT_DAYS, now: datetime | None = None
     issues = list(db.scalars(select(Issue)))
     open_work = [i for i in issues if i.status in OPEN_WORK]
     new = [i for i in issues if since <= i.first_seen <= now]
-    resolved = [i for i in issues if i.status in RESOLVED and i.resolved_at and since <= i.resolved_at <= now]
-    remediated = [i for i in resolved if i.status in ("fixed", "verified")]   # false positives / accepted risk excluded
-    mttr = (sum((i.resolved_at - i.first_seen).total_seconds() for i in remediated) / len(remediated) / 86400
-            if remediated else None)
-    with_due = [i for i in remediated if i.due_at]
-    sla_pct = round(100 * sum(1 for i in with_due if i.resolved_at <= i.due_at) / len(with_due)) if with_due else None
+    resolved = [i for i in issues if is_resolved(i) and since <= i.resolved_at <= now]
+    remediated = [i for i in resolved if i.status in REMEDIATED]
+    mttr, sla_pct = mttr_days(remediated), sla_percent(remediated)
 
     weeks = max(1, math.ceil(days / 7))
     trend = []
@@ -37,7 +52,6 @@ def executive(db: Session, days: int = DEFAULT_DAYS, now: datetime | None = None
         end = now if w == weeks - 1 else start + timedelta(days=7)
         trend.append({"start": start, "new": sum(1 for i in new if start <= i.first_seen < end or (w == weeks - 1 and i.first_seen == now)),
                       "resolved": sum(1 for i in resolved if start <= i.resolved_at < end or (w == weeks - 1 and i.resolved_at == now))})
-    peak = max([1] + [max(t["new"], t["resolved"]) for t in trend])
 
     by_asset: dict[str, dict] = {}
     for i in open_work:
@@ -66,7 +80,7 @@ def executive(db: Session, days: int = DEFAULT_DAYS, now: datetime | None = None
         "open_total": len(open_work), "overdue": sum(1 for i in open_work if is_overdue(i, now)),
         "awaiting_verification": sum(1 for i in issues if i.status == "fixed"),
         "new_in_period": len(new), "resolved_in_period": len(resolved),
-        "mttr_days": mttr, "sla_pct": sla_pct, "trend": trend, "trend_peak": peak,
+        "mttr_days": mttr, "sla_pct": sla_pct, "trend": trend,
         "top_assets": top_assets, "scopes": scopes,
     }
 

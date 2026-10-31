@@ -196,7 +196,7 @@ Question: {question[:2000]}"""
 
 # ----------------------------------------------------------------- 6 / 7. summary + diagnosis
 def summary_prompt(r: dict) -> str:
-    figures = {k: v for k, v in r.items() if k not in ("trend", "since", "now", "trend_peak")}
+    figures = {k: v for k, v in r.items() if k not in ("trend", "since", "now")}
     figures["weekly_trend"] = [{"week": t["start"].strftime("%Y-%m-%d"), "new": t["new"], "resolved": t["resolved"]}
                                for t in r["trend"]]
     return f"""Write an executive summary of the scanner's last {r['days']} days for leadership.
