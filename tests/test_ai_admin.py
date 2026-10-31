@@ -18,7 +18,7 @@ class FakeLLM:
     def __call__(self, kind, config, secret, request):
         self.calls.append({"kind": kind, "config": config, "secret": secret, "request": request})
         if self.error:
-            raise llm.LLMError(self.error)
+            raise self.error if isinstance(self.error, Exception) else llm.LLMError(self.error)
         return llm.LLMResult(text=self.text if self.data is None else json.dumps(self.data), data=self.data,
                              model=config.get("model") or "claude-opus-5-5", input_tokens=100, output_tokens=20)
 

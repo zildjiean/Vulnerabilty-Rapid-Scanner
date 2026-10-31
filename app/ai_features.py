@@ -94,7 +94,9 @@ Rules:
 - Only GET or HEAD requests. No payloads that write, delete, execute commands or change state. No out-of-band
   interactsh callbacks. No brute force.
 - Use matchers-condition: and with at least two matchers (e.g. status + word/regex) to avoid false positives.
-- Put the YAML in the "yaml" field without code fences; explain limits in "notes"."""
+- Put the YAML in the "yaml" field without code fences; explain limits in "notes".
+- The template verifies a vulnerability on an asset owned by the team that runs this scanner: a detection check
+  for authorized internal testing, not an exploit."""
 
 
 def template_prompt(cve: str, advisory: str, hints: str = "") -> str:
@@ -104,6 +106,14 @@ CVE: {cve or "not given"}
 Advisory / analyst notes:
 {advisory[:MAX_ADVISORY] or "(none)"}
 {("Target hints: " + hints) if hints else ""}"""
+
+
+def issue_template_prompt(db: Session, issue: Issue) -> str:
+    """Draft a verification template for one issue: its context without scan evidence, plus the service as a hint."""
+    svc = _service(db, issue)
+    product = " ".join(x for x in ((svc.product if svc else ""), (svc.version if svc else "")) if x)
+    hints = f"{issue.asset} running {product}" if product else issue.asset
+    return template_prompt(issue.cve_id or issue.vuln_id, issue_context(db, issue, evidence=False), hints)
 
 
 # ----------------------------------------------------------------- 3 / 4. issue explain + triage
@@ -121,14 +131,18 @@ def _evidence(db: Session, issue: Issue, limit: int = 3) -> str:
     return "\n".join(out) or "(no scan evidence: suspected from the installed version)"
 
 
-def issue_context(db: Session, issue: Issue) -> str:
+def _service(db: Session, issue: Issue) -> Service | None:
+    if not issue.port.isdigit():
+        return None
+    return db.scalar(select(Service).join(Host, Host.id == Service.host_id)
+                     .where(Host.address == issue.address, Service.port == int(issue.port)))
+
+
+def issue_context(db: Session, issue: Issue, evidence: bool = True) -> str:
     from .campaigns import campaigns_for_issue
     lines = [f"Vulnerability: {issue.vuln_id} - {issue.title}", f"Severity: {issue.severity}; confidence: {issue.confidence};"
              f" status: {issue.status}", f"Asset: {issue.asset}" + (f" ({issue.hostname})" if issue.hostname else "")]
-    svc = None
-    if issue.port.isdigit():
-        svc = db.scalar(select(Service).join(Host, Host.id == Service.host_id)
-                        .where(Host.address == issue.address, Service.port == int(issue.port)))
+    svc = _service(db, issue)
     if svc:
         lines.append(f"Service (nmap): {svc.service_name} {svc.product} {svc.version} {svc.extra_info} {svc.cpe}".strip())
     if issue.scope_id:
@@ -142,7 +156,8 @@ def issue_context(db: Session, issue: Issue) -> str:
     for c in campaigns_for_issue(db, issue):
         lines.append(f"Campaign intel: {c.description[:800]}" + (f" CVSS {c.cvss_score}." if c.cvss_score else "")
                      + (" Listed in CISA KEV (known exploited)." if c.kev else ""))
-    lines.append("Evidence:\n" + _evidence(db, issue))
+    if evidence:
+        lines.append("Evidence:\n" + _evidence(db, issue))
     return "\n".join(lines)
 
 

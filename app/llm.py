@@ -92,7 +92,7 @@ def _parse_or_refusal(text: str, r: LLMRequest) -> dict | None:
     try:
         return _parse_json(text)
     except LLMError:
-        if _REFUSAL_RE.search(text[:600]):
+        if not text.lstrip().startswith("{") and _REFUSAL_RE.search(text[:600]):   # truncated JSON is never a prose refusal
             raise LLMRefusal(f'the model answered: "{text.strip()[:160]}"') from None
         raise
 

@@ -20,6 +20,7 @@ from ..authz import require
 from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, TemplateIndex, User, utcnow
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import SEVERITY_ORDER, render, templates
+from ..templates_index import index_single, save_custom_template, validate_template_yaml
 
 router = APIRouter()
 LIST_LIMIT = 1000
@@ -268,6 +269,35 @@ def issue_template(request: Request, issue_id: int, template_id: str = Form(""),
     audit(db, request, "issue.template", target=_label(issue), template_id=tid)
     db.commit()
     return _redirect(f"/issues/{issue.id}", msg="Template linked. Press Verify now to run it.")
+
+
+@router.post("/issues/{issue_id}/template/save-run",
+             dependencies=[Depends(require("templates.manage")), Depends(require("scan.run")), Depends(verify_csrf)])
+async def issue_template_save_run(request: Request, issue_id: int, yaml: str = Form(""), db: Session = Depends(get_db),
+                                  settings=Depends(get_settings)):
+    """Save the reviewed draft as a custom template, link it to the issue and start the verification scan."""
+    from .templates import nuclei_validate
+    issue = _get(db, issue_id)
+    try:
+        info = validate_template_yaml(yaml)
+        tmp = settings.data_dir / "ai-drafts"
+        tmp.mkdir(parents=True, exist_ok=True)
+        tmp_path = tmp / f"{info.template_id}.yaml"
+        tmp_path.write_text(yaml)
+        ok, line = await nuclei_validate(settings, tmp_path)
+        tmp_path.unlink(missing_ok=True)
+        if not ok:
+            raise ValueError(line or "nuclei -validate failed")
+    except ValueError as e:
+        draft = {"yaml": yaml, "ok": False, "message": f"Validation failed: {e}", "notes": "", "provider": "", "model": ""}
+        return _detail(request, db, issue, status_code=400, verify_draft=draft)
+    path = save_custom_template(settings, yaml)
+    index_single(db, path, "custom")
+    issue.template_id = info.template_id
+    iss._event(db, issue, "verify", _actor(request, db), body=f"Saved verification template {info.template_id} (custom).")
+    audit(db, request, "templates.saved", target=info.template_id, issue=issue.id)
+    db.commit()
+    return _verify(request, db, issue, back="")
 
 
 # ----------------------------------------------------------------- settings

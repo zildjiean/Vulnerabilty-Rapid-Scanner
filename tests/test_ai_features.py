@@ -179,3 +179,73 @@ def test_permissions_and_no_provider(auth):
     for path in (f"/ai/issues/{iid}/explain", f"/ai/issues/{iid}/triage", "/ai/search", "/ai/reports/summary",
                  "/ai/campaign-draft", "/ai/template-draft"):
         assert auth.post(path, data={"csrf": csrf}).status_code == 403, path
+
+
+from app import llm
+from app.db import Job, Rule, TemplateIndex
+from app.rules import evaluate_rules
+
+YAML_OK = """id: cve-2026-1-php-detect
+info:
+  name: PHP vulnerable version banner
+  author: ai-draft
+  severity: high
+  tags: cve,php
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status: [200]
+      - type: regex
+        part: header
+        regex: ["PHP/8\\\\.3\\\\.1[0-4]"]
+"""
+
+
+def suspected(client, cve="CVE-2026-1"):
+    with client.app.state.SessionLocal() as db:
+        db.add(Rule(name="PHP", product_pattern="php", version_constraint="< 8.3.15", cve_id=cve, severity="high"))
+        db.commit()
+        evaluate_rules(db)
+        db.commit()
+        return db.scalar(select(Issue.id).where(Issue.vuln_id == cve))
+
+
+def test_issue_template_draft_then_save_and_run(env):
+    iid = suspected(env)
+    fake = script(env, data={"yaml": YAML_OK, "notes": "Banner check only."})
+    csrf = get_csrf(env, f"/issues/{iid}")
+    r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": csrf})
+    assert r.status_code == 200 and "cve-2026-1-php-detect" in r.text and "Validation passed" in r.text
+    assert "Save &amp; run as proof" in r.text and "Banner check only." in r.text
+    prompt = fake.calls[0]["request"].prompt
+    assert "CVE-2026-1" in prompt and "authorized internal testing" in prompt and "PHP" in prompt
+    assert "HOST-" in prompt and "192.168.1.10" not in prompt            # redacted
+    assert "request:" not in prompt                                     # no proof text is sent
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": "not: [valid"})
+    assert r.status_code == 400 and "Validation failed" in r.text and "not: [valid" in r.text   # YAML kept for editing
+    r = env.post(f"/issues/{iid}/template/save-run", data={"csrf": csrf, "yaml": YAML_OK}, follow_redirects=False)
+    assert r.status_code == 303 and "Verification+started" in r.headers["location"]
+    with env.app.state.SessionLocal() as db:
+        issue = db.get(Issue, iid)
+        assert issue.template_id == "cve-2026-1-php-detect"
+        job = db.scalar(select(Job).order_by(Job.id.desc()))      # the job may already have finished (fake nuclei)
+        assert json.loads(job.params_json)["verify_issue"] == iid
+        assert db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == "cve-2026-1-php-detect")).source == "custom"
+
+
+def test_issue_template_draft_refusal_shows_english_guidance(env):
+    iid = suspected(env)
+    script(env, error=llm.LLMRefusal("The request was declined by the model's safety classifier (cyber)."))
+    r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": get_csrf(env, f"/issues/{iid}")})
+    assert r.status_code == 400
+    assert "The configured AI model declined this request" in r.text and 'href="/ai"' in r.text
+    assert "authorized security testing" in r.text
+    with env.app.state.SessionLocal() as db:
+        assert db.scalar(select(AiUsage).where(AiUsage.ok.is_(False))) is not None
+    script(env, error="Claude API error 500: boom")                      # other errors use the generic notice
+    r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": get_csrf(env, f"/issues/{iid}")})
+    assert r.status_code == 400 and "boom" in r.text and "declined this request" not in r.text
