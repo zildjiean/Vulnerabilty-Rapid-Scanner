@@ -1,0 +1,9 @@
+{% macro kind_badge(c, labels) -%}<span class="badge {{ 'sev-medium' if c.severity == 'medium' else 'neutral' }}">{{ labels.get(c.kind, c.kind) }}</span>{%- endmacro %}
+{% macro port_cell(c) -%}{% if c.port is not none %}<span class="cell-mono">{{ c.port }}/{{ c.protocol }}</span>{% else %}<span class="muted">—</span>{% endif %}{%- endmacro %}
+{% macro before_after(c) -%}
+{% if c.kind == 'host_new' %}<span class="small">{{ c.after or 'no open ports' }}</span>
+{% elif c.kind == 'host_gone' %}<span class="small text-2">Not up in this scan; kept in the inventory</span>
+{% elif c.kind == 'port_opened' %}<span class="small">{{ c.after or '—' }}</span>
+{% elif c.kind == 'port_closed' %}<span class="small text-2"><s>{{ c.before or '—' }}</s></span>
+{% else %}<span class="small"><span class="text-2">{{ c.before or '—' }}</span> → {{ c.after or '—' }}</span>{% endif %}
+{%- endmacro %}

@@ -20,6 +20,7 @@ curl -s -H "Authorization: Bearer $ZDRS_KEY" {{ B }}/me</pre>
     ('GET', '/issues/{id}', 'view', 'One issue with timeline events, finding count and tickets.'),
     ('PATCH', '/issues/{id}', 'issues.manage', 'Body: status, comment, severity, assignee (username or null).'),
     ('GET', '/assets', 'view', 'Inventory hosts with services and scope.'),
+    ('GET', '/changes', 'view', 'Attack-surface changes, newest first. Query: days (1/7/30/90/all), kind, job, state (open/all), limit (max 500).'),
     ('GET', '/campaigns', 'view', 'Campaigns with progress. Query: status (active|draft|closed|dismissed).'),
     ('GET', '/campaigns/{id}', 'view', 'One campaign with rules, templates and progress.'),
     ('POST', '/campaigns', 'campaigns.manage', 'Body: cve_id, name, severity (auto|critical|high|medium|low), description, product_pattern, version_constraint, attach_templates, fetch_intel.'),

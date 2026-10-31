@@ -36,6 +36,24 @@
     <div class="mono small text-2" style="margin-top:10px;word-break:break-all"><span class="muted">$</span> {{ job.command }}</div>
   </div>
 </div>
+{% if changes is not none %}
+{% from "_surface_macros.html" import kind_badge, port_cell, before_after %}
+<div class="card mb" id="surface-changes">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Changes from this scan <span class="chip num">{{ changes.total }}</span></h2><a class="btn sm ghost" href="/changes?job={{ job.id }}&amp;state=all">All changes<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  {% if changes.total %}
+  <div class="card-body" style="padding-bottom:0"><div class="row center" style="gap:6px;flex-wrap:wrap">{% for k, n in changes.counts.items() if n %}<span class="badge neutral num">{{ changes.labels[k] }}: {{ n }}</span>{% endfor %}</div></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>Change</th><th>Asset</th><th>Port</th><th>Before → after</th><th>State</th></tr></thead>
+    <tbody>{% for c in changes.rows %}
+    <tr><td>{{ kind_badge(c, changes.labels) }}</td><td class="cell-mono">{{ c.address }}{% if c.hostname and c.hostname != c.address %} <span class="small text-2">{{ c.hostname }}</span>{% endif %}</td><td>{{ port_cell(c) }}</td><td style="max-width:420px;overflow-wrap:anywhere">{{ before_after(c) }}</td><td class="small text-2">{{ 'Acknowledged' if c.acknowledged_at else 'Open' }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% if changes.total > changes.rows|length %}<div class="card-body small text-2">Showing {{ changes.rows|length }} of {{ changes.total }}.</div>{% endif %}
+  {% else %}
+  <div class="card-body small text-2">{{ 'No changes against the inventory.' if job.status == 'done' else 'Changes appear when the scan has finished.' }}</div>
+  {% endif %}
+</div>
+{% endif %}
 <div class="card">
   <div class="card-head"><h2><svg class="icon"><use href="#i-terminal"/></svg>Log</h2>{% if live or job.status in ('queued','running') %}<span class="status st-running">live</span>{% endif %}</div>
   <div class="card-body">

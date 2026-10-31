@@ -29,6 +29,14 @@
     {% else %}<div class="kpi-sub">no findings yet</div>{% endif %}</div></div>
   <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Potential 0-day</div><div class="kpi-value" data-stat="rule_matches">{{ stats.rule_matches }}</div><div class="kpi-sub">{{ stats.rules }} rule(s) enabled · {{ stats.templates }} templates indexed</div></div></div>
 </div>
+<div class="card mb" id="surface-card">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Surface changes (7 days)</h2><a class="btn sm ghost" href="/changes?days=7">Review changes<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="card-body">
+    {% if surface_counts.values()|sum %}
+    <div class="row" style="gap:18px;flex-wrap:wrap">{% for k, label in surface_labels.items() %}<a class="small" href="/changes?days=7&amp;kind={{ k }}"><b class="num" data-surface="{{ k }}">{{ surface_counts[k] }}</b> <span class="text-2">{{ label }}</span></a>{% endfor %}</div>
+    {% else %}<p class="small text-2" style="margin:0">No unacknowledged changes in the last 7 days.</p>{% endif %}
+  </div>
+</div>
 {% from "_campaign_macros.html" import kev_badge, progress_bar %}
 {% from "_issue_macros.html" import risk_pill %}
 {% if top_risks %}

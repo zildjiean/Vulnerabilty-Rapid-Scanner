@@ -30,6 +30,8 @@ def launch_nmap(db: Session, settings, runner, target_list: list[str], *, port_m
                            timing=timing, skip_ping=skip_ping, scan_type=scan_type, exclude=exclude)
     params = {"targets": target_list, "port_mode": port_mode, "custom_ports": custom_ports, "scan_type": scan_type,
               **(extra_params or {})}
+    if exclude:
+        params["exclude"] = list(exclude)
     job = runner.create_job(db, "nmap", argv, params=params)
     if schedule_id is not None:
         job.schedule_id = schedule_id

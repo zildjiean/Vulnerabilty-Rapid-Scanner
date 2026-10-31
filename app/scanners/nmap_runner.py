@@ -40,26 +40,43 @@ def build_nmap_argv(nmap_bin: str, targets: list[str], port_mode: str = "top", c
 # Result ingestion
 # ---------------------------------------------------------------------------
 import json  # noqa: E402
+import logging  # noqa: E402
 
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from ..db import Host, Job, Service, utcnow  # noqa: E402
-from ..parsers.nmap_xml import parse_nmap_xml  # noqa: E402
+from .. import surface  # noqa: E402
+from ..db import Host, Job, Service, SurfaceChange, utcnow  # noqa: E402
+from ..parsers.nmap_xml import merge_hosts, parse_nmap_scaninfo, parse_nmap_xml  # noqa: E402
 from ..rules import evaluate_rules  # noqa: E402
+
+log = logging.getLogger(__name__)
+
+
+def _job_params(job: Job) -> dict:
+    try:
+        p = json.loads(job.params_json or "{}")
+    except json.JSONDecodeError:
+        p = {}
+    return p if isinstance(p, dict) else {}
 
 
 def ingest_nmap_results(db: Session, job: Job, xml_text: str) -> dict:
-    """Upsert hosts; replace each seen host's service set with the ports found in this scan."""
-    hosts = parse_nmap_xml(xml_text)
+    """Record surface changes, then upsert hosts and replace each seen host's services within the scanned port set."""
+    hosts = merge_hosts(parse_nmap_xml(xml_text))
+    scanned = parse_nmap_scaninfo(xml_text)
+    params = _job_params(job)
+    changes = surface.diff_and_record(db, job, hosts, scanned, params.get("targets") or [], params.get("exclude") or [])
     now = utcnow()
     service_count = 0
+    host_ids: dict[str, int] = {}
     for h in hosts:
         host = db.scalar(select(Host).where(Host.address == h.address))
         if host is None:
             host = Host(address=h.address, first_seen=now)
             db.add(host)
             db.flush()
+        host_ids[h.address] = host.id
         if h.hostname:
             host.hostname = h.hostname
         host.last_seen = now
@@ -75,18 +92,20 @@ def ingest_nmap_results(db: Session, job: Job, xml_text: str) -> dict:
                 db.add(svc)
             svc.state = p.state
             svc.service_name = p.service
-            svc.product = p.product
-            svc.version = p.version
-            svc.extra_info = p.extra_info
-            svc.cpe = p.cpe
+            old = ((svc.product or "").strip(), (svc.version or "").strip())
+            if not surface.fingerprint_lost(old, ((p.product or "").strip(), (p.version or "").strip())):
+                svc.product, svc.version, svc.extra_info, svc.cpe = p.product, p.version, p.extra_info, p.cpe
             svc.tunnel = p.tunnel
             svc.job_id = job.id
             service_count += 1
         for key, svc in existing.items():
-            if key not in seen:
+            if key not in seen and surface.is_scanned(scanned, *key):  # ports this scan did not probe are kept
                 db.delete(svc)
+    for c in changes:
+        if c.host_id is None:
+            c.host_id = host_ids.get(c.address)
     db.flush()
-    return {"hosts": len(hosts), "services": service_count}
+    return {"hosts": len(hosts), "services": service_count, "changes": len(changes)}
 
 
 def _merge_params(params_json: str, extra: dict) -> str:
@@ -99,7 +118,18 @@ def _merge_params(params_json: str, extra: dict) -> str:
 
 
 def on_nmap_complete(db: Session, job: Job, output: str) -> str:
+    baseline = db.scalar(select(Host.id).limit(1)) is None  # first scan of an empty inventory: record, do not notify
     stats = ingest_nmap_results(db, job, output)
     stats["rule_matches"] = evaluate_rules(db)
     job.params_json = _merge_params(job.params_json, {"result": stats})
-    return f"[nmap] {stats['hosts']} host(s) up, {stats['services']} open service(s) stored, {stats['rule_matches']} version-rule match(es)."
+    if stats["changes"] and not baseline:
+        try:
+            with db.begin_nested():
+                changes = list(db.scalars(select(SurfaceChange).where(SurfaceChange.job_id == job.id)
+                                          .order_by(SurfaceChange.id)))
+                surface.notify_changes(db, job, changes)
+        except Exception:  # noqa: BLE001 - a notification problem must never fail the ingest
+            log.exception("surface change notification for job %s failed", job.id)
+    return (f"[nmap] {stats['hosts']} host(s) up, {stats['services']} open service(s) stored, "
+            f"{stats['rule_matches']} version-rule match(es), {stats['changes']} surface change(s)"
+            + (" (baseline, not notified)." if baseline and stats["changes"] else "."))

@@ -44,6 +44,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
                         for c in db.scalars(select(Campaign).where(Campaign.status == "active")
                                             .order_by(Campaign.created_at.desc()).limit(5))]
     drafts = db.scalar(select(func.count(Campaign.id)).where(Campaign.status == "draft")) or 0
+    from .. import surface
     return render(request, "dashboard.html", active="dashboard", stats=stats, sev_counts=sev_counts, kpis=issue_kpis(db),
                   active_campaigns=active_campaigns, drafts_waiting=drafts, top_risks=top_risks(db),
-                  jobs=recent_jobs(db, limit=10), job_summary=job_summary)
+                  jobs=recent_jobs(db, limit=10), job_summary=job_summary, surface_counts=surface.open_counts(db, 7),
+                  surface_labels=surface.KIND_LABELS)

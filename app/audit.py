@@ -19,6 +19,7 @@ ACTION_GROUPS = {
     "scan": "Scans started",
     "job": "Jobs",
     "inventory": "Inventory",
+    "surface": "Attack-surface changes",
     "rule": "Version rules",
     "template": "Templates",
     "system": "System updates",
