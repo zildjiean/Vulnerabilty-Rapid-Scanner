@@ -10,7 +10,7 @@
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Profile and role</h2></div>
     <div class="card-body stack">
-      <div class="field"><label>Username</label><input value="{{ target.username }}" disabled></div>
+      <div class="field"><label for="username">Username</label><input id="username" value="{{ target.username }}" disabled></div>
       <div class="field"><label for="display_name">Display name</label><input id="display_name" name="display_name" value="{{ target.display_name }}"></div>
       <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ target.email }}"></div>
       <fieldset class="field"><legend>Role</legend>
