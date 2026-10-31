@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import shlex
 from typing import Callable, Optional
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from .db import Job, utcnow
 
+log = logging.getLogger(__name__)
+
 CompletionHook = Callable[[Session, Job, str], Optional[str]]
 MAX_LIVE_LINES = 20000
+RETRY_DELAYS = (0.25, 1.0, 3.0)  # seconds between retries of a job-row write that hit "database is locked"
 
 
 def quote_argv(argv: list[str]) -> str:
@@ -134,7 +139,12 @@ class JobRunner:
         for q in self._subs.get(job_id, ()):
             q.put_nowait((idx, line))
 
-    def _update(self, job_id: int, **fields) -> None:
+    def cancel_requested(self, job_id: int) -> bool:
+        """For completion hooks (worker thread): did the operator cancel while results were being processed?"""
+        return job_id in self._cancel_requested
+
+    def _write(self, job_id: int, **fields) -> None:
+        """Blocking job-row update; always called through ``_persist`` in a worker thread."""
         with self.session_factory() as db:
             job = db.get(Job, job_id)
             if job is None:
@@ -143,21 +153,44 @@ class JobRunner:
                 setattr(job, k, v)
             db.commit()
 
-    def _finish(self, job_id: int, status: str, exit_code: int | None, output: str) -> None:
-        log = "\n".join(self._live.pop(job_id, []))
-        output = self._scrub(job_id, output)
-        self._redact.pop(job_id, None)
-        self._cancel_requested.discard(job_id)
-        self._update(job_id, status=status, exit_code=exit_code, finished_at=utcnow(), log=log, output=output)
-        for q in self._subs.pop(job_id, set()):
-            q.put_nowait(None)
+    async def _persist(self, job_id: int, retries: tuple[float, ...] | None = None, **fields) -> bool:
+        """Write job fields off the event loop. A completion hook may hold SQLite's write lock: retry a locked
+        database with backoff instead of failing. Never raises; returns whether the write landed."""
+        delays = RETRY_DELAYS if retries is None else retries
+        for attempt in range(len(delays) + 1):
+            try:
+                await asyncio.to_thread(self._write, job_id, **fields)
+                return True
+            except OperationalError as e:
+                if attempt == len(delays):
+                    log.error("job %s: giving up writing %s: %s", job_id, sorted(fields), e)
+                    return False
+                await asyncio.sleep(delays[attempt])
+            except Exception:  # noqa: BLE001 - the runner must survive any storage problem
+                log.exception("job %s: writing %s failed", job_id, sorted(fields))
+                return False
+        return False
+
+    async def _finish(self, job_id: int, status: str, exit_code: int | None, output: str) -> None:
+        """Persist the result, then always end the live state and close every subscriber's stream, even when the
+        write failed (the row then stays 'running' until the restart sweep marks it interrupted)."""
+        try:
+            log_text = "\n".join(self._live.get(job_id, []))
+            await self._persist(job_id, status=status, exit_code=exit_code, finished_at=utcnow(), log=log_text,
+                                output=self._scrub(job_id, output))
+        finally:
+            self._live.pop(job_id, None)
+            self._redact.pop(job_id, None)
+            self._cancel_requested.discard(job_id)
+            for q in self._subs.pop(job_id, set()):
+                q.put_nowait(None)
 
     async def _flush_loop(self, job_id: int) -> None:
         while True:
             await asyncio.sleep(1.0)
             lines = self._live.get(job_id)
             if lines:
-                self._update(job_id, log="\n".join(lines))
+                await self._persist(job_id, retries=(), log="\n".join(lines))  # best effort; the next tick retries
 
     async def _pump(self, job_id: int, stream, to_log: bool, collect: list[str] | None) -> None:
         while True:
@@ -204,9 +237,9 @@ class JobRunner:
         async with self._sem(kind):
             if job_id in self._cancel_requested:
                 self._publish(job_id, "[runner] cancelled before start")
-                self._finish(job_id, "cancelled", None, "")
+                await self._finish(job_id, "cancelled", None, "")
                 return
-            self._update(job_id, status="running", started_at=utcnow())
+            await self._persist(job_id, status="running", started_at=utcnow())
             self._publish(job_id, "[runner] started")
             try:
                 proc = await asyncio.create_subprocess_exec(
@@ -215,7 +248,7 @@ class JobRunner:
                 )
             except (FileNotFoundError, PermissionError, OSError) as e:
                 self._publish(job_id, f"[runner] cannot start: {e}")
-                self._finish(job_id, "failed", 127, "")
+                await self._finish(job_id, "failed", 127, "")
                 return
             self._procs[job_id] = proc
             stdout_lines: list[str] = []
@@ -247,4 +280,4 @@ class JobRunner:
                     self._publish(job_id, f"[runner] result processing failed: {e!r}")
                     status = "failed"
             self._publish(job_id, f"[runner] exit code {code} ({status})")
-            self._finish(job_id, status, code, output)
+            await self._finish(job_id, status, code, output)
