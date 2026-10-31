@@ -152,9 +152,13 @@ def _redirect(url: str, **q) -> RedirectResponse:
     return RedirectResponse(urlunsplit(parts._replace(query=urlencode(query))), status_code=303)
 
 
+def _same_site(back: str, default: str) -> str:
+    return back if back.startswith("/") and not back.startswith(("//", "/\\")) else default
+
+
 def _safe_back(back: str, issue: Issue) -> str:
     """Only same-site paths are honoured; anything else returns to the issue page."""
-    return back if back.startswith("/") and not back.startswith(("//", "/\\")) else f"/issues/{issue.id}"
+    return _same_site(back, f"/issues/{issue.id}")
 
 
 def _verify(request: Request, db: Session, issue: Issue, back: str):
@@ -205,6 +209,27 @@ def issues_bulk(request: Request, issue_ids: list[int] = Form(default=[]), actio
           skipped=skipped)
     msg = f"Updated {updated} issue(s)" + (f", skipped {skipped} (transition not allowed)" if skipped else "")
     return RedirectResponse("/issues?msg=" + msg.replace(" ", "+"), status_code=303)
+
+
+def bulk_verify(request: Request, db: Session, issues: list[Issue], back: str, audit_action: str, target: str, **extra):
+    """Start verification for many issues (Verify selected, campaign Verify all) and redirect with the summary.
+    Must be called from an async route."""
+    res = proof.start_verify_many(db, request.app, issues, _actor(request, db))
+    audit(db, request, audit_action, target=target, jobs=len(res.jobs), issues=res.issues,
+          skipped=sum(res.skipped.values()), **extra)
+    return _redirect(back, **({"msg": res.summary()} if res.jobs else {"err": res.summary()}))
+
+
+@router.post("/issues/bulk-verify", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
+async def issues_bulk_verify(request: Request, issue_ids: list[int] = Form(default=[]), back: str = Form(""),
+                             db: Session = Depends(get_db)):
+    url = _same_site(back, "/issues")
+    wanted = list(dict.fromkeys(issue_ids))
+    if not wanted:
+        return _redirect(url, err="Select at least one issue to verify.")
+    found = {i.id: i for i in db.scalars(select(Issue).where(Issue.id.in_(wanted)))}
+    issues = [found[i] for i in wanted if i in found]
+    return bulk_verify(request, db, issues, url, "issue.bulk_verify", f"{len(issues)} issue(s)")
 
 
 @router.post("/issues/{issue_id}/status", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])

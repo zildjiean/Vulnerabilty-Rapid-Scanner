@@ -236,3 +236,75 @@ def test_proof_link_opens_a_finding_older_than_the_listed_fifty(env):
     assert "GET /oldest-proof HTTP/1.1" in env.get(f"/issues/{iid}?proof={old_id}").text
     if other is not None:   # a finding of another issue is never shown
         assert env.get(f"/issues/{iid}?proof={other.id}").status_code == 200
+
+
+# ----------------------------------------------------------------- bulk verify
+@pytest.fixture
+def held(env, monkeypatch):
+    started = []   # keep jobs queued; the fake nuclei would finish instantly
+    monkeypatch.setattr(env.app.state.job_runner, "start", lambda job_id, argv, **kw: started.append(job_id))
+    return started
+
+
+def test_bulk_verify_starts_jobs_flashes_and_audits(env, held):
+    ids = seed(env, SPECS)
+    sus = suspected_issue(env)
+    page = env.get("/issues").text
+    assert 'formaction="/issues/bulk-verify"' in page and "Verify selected" in page
+    r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "back": "/issues?view=active",
+                                               "issue_ids": [ids[CVE], ids["exposed-panel"], sus]}, follow_redirects=False)
+    loc = r.headers["location"]
+    assert r.status_code == 303 and loc.startswith("/issues?view=active&msg=")
+    assert "Started+1+job%28s%29+for+1+issue%28s%29" in loc and "1+%28no+template%29" in loc
+    assert "1+%28template+not+indexed%29" in loc
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, ids[CVE]).verify_job_id == held[0]
+        assert json.loads(db.get(Job, held[0]).params_json)["verify_issues"] == [ids[CVE]]
+        a = db.scalar(select(AuditLog).where(AuditLog.action == "issue.bulk_verify"))
+        assert a is not None
+    r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "issue_ids": [ids[CVE]]},
+                 follow_redirects=False)
+    assert "err=" in r.headers["location"] and "already+running" in r.headers["location"] and len(held) == 1
+    r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "back": "//evil.example"},
+                 follow_redirects=False)
+    assert r.headers["location"].startswith("/issues?err=Select")
+
+
+def test_bulk_verify_needs_scan_run_and_csrf(env, held):
+    ids = seed(env, SPECS)
+    r = env.post("/issues/bulk-verify", data={"csrf": "nope", "issue_ids": [ids[CVE]]}, follow_redirects=False)
+    assert r.status_code in (400, 403) and held == []
+    make_user(env, "vera", "viewer")
+    login_as(env, "vera")
+    assert "Verify selected" not in env.get("/issues").text
+    r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "issue_ids": [ids[CVE]]})
+    assert r.status_code == 403 and held == []
+
+
+def test_campaign_verify_all_with_proof(env, held):
+    ids = seed(env, SPECS)
+    from app.campaigns import create_campaign
+    with env.app.state.SessionLocal() as db:
+        c = create_campaign(db, name="PHP UAF", cve_id=CVE, description="", severity="critical", product_pattern="php",
+                            version_constraint="< 8.3.15", attach_templates=False, intel=None, created_by="admin")
+        db.commit()
+        cid = c.id
+    page = env.get(f"/campaigns/{cid}").text
+    assert f'action="/campaigns/{cid}/verify-issues"' in page and "Verify all with proof" in page
+    r = env.post(f"/campaigns/{cid}/verify-issues", data={"csrf": get_csrf(env, f"/campaigns/{cid}")}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith(f"/campaigns/{cid}?msg=Started+1+job")
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, ids[CVE]).verify_job_id == held[0]
+        assert db.scalar(select(AuditLog).where(AuditLog.action == "campaign.verify_issues")) is not None
+        # a closed campaign or one whose issues are all closed hides the button
+        db.get(Issue, ids[CVE]).verify_job_id = None
+        from app.db import Campaign
+        db.get(Campaign, cid).status = "closed"
+        db.commit()
+    assert "Verify all with proof" not in env.get(f"/campaigns/{cid}").text
+    r = env.post(f"/campaigns/{cid}/verify-issues", data={"csrf": get_csrf(env, f"/campaigns/{cid}")}, follow_redirects=False)
+    assert "err=" in r.headers["location"] and len(held) == 1
+    make_user(env, "vera", "viewer")
+    login_as(env, "vera")
+    r = env.post(f"/campaigns/{cid}/verify-issues", data={"csrf": get_csrf(env, f"/campaigns/{cid}")})
+    assert r.status_code == 403

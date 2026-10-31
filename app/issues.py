@@ -227,6 +227,29 @@ def _apply_scope(db: Session, issue: Issue) -> None:
         _event(db, issue, "assigned", None, "", owner.username, body=f"Auto-assigned to the owner of scope {scope.name}")
 
 
+def finding_raw(f: Finding) -> dict:
+    """The finding's nuclei JSON, with the stored columns filled in where the JSON lacks them."""
+    try:
+        raw = json.loads(f.raw_json or "{}")
+    except json.JSONDecodeError:
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    raw.setdefault("template-id", f.template_id)
+    raw.setdefault("host", f.host)
+    raw.setdefault("matched-at", f.matched_at)
+    return raw
+
+
+def finding_on_issue_asset(f: Finding, issue: Issue) -> bool:
+    """Did this finding hit the issue's asset? Same address (or hostname) and, when the issue has one, the same port."""
+    address, port, hostname = asset_from_raw(finding_raw(f))
+    names = {issue.address, issue.hostname} - {""}
+    if address not in names and (not hostname or hostname not in names):
+        return False
+    return not issue.port or port == issue.port
+
+
 def issues_from_findings(db: Session, findings: list[Finding], job=None) -> int:
     """Create or update issues for nuclei findings (info / unknown are skipped). Returns issues created."""
     created = 0
@@ -234,13 +257,7 @@ def issues_from_findings(db: Session, findings: list[Finding], job=None) -> int:
         severity = normalize_severity(f.severity)
         if severity not in ISSUE_SEVERITIES:
             continue
-        try:
-            raw = json.loads(f.raw_json or "{}")
-        except json.JSONDecodeError:
-            raw = {}
-        raw.setdefault("template-id", f.template_id)
-        raw.setdefault("host", f.host)
-        raw.setdefault("matched-at", f.matched_at)
+        raw = finding_raw(f)
         address, port, hostname = asset_from_raw(raw)
         if not address:
             continue

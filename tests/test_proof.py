@@ -240,3 +240,127 @@ def test_not_reproduced_leaves_a_confirmed_issue_confirmed(env):
         assert proof.complete_verify(db, verify_job(db, iid), []) == "not_reproduced"
         db.commit()
     assert get(env, iid).confidence == "confirmed" and confidence_events(env, iid) == []
+
+
+# ----------------------------------------------------------------- bulk verify
+def start_many(client, ids):
+    def _go():
+        with client.app.state.SessionLocal() as db:
+            issues = [db.get(Issue, i) for i in ids]
+            return proof.start_verify_many(db, client.app, issues, actor=None)
+    return client.portal.call(_go)
+
+
+@pytest.fixture
+def held(env, monkeypatch):
+    """Keep started jobs queued (the fake nuclei would finish instantly) and record their ids."""
+    started = []
+    monkeypatch.setattr(env.app.state.job_runner, "start", lambda job_id, argv, **kw: started.append(job_id))
+    return started
+
+
+def php_detect_issue(client, address="192.168.1.10", port="8080"):
+    """A second issue whose template (php-detect) is indexed, on its own asset."""
+    from app.issues import upsert_issue
+    from app.db import utcnow
+    with client.app.state.SessionLocal() as db:
+        issue, _ = upsert_issue(db, address=address, port=port, hostname="", vuln_id="php-detect", cve_id="",
+                                template_id="php-detect", rule_id=None, title="PHP detect", severity="low",
+                                confidence="confirmed", seen_at=utcnow(), source="test", count_sighting=True, reopen=True)
+        db.commit()
+        return issue.id
+
+
+def test_start_verify_many_groups_by_template_and_dedupes_targets(env, held):
+    seed(env, SPECS)
+    seed(env, [(CVE, "critical", "10.0.0.6", "8080", None)])   # same template, another asset
+    detect = php_detect_issue(env)
+    with env.app.state.SessionLocal() as db:
+        cve_issues = list(db.scalars(select(Issue.id).where(Issue.template_id == CVE)))
+    res = start_many(env, cve_issues + [detect])
+    assert len(res.jobs) == 2 and res.issues == len(cve_issues) + 1 and sum(res.skipped.values()) == 0
+    with env.app.state.SessionLocal() as db:
+        by_template = {}
+        for jid in res.jobs:
+            p = json.loads(db.get(Job, jid).params_json)
+            by_template[p["template_ids"][0]] = p
+            assert p["mode"] == "selected" and p["profile"] == "normal" and "verify_issue" not in p
+        assert sorted(by_template) == [CVE, "php-detect"]
+        assert sorted(by_template[CVE]["verify_issues"]) == sorted(cve_issues)
+        assert len(by_template[CVE]["targets"]) == len(set(by_template[CVE]["targets"]))
+        assert by_template["php-detect"]["verify_issues"] == [detect]
+        for iid in cve_issues + [detect]:
+            assert db.get(Issue, iid).verify_job_id in res.jobs
+    assert any(kind == "verify" and "started" in body for kind, body in events(env, detect))
+
+
+def test_start_verify_many_skips_by_reason_and_limit(env, held, monkeypatch):
+    ids = seed(env, SPECS)
+    with env.app.state.SessionLocal() as db:
+        db.add(Rule(name="PHP", product_pattern="php", version_constraint="< 8.3.15", cve_id="CVE-2026-1", severity="high"))
+        db.commit()
+        evaluate_rules(db)
+        db.commit()
+        no_template = db.scalar(select(Issue.id).where(Issue.vuln_id == "CVE-2026-1"))
+    res = start_many(env, [ids[CVE]])
+    assert len(res.jobs) == 1
+    res = start_many(env, [ids[CVE], ids["exposed-panel"], no_template])   # running, not indexed, no template
+    assert res.jobs == [] and res.issues == 0
+    assert res.skipped == {"running": 1, "not_indexed": 1, "no_template": 1}
+    text = res.summary()
+    assert text.startswith("Started 0 job(s) for 0 issue(s); skipped") and "1 (already running)" in text
+    assert "1 (no template)" in text and "1 (template not indexed)" in text
+    monkeypatch.setattr(proof, "BULK_LIMIT", 1)
+    with env.app.state.SessionLocal() as db:
+        db.get(Issue, ids[CVE]).verify_job_id = None
+        db.commit()
+    res = start_many(env, [ids[CVE], ids["exposed-panel"]])
+    assert len(res.jobs) == 1 and res.skipped == {"over_limit": 1} and "1 (over limit)" in res.summary()
+
+
+def test_complete_verify_many_matches_each_issue_on_its_own_asset(env):
+    ids = seed(env, SPECS)
+    seed(env, [(CVE, "critical", "10.0.0.6", "8443", None)])   # same template, another asset
+    with env.app.state.SessionLocal() as db:
+        a = ids[CVE]
+        b = db.scalar(select(Issue.id).where(Issue.template_id == CVE, Issue.address == "10.0.0.6"))
+        db.get(Issue, a).confidence = "confirmed"
+        db.get(Issue, b).confidence, db.get(Issue, b).verified_finding_id = "verified", None
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issues": [a, b]}))
+        db.add(job)
+        db.flush()
+        db.get(Issue, a).verify_job_id = job.id
+        db.get(Issue, b).verify_job_id = job.id
+        # the job found the template on asset a only
+        f = Finding(job_id=job.id, template_id=CVE, template_name="PHP", severity="critical", issue_id=None,
+                    host="http://192.168.1.10:8080", matched_at="http://192.168.1.10:8080/", raw_json="{}")
+        db.add(f)
+        db.flush()
+        out = proof.complete_verify_many(db, job, [])
+        db.commit()
+        fid, jid = f.id, job.id
+    assert out == {"reproduced": 1, "not_reproduced": 1}
+    ia, ib = get(env, a), get(env, b)
+    assert ia.verify_result == "reproduced" and ia.confidence == "verified" and ia.verified_finding_id == fid
+    assert ia.verify_job_id is None and ia.last_verified_at is not None
+    assert ib.verify_result == "not_reproduced" and ib.confidence == "confirmed" and ib.verify_job_id is None
+    assert any(f"job #{jid} did not reproduce" in body for kind, body in events(env, b) if kind == "verify")
+
+
+def test_complete_verify_many_inconclusive_and_stale_and_end_to_end(env):
+    ids = seed(env, SPECS)
+    with env.app.state.SessionLocal() as db:
+        job = Job(kind="nuclei", status="done", params_json=json.dumps({"verify_issues": [ids[CVE], ids["exposed-panel"]]}))
+        db.add(job)
+        db.flush()
+        db.get(Issue, ids[CVE]).verify_job_id = job.id     # exposed-panel's verify_job_id is not this job: ignored
+        assert proof.complete_verify_many(db, job, ["Target dropped"]) == {"inconclusive": 1}
+        db.commit()
+    assert get(env, ids[CVE]).verify_result == "inconclusive" and get(env, ids["exposed-panel"]).verify_result == ""
+    # end to end through the nuclei completion hook: the fake nuclei reports CVE on 192.168.1.10:8080
+    res = start_many(env, [ids[CVE]])
+    wait_job(env, res.jobs[0])
+    i = get(env, ids[CVE])
+    assert i.verify_result == "reproduced" and i.confidence == "verified" and i.verify_job_id is None
+    with env.app.state.SessionLocal() as db:
+        assert json.loads(db.get(Job, res.jobs[0]).params_json)["result"]["verify"] == {"reproduced": 1}

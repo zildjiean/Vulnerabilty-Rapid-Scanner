@@ -16,7 +16,7 @@ from ..db import Campaign, CampaignTemplate, Job, Rule, WatchHit, utcnow
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..intel import enrich, http_get_json, normalize_cve
 from ..risk import intel_for
-from ..issues import ISSUE_SEVERITIES
+from ..issues import CLOSED, ISSUE_SEVERITIES
 from ..render import render
 from ..scanners.nuclei_runner import DEFAULT_PROFILE, PROFILES, profile_flags, validate_template_paths
 from ..validation import parse_nuclei_targets
@@ -118,7 +118,12 @@ def _detail(request: Request, db: Session, c: Campaign, status_code: int = 200, 
                   issues=issues, p=camp.progress(issues), rules=rules, suggestions=camp.suggested_templates(db, c),
                   jobs=jobs, job_summary=job_summary, targets=camp.verify_targets(db, c), profiles=PROFILES,
                   default_profile=DEFAULT_PROFILE, refs=camp.references(c),
-                  cve_intel=intel_for(db, c.cve_id))
+                  cve_intel=intel_for(db, c.cve_id), proof_candidates=len(_proof_candidates(issues)))
+
+
+def _proof_candidates(issues: list) -> list:
+    """Open campaign issues that have a verification template (what Verify all with proof runs)."""
+    return [i for i in issues if i.status not in CLOSED and i.template_id]
 
 
 @router.get("/campaigns/{cid}")
@@ -158,6 +163,19 @@ async def campaign_verify(request: Request, cid: int, profile: str = Form(DEFAUL
     except ValueError as e:
         return _detail(request, db, c, status_code=400, error=str(e))
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
+
+
+@router.post("/campaigns/{cid}/verify-issues", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
+async def campaign_verify_issues(request: Request, cid: int, db: Session = Depends(get_db)):
+    """Verify now with proof for every open campaign issue that has a template: one job per template."""
+    from .issues import _redirect, bulk_verify
+    c = _get(db, cid)
+    if c.status != "active":
+        return _redirect(f"/campaigns/{cid}", err="Only an active campaign can verify its issues.")
+    issues = [i for i in camp.campaign_issues(db, c) if i.status not in CLOSED]
+    if not issues:
+        return _redirect(f"/campaigns/{cid}", err="This campaign has no open issues to verify.")
+    return bulk_verify(request, db, issues, f"/campaigns/{cid}", "campaign.verify_issues", c.name, campaign_id=c.id)
 
 
 @router.post("/campaigns/{cid}/rules", dependencies=MANAGE)
