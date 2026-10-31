@@ -96,7 +96,7 @@ def _pick_address(host_el: ET.Element) -> str:
 
 
 def merge_hosts(hosts: list[HostResult]) -> list[HostResult]:
-    """One HostResult per address (nmap repeats a host when several targets resolve to it): union of ports, first hostname."""
+    """One HostResult per address (nmap repeats a host when several targets resolve to it): union of ports (fingerprinted copy wins), first hostname."""
     merged: dict[str, HostResult] = {}
     for h in hosts:
         m = merged.get(h.address)
@@ -104,6 +104,12 @@ def merge_hosts(hosts: list[HostResult]) -> list[HostResult]:
             merged[h.address] = HostResult(address=h.address, hostname=h.hostname, ports=list(h.ports))
             continue
         m.hostname = m.hostname or h.hostname
-        have = {(p.port, p.protocol) for p in m.ports}
-        m.ports.extend(p for p in h.ports if (p.port, p.protocol) not in have)
+        have = {(p.port, p.protocol): i for i, p in enumerate(m.ports)}
+        for p in h.ports:
+            i = have.get((p.port, p.protocol))
+            if i is None:
+                have[(p.port, p.protocol)] = len(m.ports)
+                m.ports.append(p)
+            elif not (m.ports[i].product or m.ports[i].version) and (p.product or p.version):
+                m.ports[i] = p  # prefer the copy nmap could fingerprint
     return list(merged.values())

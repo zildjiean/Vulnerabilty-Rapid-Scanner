@@ -44,6 +44,9 @@ once per job. Severity = highest of its changes (medium if any host_new/port_ope
 Message title `[SURFACE] nmap job #N: 2 new hosts, 3 opened, 1 closed, 1 changed, 0 gone`
 (zero parts omitted), text lists up to 10 changes (`+ 192.0.2.5:8080/tcp http nginx 1.25`),
 url `/changes?job=N`, fields with counts, data `{"job_id": N, "counts": {...}}`.
+**Baseline:** if the `hosts` table was empty before the ingest (first scan, or the first scan after
+Inventory → Clear / deleting every host), the changes are recorded but not notified; the log line says
+`(baseline, not notified)`.
 A failure in notification must not fail the ingest (wrap like other callers).
 `on_nmap_complete` log line gains `, N surface change(s)`; `result` params gain `"changes": N`.
 

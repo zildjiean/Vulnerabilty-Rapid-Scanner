@@ -62,3 +62,14 @@ def test_scaninfo_full_range_is_capped():
 
 def test_scaninfo_absent():
     assert parse_nmap_scaninfo(FIXTURE.read_text()) == {}
+
+
+def test_merge_hosts_prefers_fingerprinted_duplicate_port():
+    from app.parsers.nmap_xml import HostResult, PortResult, merge_hosts
+    a = HostResult(address="192.0.2.1", ports=[PortResult(port=22, protocol="tcp", state="open")])
+    b = HostResult(address="192.0.2.1", hostname="h.example.com",
+                   ports=[PortResult(port=22, protocol="tcp", state="open", product="OpenSSH", version="9.6p1"),
+                          PortResult(port=80, protocol="tcp", state="open")])
+    (m,) = merge_hosts([a, b])
+    assert m.hostname == "h.example.com"
+    assert [(p.port, p.product) for p in m.ports] == [(22, "OpenSSH"), (80, "")]
