@@ -19,7 +19,7 @@
 </div>
 <div class="card"><div class="table-wrap"><table class="data">
   <thead><tr><th>Asset</th><th>Severity</th><th>Confidence</th><th>Status</th><th>Assignee</th><th>First seen</th><th>Resolved</th></tr></thead>
-  <tbody>{% for i in issues %}<tr><td class="cell-mono small">{{ i.asset }}{% if i.hostname %} {{ i.hostname }}{% endif %}</td><td><span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td><td>{{ confidence_badge(i.confidence, i) }}</td><td>{{ status_badge(i.status) }}</td><td class="small">{{ i.assignee.username if i.assignee else '—' }}</td><td class="small num">{{ i.first_seen.strftime('%Y-%m-%d') }}</td><td class="small num">{{ i.resolved_at.strftime('%Y-%m-%d') if i.resolved_at else '—' }}</td></tr>
+  <tbody>{% for i in issues %}<tr><td class="cell-mono small">{{ i.asset }}{% if i.hostname %} {{ i.hostname }}{% endif %}</td><td><span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td><td>{{ confidence_badge(i.confidence, i, link=False) }}</td><td>{{ status_badge(i.status) }}</td><td class="small">{{ i.assignee.username if i.assignee else '—' }}</td><td class="small num">{{ i.first_seen.strftime('%Y-%m-%d') }}</td><td class="small num">{{ i.resolved_at.strftime('%Y-%m-%d') if i.resolved_at else '—' }}</td></tr>
   {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><b>No exposed assets</b></div></td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% endblock %}

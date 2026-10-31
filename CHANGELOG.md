@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-31
+
+### Added
+- **Verified** confidence level: when *Verify now* reproduces a vulnerability the issue becomes *Verified*
+  (Suspected → Confirmed → Verified) and its badge links to the proof (request/response) that verified it. Shown in
+  the Issues list, issue page, campaign exposure table and campaign report; filterable, in KPIs, exports and the API.
+  A later verification that does not reproduce it moves it back to Confirmed. Issues reproduced before this release
+  are upgraded on startup.
+
+### Changed
+- The closed lifecycle status is displayed as **Fix verified** (stored value `verified` is unchanged), so "Verified"
+  has one meaning in the UI.
+- Marking a Verified issue Fixed triggers automatic re-verification, as for Confirmed issues.
+
 ## [1.1.0] - 2026-10-31
 
 ### Added
@@ -122,7 +136,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/releases/tag/v0.1.0

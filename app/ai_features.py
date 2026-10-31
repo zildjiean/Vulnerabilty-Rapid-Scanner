@@ -140,7 +140,9 @@ def _service(db: Session, issue: Issue) -> Service | None:
 
 def issue_context(db: Session, issue: Issue, evidence: bool = True) -> str:
     from .campaigns import campaigns_for_issue
-    lines = [f"Vulnerability: {issue.vuln_id} - {issue.title}", f"Severity: {issue.severity}; confidence: {issue.confidence};"
+    conf = {"suspected": "suspected (version match only, not scanned)", "confirmed": "confirmed (matched by a nuclei scan)",
+            "verified": "verified (reproduced on demand, request/response proof stored)"}.get(issue.confidence, issue.confidence)
+    lines = [f"Vulnerability: {issue.vuln_id} - {issue.title}", f"Severity: {issue.severity}; confidence: {conf};"
              f" status: {issue.status}", f"Asset: {issue.asset}" + (f" ({issue.hostname})" if issue.hostname else "")]
     svc = _service(db, issue)
     if svc:

@@ -215,4 +215,5 @@ def test_progress_counts_verified_issues_and_links_the_badge(env):
     page = env.get(f"/campaigns/{cid}").text
     assert "0 confirmed · 1 verified · 0 suspected" in page
     assert f'class="badge conf-verified" href="/issues/{iid}#proof"' in page
-    assert f'class="badge conf-verified" href="/issues/{iid}#proof"' in env.get(f"/reports/campaigns/{cid}").text
+    report = env.get(f"/reports/campaigns/{cid}").text   # printable: badge without an in-app link
+    assert '<span class="badge conf-verified"' in report and f'href="/issues/{iid}#proof"' not in report

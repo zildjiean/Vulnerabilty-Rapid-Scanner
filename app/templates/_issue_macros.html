@@ -1,9 +1,12 @@
 {% macro status_badge(s) -%}<span class="status is-{{ s }}">{{ issue_status_labels.get(s, s) }}</span>{%- endmacro %}
-{% macro confidence_badge(c, issue=None) -%}
-{% if c == 'verified' %}{% set label %}<svg class="icon sm"><use href="#i-check-circle"/></svg>{{ issue_confidence_labels.get(c, c) }}{% endset %}
-{% if issue %}<a class="badge conf-verified" href="/issues/{{ issue.id }}{% if issue.verified_finding_id %}?proof={{ issue.verified_finding_id }}{% endif %}#proof" title="Reproduced by Verify now; proof captured">{{ label }}</a>
-{% else %}<span class="badge conf-verified" title="Reproduced by Verify now; proof captured">{{ label }}</span>{% endif %}
-{% else %}<span class="badge conf-{{ c }}" title="{{ 'Seen by nuclei' if c == 'confirmed' else 'Version rule match, not yet verified by a scan' }}">{{ issue_confidence_labels.get(c, c) }}</span>{% endif %}
+{% macro confidence_badge(c, issue=None, link=True) -%}
+{%- if c == 'verified' -%}
+{%- set label %}<svg class="icon sm"><use href="#i-check-circle"/></svg>{{ issue_confidence_labels.get(c, c) }}{% endset -%}
+{%- set tip = 'Reproduced by Verify now before the fix; proof kept' if issue and issue.status in ('verified', 'false_positive', 'accepted_risk') else 'Reproduced by Verify now; proof captured' -%}
+{%- if issue and link -%}<a class="badge conf-verified" href="/issues/{{ issue.id }}{% if issue.verified_finding_id %}?proof={{ issue.verified_finding_id }}{% endif %}#proof" title="{{ tip }}">{{ label }}</a>
+{%- else -%}<span class="badge conf-verified" title="{{ tip }}">{{ label }}</span>{%- endif -%}
+{%- else -%}<span class="badge conf-{{ c }}" title="{{ 'Seen by nuclei' if c == 'confirmed' else 'Version rule match, not yet verified by a scan' }}">{{ issue_confidence_labels.get(c, c) }}</span>
+{%- endif -%}
 {%- endmacro %}
 {% macro due_cell(i) -%}
 {% if i.due_at and i.status in ('new','triaged','in_progress') %}

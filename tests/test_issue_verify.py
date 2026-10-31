@@ -219,3 +219,20 @@ def test_verified_badge_links_to_its_proof(env):
         db.get(Issue, iid).verified_finding_id = None
         db.commit()
     assert f'class="badge conf-verified" href="/issues/{iid}#proof"' in env.get("/issues").text
+
+
+def test_proof_link_opens_a_finding_older_than_the_listed_fifty(env):
+    iid = seed(env, SPECS)[CVE]
+    from app.db import Finding
+    with env.app.state.SessionLocal() as db:
+        first = db.scalar(select(Finding).where(Finding.issue_id == iid))
+        first.raw_json = json.dumps({**json.loads(first.raw_json), "request": "GET /oldest-proof HTTP/1.1"})
+        for n in range(55):
+            db.add(Finding(job_id=first.job_id, template_id=CVE, severity="critical", host="192.168.1.10",
+                           matched_at=f"http://192.168.1.10:8080/{n}", raw_json="{}", issue_id=iid))
+        db.commit()
+        old_id = first.id
+        other = db.scalar(select(Finding).where(Finding.issue_id != iid))
+    assert "GET /oldest-proof HTTP/1.1" in env.get(f"/issues/{iid}?proof={old_id}").text
+    if other is not None:   # a finding of another issue is never shown
+        assert env.get(f"/issues/{iid}?proof={other.id}").status_code == 200

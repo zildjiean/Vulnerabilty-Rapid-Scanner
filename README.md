@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-1.1.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.2.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -24,7 +24,7 @@ Everything runs in one container. No external services, no accounts, works offli
   groups (`http/cves/2026`, `network`, …) or all templates, plus tag and severity filters.
 - **Issues** that turn findings into work: one issue per vulnerability per asset, deduplicated across scans.
   Version-rule matches open *suspected* issues instantly; nuclei results open or confirm them. Lifecycle
-  New → Triaged → In progress → Fixed → Verified (or False positive / Accepted risk with a reason), owners,
+  New → Triaged → In progress → Fixed → Fix verified (or False positive / Accepted risk with a reason), owners,
   SLA due dates (critical 3, high 7, medium 30, low 90 days by default), timeline and comments, bulk triage.
   Fixed issues reopen when seen again; suspected issues close themselves when a re-scan shows a patched version.
 - **Findings** view across jobs with severity ordering and search; every finding links to its issue.
@@ -47,10 +47,11 @@ Everything runs in one container. No external services, no accounts, works offli
   diagnoses failed scans. It only suggests: people decide. IPs and host names are replaced by `HOST-n` tokens before
   leaving the scanner (per-provider switch), keys are encrypted, and every call is audited with token usage.
 - **Automatic re-verification**: when a confirmed issue is marked fixed, its template is re-run against the asset
-  after a short delay; not found → verified, found → reopened, incomplete scan → stays fixed with a note.
+  after a short delay; not found → fix verified, found → reopened, incomplete scan → stays fixed with a note.
 - **One-click proof**: *Verify now* re-runs an issue's template against its asset and the Proof card shows the exact
   request/response nuclei matched on (plus a curl command to reproduce it by hand). Issues raised by a version rule
-  can link or AI-draft a verification template first.
+  can link or AI-draft a verification template first. A reproduced issue is marked **Verified** (confidence
+  levels: Suspected → Confirmed → Verified) with a badge that links straight to its proof.
 - **Reports**: printable executive summary (open exposure, overdue, MTTR, SLA compliance, weekly trend, riskiest
   assets, scopes, campaigns), campaign and scope reports (Save as PDF from the browser), CSV / JSON issue exports.
 - **REST API** (`/api/v1`) with hashed, role-scoped, expiring API keys: issues, assets, campaigns, scans and jobs.
