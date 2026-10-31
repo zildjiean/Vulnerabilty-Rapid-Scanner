@@ -469,3 +469,17 @@ input[type=checkbox],input[type=radio]{width:18px;height:18px;accent-color:var(-
   .user-chip{padding:3px}
   .topbar{gap:8px;padding:0 12px}
 }
+
+/* ---------- proof in reports ---------- */
+.report-toggle{margin:0 0 12px}
+.report-evidence{margin-top:16px}
+.report-evidence-item{border-top:1px solid var(--border);padding-top:12px}
+.report-evidence-item:first-child{border-top:0;padding-top:0}
+.report-evidence-item h3{font-size:14.5px;margin:0 0 2px}
+.report-proof-part{margin-top:8px}
+pre.code.report-proof{white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;margin-top:4px}
+@media print{
+  pre.code.report-proof{background:#fff!important;border-color:#ccc;font-size:10.5px;max-height:none;overflow:visible}
+  .report-evidence-item{break-inside:auto}
+  .card.report-evidence,.card.report-proof-card{break-inside:auto!important}
+}

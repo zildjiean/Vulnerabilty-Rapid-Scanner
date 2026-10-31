@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_issue_macros.html" import status_badge, confidence_badge, due_cell %}
+{% from "_report_proof.html" import proof_block %}
+{% set section = "Reports" %}
+{% set page_title = "Evidence report: #" ~ issue.id ~ " " ~ (issue.title or issue.vuln_id) %}
+{% set page_subtitle = "Generated " ~ generated.strftime('%Y-%m-%d %H:%M') ~ " UTC" %}
+{% block page_actions %}<a class="btn ghost no-print" href="/issues/{{ issue.id }}">Open issue</a><button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>Print / Save as PDF</button>{% endblock %}
+{% block content %}
+<div class="card mb"><div class="card-body row center" style="gap:10px">
+  <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>
+  {{ status_badge(issue.status) }} {{ confidence_badge(issue.confidence, issue, link=False) }}
+  {% if issue.verify_result %}<span class="status verify-{{ issue.verify_result }}">{{ verify_labels.get(issue.verify_result, issue.verify_result) }}{% if issue.last_verified_at %} · {{ issue.last_verified_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}</span>{% endif %}
+  <span class="spacer" style="flex:1"></span>
+  <span class="small text-2">Evidence report for <b>{{ issue.vuln_id }}</b> on <span class="cell-mono">{{ issue.asset }}</span></span>
+</div></div>
+<div class="grid grid-2 mb">
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>Details</h2></div>
+    <div class="card-body">
+      <dl class="kv">
+        <dt>Vulnerability</dt><dd class="cell-mono">{{ issue.vuln_id }}{% if issue.cve_id and issue.cve_id != issue.vuln_id %} · {{ issue.cve_id }}{% endif %}</dd>
+        <dt>Title</dt><dd>{{ issue.title or issue.vuln_id }}</dd>
+        <dt>Asset</dt><dd class="cell-mono">{{ issue.asset }}{% if issue.hostname and issue.hostname != issue.address %} · {{ issue.hostname }}{% endif %}</dd>
+        <dt>Scope</dt><dd>{% if issue.scope %}{{ issue.scope.name }} <span class="badge crit-{{ issue.scope.criticality }}">{{ issue.scope.criticality }} criticality</span>{% else %}<span class="muted">none</span>{% endif %}</dd>
+        <dt>Owner</dt><dd>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else 'unassigned' }}</dd>
+        <dt>Status</dt><dd>{{ status_badge(issue.status) }}</dd>
+        <dt>Due</dt><dd>{{ due_cell(issue) }}</dd>
+        {% if campaigns %}<dt>Campaign</dt><dd>{% for cp in campaigns %}{{ cp.name }}{{ ', ' if not loop.last }}{% endfor %}</dd>{% endif %}
+        {% if issue.template_id %}<dt>Nuclei template</dt><dd class="cell-mono">{{ issue.template_id }}</dd>{% endif %}
+        <dt>First seen</dt><dd class="num">{{ issue.first_seen.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
+        <dt>Last seen</dt><dd class="num">{{ issue.last_seen.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
+      </dl>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Risk</h2>{% if risk.intel_updated %}<span class="small text-2">Intel updated {{ risk.intel_updated.strftime('%Y-%m-%d %H:%M') }} UTC</span>{% endif %}</div>
+    <div class="card-body stack">
+      <div class="risk-head"><span class="risk-big risk-{{ risk.band }}">{{ risk.total }}</span><span class="badge risk risk-{{ risk.band }}">{{ risk.band }}</span><span class="small text-2">of 100</span></div>
+      <table class="risk-parts" aria-label="Risk score breakdown"><tbody>
+        {% for label, points, detail in risk.parts %}<tr><td>{{ label }}<div class="small text-2">{{ detail }}</div></td><td class="num">+{{ points }}</td></tr>{% endfor %}
+      </tbody></table>
+      <dl class="kv">
+        <dt>CVSS</dt><dd>{% if risk.cvss_score is not none %}<span class="num">{{ risk.cvss_score }}</span>{% else %}<span class="muted">{{ 'unknown' if issue.cve_id else 'no CVE' }}</span>{% endif %}</dd>
+        <dt>EPSS</dt><dd>{% if risk.epss is not none %}<span class="num">{{ risk.epss_text }}</span>{% if risk.epss_top %} <span class="text-2">({{ risk.epss_top }})</span>{% endif %}{% else %}<span class="muted">{{ 'not scored yet' if issue.cve_id else 'no CVE' }}</span>{% endif %}</dd>
+        <dt>CISA KEV</dt><dd>{% if risk.kev %}<span class="badge kev">Known exploited</span>{% if risk.kev_ransomware %} <span class="badge sev-critical">Used by ransomware</span>{% endif %}{% if risk.kev_due %}<div class="small text-2">federal due date {{ risk.kev_due }}</div>{% endif %}{% else %}<span class="muted">not listed</span>{% endif %}</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+<section class="card mb report-proof-card" id="proof">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Proof</h2>{% if proof and issue.verified_finding_id == proof.finding_id %}<span class="small text-2">from the verification that reproduced it</span>{% elif proof %}<span class="small text-2">newest scan finding</span>{% endif %}</div>
+  <div class="card-body stack">
+    {% if proof %}{{ proof_block(proof, issue) }}{% else %}<div class="empty"><b>No scan evidence yet</b>Run Verify now on the issue to capture the request and response.</div>{% endif %}
+  </div>
+</section>
+<section class="card" id="timeline">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Timeline</h2><span class="small text-2">last {{ events|length }} event(s)</span></div>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th>When (UTC)</th><th>Who</th><th>Event</th></tr></thead>
+    <tbody>{% for e in events %}<tr><td class="small num">{{ e.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td class="small">{{ e.username }}</td><td class="small">{% if e.kind in ('status', 'reopened', 'auto_fixed') %}{{ issue_status_labels.get(e.from_value, e.from_value) }} → {{ issue_status_labels.get(e.to_value, e.to_value) }}{% if e.body %} — {% endif %}{% elif e.kind == 'confirmed' and 'verified' in (e.from_value, e.to_value) %}{{ issue_confidence_labels.get(e.from_value, e.from_value) }} → {{ issue_confidence_labels.get(e.to_value, e.to_value) }} — {% elif e.kind == 'assigned' %}Assigned to {{ e.to_value or 'nobody' }}{% if e.body %} — {% endif %}{% elif e.kind == 'severity' %}Severity {{ e.from_value }} → {{ e.to_value }}{% if e.body %} — {% endif %}{% endif %}{{ e.body }}</td></tr>
+    {% else %}<tr data-empty="1"><td colspan="3"><div class="empty"><b>No events</b></div></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

@@ -5,7 +5,7 @@
 {% set page_title = issue.title or issue.vuln_id %}
 {% set page_subtitle = issue.vuln_id ~ " on " ~ issue.asset ~ ((" (" ~ issue.hostname ~ ")") if issue.hostname and issue.hostname != issue.address else "") %}
 {% set manage = can('issues.manage') %}
-{% block page_actions %}{% if can('scan.run') and issue.template_id and not issue.verify_job_id %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="btn primary" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>{% endif %}<a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
+{% block page_actions %}{% if can('scan.run') and issue.template_id and not issue.verify_job_id %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="btn primary" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>{% endif %}<a class="btn ghost" href="/reports/issues/{{ issue.id }}" title="Printable evidence report: risk, timeline and the full request/response"><svg class="icon"><use href="#i-file"/></svg>Print proof</a><a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
 {% block content %}
 <div class="issue-head card mb"><div class="card-body row center" style="gap:10px">
   <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="Changed manually; scans no longer raise it">(manual)</span>{% endif %}
@@ -63,9 +63,10 @@
         {% if proof.has_http %}
         {% for label, part in [('Request', proof.request), ('Response', proof.response)] if part %}
         <details class="proof"{{ ' open' if label == 'Request' }}>
-          <summary>{{ label }} <span class="small text-2">({{ (part.text|length) + (part.rest|length) }} chars)</span></summary>
+          <summary>{{ label }} <span class="small text-2">({{ (part.text|length) + (part.rest|length) + part.omitted }} chars)</span></summary>
           <pre class="code proof-text">{{ part.text }}<span class="proof-rest" hidden>{{ part.rest }}</span></pre>
           {% if part.rest %}<button type="button" class="sm ghost" data-proof-more>Show full {{ label|lower }}</button>{% endif %}
+          {% if part.omitted %}<div class="small text-2">… {{ part.omitted }} more characters not shown</div>{% endif %}
         </details>
         {% endfor %}
         {% else %}<p class="small text-2">nuclei did not record a request/response for this template type ({{ proof.type or 'unknown' }}); the matched location above is the evidence.</p>{% endif %}

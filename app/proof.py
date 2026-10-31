@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,12 +10,16 @@ from sqlalchemy.orm import Session
 from .db import Finding, Issue, IssueEvent, Job, TemplateIndex, utcnow
 
 PROOF_LIMIT = 4000   # characters shown before "Show full"
+REPORT_FULL_LIMIT = 200_000   # characters of a request / response kept at all on the issue page and report
 VERIFY_LABELS = {"reproduced": "reproduced", "not_reproduced": "not reproduced", "inconclusive": "inconclusive"}
 
 
 def _part(value) -> dict | None:
     text = str(value or "")
-    return {"text": text[:PROOF_LIMIT], "rest": text[PROOF_LIMIT:]} if text else None
+    if not text:
+        return None
+    return {"text": text[:PROOF_LIMIT], "rest": text[PROOF_LIMIT:REPORT_FULL_LIMIT],
+            "omitted": max(0, len(text) - REPORT_FULL_LIMIT)}
 
 
 def proof_from_finding(finding: Finding | None) -> dict | None:
@@ -77,6 +82,82 @@ def start_verify(db: Session, app, issue: Issue, actor) -> Job:
     return job
 
 
+BULK_LIMIT = 200   # issues per bulk request
+SKIP_LABELS = {"no_template": "no template", "not_indexed": "template not indexed", "running": "already running",
+               "over_limit": "over limit"}
+
+
+@dataclass
+class BulkResult:
+    jobs: list[int] = field(default_factory=list)
+    issues: int = 0
+    skipped: dict[str, int] = field(default_factory=dict)
+
+    def summary(self) -> str:
+        text = f"Started {len(self.jobs)} job(s) for {self.issues} issue(s)"
+        parts = [f"{n} ({SKIP_LABELS[k]})" for k, n in self.skipped.items() if n]
+        return text + ("; skipped " + ", ".join(parts) if parts else "") + "."
+
+
+def start_verify_many(db: Session, app, issues: list[Issue], actor) -> BulkResult:
+    """Verify many issues at once: one nuclei job per template, run against each issue's asset.
+    Must run inside the event loop (async route or portal), like start_verify."""
+    from .reverify import issue_target
+    from .routers.nuclei import launch_nuclei
+    from .scanners.nuclei_runner import PROFILES
+    res = BulkResult()
+
+    def skip(reason: str) -> None:
+        res.skipped[reason] = res.skipped.get(reason, 0) + 1
+
+    paths: dict[str, str | None] = {}
+    by_path: dict[str, list[Issue]] = {}
+    seen: set[int] = set()
+    eligible = 0
+    for issue in issues:
+        if issue.id in seen:
+            continue
+        seen.add(issue.id)
+        if not issue.template_id:
+            skip("no_template")
+            continue
+        if live_verify_job(db, issue) is not None:
+            skip("running")
+            continue
+        if issue.template_id not in paths:
+            paths[issue.template_id] = db.scalar(select(TemplateIndex.path).where(
+                TemplateIndex.template_id == issue.template_id).limit(1))
+        path = paths[issue.template_id]
+        if path is None:
+            skip("not_indexed")
+        elif eligible >= BULK_LIMIT:   # the limit counts issues that would really be scanned
+            skip("over_limit")
+        else:
+            eligible += 1
+            by_path.setdefault(path, []).append(issue)
+    prof = PROFILES["normal"]
+    for path, group in by_path.items():
+        targets: list[str] = []
+        target_of: dict[int, str] = {}
+        for issue in group:
+            target_of[issue.id] = issue_target(db, issue)
+            if target_of[issue.id] not in targets:
+                targets.append(target_of[issue.id])
+        params = {"targets": targets, "template_ids": [group[0].template_id], "mode": "selected", "profile": "normal",
+                  "verify_issues": [i.id for i in group],
+                  "verify_targets": {str(i.id): target_of[i.id] for i in group}}
+        job = launch_nuclei(db, app.state.settings, app.state.job_runner, targets, [path], params,
+                            rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
+        for issue in group:
+            issue.verify_job_id = job.id
+            _event(db, issue, f"Verification scan started: job #{job.id} against {target_of[issue.id]} "
+                              f"(bulk, {len(group)} issue(s)).", actor)
+        res.jobs.append(job.id)
+        res.issues += len(group)
+    db.commit()
+    return res
+
+
 def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
     """Called after a nuclei job's findings were ingested. Returns the verify_result written, or "" when not ours."""
     try:
@@ -90,6 +171,39 @@ def complete_verify(db: Session, job: Job, warnings: list[str]) -> str:
     # Matching on issue_id alone would miss info templates: issues_from_findings skips them and never links them.
     finding = db.scalar(select(Finding).where(Finding.job_id == job.id, Finding.template_id == issue.template_id)
                         .order_by(Finding.id.desc()).limit(1))
+    return _record_result(db, job, issue, finding, warnings)
+
+
+def complete_verify_many(db: Session, job: Job, warnings: list[str]) -> dict[str, int]:
+    """The bulk counterpart: one job verified several issues of one template. Returns {verify_result: count}.
+
+    A finding counts for an issue only when ingest linked it to that issue. Unlinked findings (info templates, which
+    issues_from_findings skips) count when they hit the scan target started for that issue."""
+    from .issues import finding_hits_target
+    try:
+        params = json.loads(job.params_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(params, dict):
+        return {}
+    ids = [i for i in params.get("verify_issues") or [] if isinstance(i, int)]
+    targets = params.get("verify_targets") if isinstance(params.get("verify_targets"), dict) else {}
+    counts: dict[str, int] = {}
+    for issue in db.scalars(select(Issue).where(Issue.id.in_(ids)).order_by(Issue.id)) if ids else []:
+        if issue.verify_job_id != job.id:
+            continue
+        findings = list(db.scalars(select(Finding).where(
+            Finding.job_id == job.id, Finding.template_id == issue.template_id).order_by(Finding.id.desc())))
+        target = str(targets.get(str(issue.id)) or "")
+        finding = next((f for f in findings if f.issue_id == issue.id), None) or next(
+            (f for f in findings if f.issue_id is None and target and finding_hits_target(f, target)), None)
+        result = _record_result(db, job, issue, finding, warnings)
+        counts[result] = counts.get(result, 0) + 1
+    return counts
+
+
+def _record_result(db: Session, job: Job, issue: Issue, finding: Finding | None, warnings: list[str]) -> str:
+    """Write reproduced / not_reproduced / inconclusive for one issue of a finished verification job."""
     from .issues import _event as issue_event, _set_status
     if finding is not None:
         result = "reproduced"

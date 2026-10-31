@@ -217,6 +217,9 @@ def on_nuclei_complete(db: Session, job: Job, output: str) -> str:
     if params.get("verify_issue"):
         from ..proof import complete_verify
         params["result"]["verify"] = complete_verify(db, job, warnings)
+    if params.get("verify_issues"):
+        from ..proof import complete_verify_many
+        params["result"]["verify"] = complete_verify_many(db, job, warnings)
     job.params_json = json.dumps(params)
     issues_note = f" {new_issues} new issue(s) opened." if new_issues else ""
     if warnings:

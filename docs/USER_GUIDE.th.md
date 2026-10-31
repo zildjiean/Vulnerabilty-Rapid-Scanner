@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.4.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.5.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -205,7 +205,15 @@ New → Triaged → In progress → Fixed → Fix verified
   **Link template** หรือกด **Draft verification template with AI** → ตรวจ YAML → **Save & run as proof**
 - ถ้าโมเดล AI ปฏิเสธ หน้าจอจะขึ้นข้อความภาษาอังกฤษแนะนำให้เปลี่ยน provider/model ที่ **System → AI**
   แล้วลองใหม่ (บางโมเดลไม่ยอมเขียน template ตรวจช่องโหว่แม้เป็นการทดสอบระบบของตัวเอง)
-- ต้องมีสิทธิ์ `scan.run` จึงเห็นปุ่ม Play; viewer เห็น Proof ได้แต่สั่งสแกนไม่ได้
+- **ตรวจหลาย issue พร้อมกัน**: ในหน้า Issues ติ๊กเลือก issue แล้วกด **Verify selected** ระบบจะรวม issue ที่ใช้
+  template เดียวกันเป็น nuclei job เดียว (หนึ่ง job ต่อหนึ่ง template) ยิงไปที่ asset ของแต่ละ issue ครั้งละไม่เกิน
+  200 issue ข้อความด้านบนจะบอกว่าเริ่มกี่ job กี่ issue และข้ามกี่ตัวเพราะอะไร (ไม่มี template, template ไม่อยู่ใน
+  index, กำลังตรวจอยู่แล้ว, เกิน 200) ผลของแต่ละ issue นับเฉพาะ finding ที่เจอบน asset ของ issue นั้นเอง
+- หน้า Campaign ที่ active และมี issue เปิดอยู่ที่มี template มีการ์ด **Verify issues with proof** กด
+  **Verify all with proof** เพื่อตรวจ issue ที่เปิดอยู่ทั้งหมดของ campaign แบบเดียวกัน (การ์ด *Verify with nuclei*
+  เดิมที่รัน template ที่แนบกับ campaign และ extra targets ยังใช้ได้เหมือนเดิม)
+- ปุ่ม **Print proof** บนหัวหน้า issue เปิดรายงานหลักฐานของ issue นั้นสำหรับพิมพ์หรือบันทึกเป็น PDF (ดูหัวข้อ 9)
+- ต้องมีสิทธิ์ `scan.run` จึงเห็นปุ่ม Play, Verify selected และ Verify all with proof; viewer เห็น Proof ได้แต่สั่งสแกนไม่ได้
 
 ![การ์ด Verification template ของ issue ที่มาจาก version rule](screenshots/verify-template.png)
 
@@ -287,6 +295,13 @@ inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE
 - **Executive summary** issue ที่เปิดอยู่, เกินกำหนด, MTTR, การทำตาม SLA, แนวโน้มรายสัปดาห์, asset เสี่ยงสุด, scope, campaign
   - กด **Write summary with AI** ให้ AI เขียนบทสรุปผู้บริหาร (ถ้าตั้งไว้)
 - **Campaign report** และ **Scope report**
+  - ท้ายรายงานมีภาคผนวก **Evidence** แสดงหลักฐานของทุก issue ที่เป็น **Verified**: asset, ชื่อ issue, เวลาที่ตรวจ,
+    request/response (ตัดที่ 2,000 ตัวอักษรต่อส่วน พร้อมลิงก์ไปรายงานของ issue เพื่อดูฉบับเต็ม) และคำสั่ง curl
+  - เอาติ๊ก **Include proof** ด้านบนรายงานออกถ้าไม่ต้องการแนบหลักฐาน (ช่องนี้ไม่ถูกพิมพ์ออกไป)
+- **Evidence report ของ issue** (ปุ่ม **Print proof** บนหน้า issue หรือ `/reports/issues/<id>`): severity, risk score
+  พร้อมที่มาของคะแนน, confidence, asset / scope / owner / สถานะ / due, campaign, ข้อมูล CVE (CVSS, EPSS, KEV),
+  timeline 15 รายการล่าสุด และหลักฐานเต็มจาก finding ที่ใช้ยืนยัน (ถ้าไม่มีก็ใช้ finding ล่าสุด) ได้แก่ request,
+  response, curl, matcher, ค่าที่ดึงได้ และเวลา ถ้ายังไม่มีผลสแกนจะขึ้นว่า *No scan evidence yet*
 - พิมพ์หรือบันทึกเป็น PDF ด้วยปุ่ม **Print / Save as PDF**
 - **Export** issue เป็น CSV / JSON ได้จากหน้า Issues
 
@@ -407,7 +422,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.4.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.5.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

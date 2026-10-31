@@ -227,6 +227,35 @@ def _apply_scope(db: Session, issue: Issue) -> None:
         _event(db, issue, "assigned", None, "", owner.username, body=f"Auto-assigned to the owner of scope {scope.name}")
 
 
+def finding_raw(f: Finding) -> dict:
+    """The finding's nuclei JSON, with the stored columns filled in where the JSON lacks them."""
+    try:
+        raw = json.loads(f.raw_json or "{}")
+    except json.JSONDecodeError:
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    raw.setdefault("template-id", f.template_id)
+    raw.setdefault("host", f.host)
+    raw.setdefault("matched-at", f.matched_at)
+    return raw
+
+
+def finding_hits_target(f: Finding, target: str) -> bool:
+    """Did the finding come from this scan target? nuclei reports the target as given, so compare host names and
+    ports (a URL without a port means the scheme's default port; a target without a port matches any port)."""
+    raw = finding_raw(f)
+    loc = str(raw.get("host") or "").strip() or str(raw.get("matched-at") or "").strip()
+    name, port = _from_location(loc)
+    if not port and raw.get("matched-at"):
+        port = _from_location(str(raw["matched-at"]).strip())[1]
+    port = str(raw.get("port") or "").strip() or port
+    t_name, t_port = _from_location(target.strip())
+    if not name or name.lower() != t_name.lower():
+        return False
+    return not t_port or port == t_port
+
+
 def issues_from_findings(db: Session, findings: list[Finding], job=None) -> int:
     """Create or update issues for nuclei findings (info / unknown are skipped). Returns issues created."""
     created = 0
@@ -234,13 +263,7 @@ def issues_from_findings(db: Session, findings: list[Finding], job=None) -> int:
         severity = normalize_severity(f.severity)
         if severity not in ISSUE_SEVERITIES:
             continue
-        try:
-            raw = json.loads(f.raw_json or "{}")
-        except json.JSONDecodeError:
-            raw = {}
-        raw.setdefault("template-id", f.template_id)
-        raw.setdefault("host", f.host)
-        raw.setdefault("matched-at", f.matched_at)
+        raw = finding_raw(f)
         address, port, hostname = asset_from_raw(raw)
         if not address:
             continue

@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-31
+
+### Added
+- **Bulk verify**: **Verify selected** on the Issues list (with `scan.run`, `POST /issues/bulk-verify`, audit
+  `issue.bulk_verify`) and **Verify all with proof** on active campaigns (`POST /campaigns/{id}/verify-issues`, audit
+  `campaign.verify_issues`) verify many issues at once: one nuclei job per template, run against each issue's asset
+  (targets deduplicated), at most 200 issues per request. The flash says how many jobs and issues started and how
+  many were skipped and why (no template, template not indexed, already running, over limit). Each issue's result
+  (reproduced / not reproduced / inconclusive, Verified confidence and proof) only counts the finding linked to that
+  issue, or for info templates a finding from the issue's own scan target.
+- **Evidence report** per issue (`/reports/issues/{id}`, **Print proof** button on the issue page): severity, risk
+  score with breakdown, confidence, asset / scope / owner / status / due, campaigns, CVE intel (CVSS, EPSS, KEV), the
+  last 15 timeline events and the full proof of the finding that verified it (else the newest finding).
+- Campaign and scope reports end with an **Evidence** appendix for verified issues (request / response cut at 2,000
+  characters with a link to the issue report, curl); the **Include proof** checkbox (`?proof=0`) leaves it out.
+- The issue page and the evidence report show at most 200,000 characters of a request / response ("… N more
+  characters not shown").
+
 ## [1.4.0] - 2026-10-31
 
 ### Added
@@ -200,7 +218,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.2.0...v1.2.1

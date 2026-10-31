@@ -91,6 +91,16 @@
     </div>
   </div>
   <div class="stack">
+    {% if can('scan.run') and c.status == 'active' and proof_candidates %}
+    <form method="post" action="/campaigns/{{ c.id }}/verify-issues" class="card" data-loading>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>Verify issues with proof</h2></div>
+      <div class="card-body stack">
+        <p class="small text-2">Re-runs each open issue's own template against its asset ({{ proof_candidates }} issue(s), one job per template) and keeps the request/response as proof. Issues without a template are skipped.</p>
+        <div><button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>Verify all with proof</button></div>
+      </div>
+    </form>
+    {% endif %}
     {% if can('scan.run') and not unreviewed %}
     <form method="post" action="/campaigns/{{ c.id }}/verify" class="card" data-loading>
       <input type="hidden" name="csrf" value="{{ csrf }}">
