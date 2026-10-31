@@ -143,11 +143,12 @@ class JobRunner:
         """For completion hooks (worker thread): did the operator cancel while results were being processed?"""
         return job_id in self._cancel_requested
 
-    def _write(self, job_id: int, **fields) -> None:
-        """Blocking job-row update; always called through ``_persist`` in a worker thread."""
+    def _write(self, job_id: int, only_running: bool = False, **fields) -> None:
+        """Blocking job-row update; always called through ``_persist`` in a worker thread. ``only_running`` keeps a
+        late periodic log flush (its thread outlives the cancelled flusher) from overwriting the final log."""
         with self.session_factory() as db:
             job = db.get(Job, job_id)
-            if job is None:
+            if job is None or (only_running and job.status != "running"):
                 return
             for k, v in fields.items():
                 setattr(job, k, v)
@@ -190,7 +191,7 @@ class JobRunner:
             await asyncio.sleep(1.0)
             lines = self._live.get(job_id)
             if lines:
-                await self._persist(job_id, retries=(), log="\n".join(lines))  # best effort; the next tick retries
+                await self._persist(job_id, retries=(), only_running=True, log="\n".join(lines))  # best effort; the next tick retries
 
     async def _pump(self, job_id: int, stream, to_log: bool, collect: list[str] | None) -> None:
         while True:

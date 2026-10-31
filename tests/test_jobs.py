@@ -235,3 +235,16 @@ def test_runner_db_writes_run_off_the_loop(client):
     runner._write = spy
     _run_echo(runner, client.app.state.SessionLocal)
     assert threads == {False}
+
+
+def test_late_log_flush_does_not_overwrite_finished_job(client):
+    from app.db import Job
+    runner = client.app.state.job_runner
+    with client.app.state.SessionLocal() as db:
+        job = Job(kind="nmap", status="done", command="x", log="final log")
+        db.add(job)
+        db.commit()
+        jid = job.id
+    runner._write(jid, only_running=True, log="partial")
+    with client.app.state.SessionLocal() as db:
+        assert db.get(Job, jid).log == "final log"
