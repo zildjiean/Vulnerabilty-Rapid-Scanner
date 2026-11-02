@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-1.8.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.9.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -16,6 +16,10 @@ Everything runs in one container. No external services, no accounts, works offli
 
 ## Features
 
+- **Quick scan**: enter targets, press Start — nmap finds open services, then nuclei checks them with the
+  *Recommended* preset (or *Thorough*: all ports + every check). Nothing to configure; also via `POST /api/v1/scans/quick`.
+- **Get started checklist** on the Dashboard: five steps (templates, first scan, triage, schedule, notifications)
+  that tick themselves off.
 - **Nmap discovery** from the browser: top 1000 ports, all 65 535 ports or a custom range; SYN or connect scan; live log.
 - **External asset discovery**: subfinder (passive subdomain sources, optional API keys) and an httpx web probe for
   your root domains, with a Discovered assets table, one-click nmap / nuclei follow-up, *New subdomain* changes and
@@ -26,7 +30,7 @@ Everything runs in one container. No external services, no accounts, works offli
   `surface.changed` notification per scan.
   Group the table by host, product or service type (Web, Database, Remote access, Mail, File sharing,
   Directory & auth, Network services, Other); groups collapse and select as a unit.
-- **Nuclei scanning** with three selection modes: pick templates (search by id, name, tag, CVE), whole template
+- **Nuclei scanning** with presets (*Recommended*, *Critical CVEs only*, *Full*) or, under *Advanced options*, three selection modes: pick templates (search by id, name, tag, CVE), whole template
   groups (`http/cves/2026`, `network`, …) or all templates, plus tag and severity filters.
 - **Issues** that turn findings into work: one issue per vulnerability per asset, deduplicated across scans.
   Version-rule matches open *suspected* issues instantly; nuclei results open or confirm them. Lifecycle
@@ -93,6 +97,8 @@ Everything runs in one container. No external services, no accounts, works offli
 | ![Inventory](docs/screenshots/inventory.png) | ![Nuclei scan](docs/screenshots/nuclei.png) |
 | **Verify now and Proof** | **Verification template for a suspected issue** |
 | ![Proof](docs/screenshots/proof.png) | ![Verification template](docs/screenshots/verify-template.png) |
+| **Quick scan** | **Get started checklist** |
+| ![Quick scan](docs/screenshots/quick-scan.png) | ![Get started](docs/screenshots/get-started.png) |
 | **Attack-surface changes** | **External asset discovery** |
 | ![Changes](docs/screenshots/changes.png) | ![Discovery](docs/screenshots/discovery.png) |
 
