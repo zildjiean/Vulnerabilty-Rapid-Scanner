@@ -246,3 +246,14 @@ def test_schedule_form_preset(auth):
     assert cfg["p"] == {"preset": "full"}
     assert cfg["c"] == {"mode": "all", "groups": [], "severities": ["high"], "profile": "gentle"}
     assert cfg["old"] == {"mode": "all", "groups": [], "severities": [], "profile": "normal"}
+
+
+def test_schedule_with_an_invalid_saved_preset_errors(auth):
+    from tests.test_scheduler import sched
+    _seed(auth)
+    sid = make_schedule(auth, "nuclei", make_scope(auth), {"preset": "bogus"})
+    assert run(auth, sid) is None
+    s = sched(auth, sid)
+    assert s.last_status == "error" and "Invalid preset." in s.last_message
+    with auth.app.state.SessionLocal() as db:
+        assert db.scalar(select(Job).where(Job.kind == "nuclei")) is None
