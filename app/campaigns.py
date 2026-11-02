@@ -6,6 +6,7 @@ import json
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from .i18n import Msg
 from .db import Campaign, CampaignTemplate, Host, Issue, Rule, Service, TemplateIndex, utcnow
 from .issues import CLOSED, ISSUE_SEVERITIES, SCAN_CONFIRMED, STATUSES
 from .rules import UNREVIEWED, evaluate_rules, validate_rule
@@ -75,7 +76,7 @@ def attach_template(db: Session, c: Campaign, path: str) -> CampaignTemplate | N
     """Attach an indexed template. Returns None if already attached; raises for unknown paths."""
     t = db.scalar(select(TemplateIndex).where(TemplateIndex.path == path))
     if t is None:
-        raise ValueError("That template is not in the template index.")
+        raise ValueError(Msg("That template is not in the template index."))
     if db.scalar(select(CampaignTemplate).where(CampaignTemplate.campaign_id == c.id, CampaignTemplate.path == path)):
         return None
     ct = CampaignTemplate(campaign_id=c.id, path=t.path, template_id=t.template_id)
@@ -103,16 +104,16 @@ def create_campaign(db: Session, *, name: str, cve_id: str, description: str, se
     """Validate, create, attach rule + templates and evaluate. Raises ValueError with a user-facing message.
     ``status="draft"`` (0-day watch) creates the campaign for review: its rules stay disabled until activated."""
     if status not in ("active", "draft"):
-        raise ValueError("Unknown campaign status.")
+        raise ValueError(Msg("Unknown campaign status."))
     name = name.strip() or cve_id
     if not name:
-        raise ValueError("Give the campaign a name or a CVE id.")
+        raise ValueError(Msg("Give the campaign a name or a CVE id."))
     if severity not in ISSUE_SEVERITIES and severity != "auto":
-        raise ValueError("Unknown severity.")
+        raise ValueError(Msg("Unknown severity."))
     if product_pattern.strip() or version_constraint.strip():
         err = validate_rule(product_pattern.strip(), version_constraint.strip())
         if err:
-            raise ValueError(f"Version rule: {err}")
+            raise ValueError(Msg("Version rule: {err}", err=err))
     c = Campaign(name=name[:255], cve_id=cve_id, description=description.strip(), status=status, created_by=created_by,
                  severity=severity if severity != "auto" else "high")
     db.add(c)
@@ -133,7 +134,7 @@ def create_campaign(db: Session, *, name: str, cve_id: str, description: str, se
 def activate_campaign(db: Session, c: Campaign) -> int:
     """Draft -> active: enable the campaign's rules and evaluate them. Returns the number of rules enabled."""
     if c.status != "draft":
-        raise ValueError("Only a draft campaign can be activated.")
+        raise ValueError(Msg("Only a draft campaign can be activated."))
     c.status, c.closed_at = "active", None
     rules = list(db.scalars(select(Rule).where(Rule.campaign_id == c.id)))
     for r in rules:
@@ -146,7 +147,7 @@ def activate_campaign(db: Session, c: Campaign) -> int:
 def dismiss_campaign(db: Session, c: Campaign) -> None:
     """Draft -> dismissed: the rules stay disabled and the 0-day watch never drafts this CVE again."""
     if c.status != "draft":
-        raise ValueError("Only a draft campaign can be dismissed.")
+        raise ValueError(Msg("Only a draft campaign can be dismissed."))
     c.status = "dismissed"
     for r in db.scalars(select(Rule).where(Rule.campaign_id == c.id)):
         r.enabled = False

@@ -18,6 +18,7 @@ from typing import Callable, Iterable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .i18n import Msg
 from .db import AppSetting, AuditLog, Campaign, Host, Service, WatchHit, begin_write, utcnow
 from .intel import (MAX_REFERENCES, NVD_URL, GetJson, _best_metric, _parse_time, http_get_json, load_kev_feed,
                     normalize_cve, nvd_wait)
@@ -109,12 +110,12 @@ def set_watch_settings(db: Session, enabled: bool, min_cvss: str, kev_always: bo
     try:
         score = float(str(min_cvss).strip())
     except ValueError:
-        raise ValueError("Minimum CVSS must be a number between 0 and 10.")
+        raise ValueError(Msg("Minimum CVSS must be a number between 0 and 10."))
     if not 0 <= score <= 10:
-        raise ValueError("Minimum CVSS must be a number between 0 and 10.")
+        raise ValueError(Msg("Minimum CVSS must be a number between 0 and 10."))
     limit = str(max_drafts).strip()
     if not limit.isdigit() or not 1 <= int(limit) <= 200:
-        raise ValueError("Drafts per run must be a whole number between 1 and 200.")
+        raise ValueError(Msg("Drafts per run must be a whole number between 1 and 200."))
     data = load_state(db)
     data.update(enabled=bool(enabled), min_cvss=score, kev_always=bool(kev_always), include_possible=bool(include_possible),
                 max_drafts=int(limit))
@@ -604,15 +605,15 @@ def draft_hit(db: Session, hit: WatchHit) -> Campaign:
     """Draft one hit now (Draft now on the watch page), whatever the per-run cap. Raises ValueError with a
     user-facing message. Caller commits."""
     if hit.campaign_id is not None or hit.cve_id in _campaigns_by_cve(db):
-        raise ValueError(f"{hit.cve_id} already has a campaign.")
+        raise ValueError(Msg("{cve} already has a campaign.", cve=hit.cve_id))
     rec = hit_record(hit)
     if rec is None:
-        raise ValueError(f"No stored details for {hit.cve_id}; wait for the next watch run.")
+        raise ValueError(Msg("No stored details for {cve}; wait for the next watch run.", cve=hit.cve_id))
     services = inventory(db.execute(select(Service, Host).join(Host, Host.id == Service.host_id)
                                     .order_by(Host.address, Service.port)).tuples())
     matches = _current_matches(rec, services, load_state(db))
     if not matches:
-        raise ValueError(f"{hit.cve_id} no longer matches the inventory.")
+        raise ValueError(Msg("{cve} no longer matches the inventory.", cve=hit.cve_id))
     upsert_hit(db, rec, matches, utcnow())
     c = draft_campaign(db, rec, matches)
     hit.campaign_id = c.id
