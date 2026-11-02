@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% set section = "Scanning" %}
+{% set page_title = "Quick scan" %}
+{% set page_subtitle = "Enter what to scan and press Start. Open ports and services are found first, then they are checked for known vulnerabilities." %}
+{% block content %}
+{% with perm="scan.run", what="start scans" %}{% include "_readonly.html" %}{% endwith %}
+<div class="grid grid-2 mb">
+  <form method="post" action="/quick/scan" class="card" id="quick-form" data-loading>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>What to scan</h2></div>
+    <div class="card-body stack">
+      <div class="field">
+        <label for="targets">Targets</label>
+        <textarea id="targets" name="targets" rows="6" required placeholder="192.168.1.0/24&#10;server01.example.lan&#10;10.0.0.1-50" aria-describedby="targets-hint">{{ form.targets }}</textarea>
+        <span class="hint" id="targets-hint">One per line: an IP address, a network (CIDR), a range such as 10.0.0.1-50, or a hostname. Only scan systems you are allowed to test.</span>
+      </div>
+      <fieldset>
+        <legend>How deep</legend>
+        <div class="choice-grid">
+          {% for key, lv in levels.items() %}
+          <label class="choice"><input type="radio" name="level" value="{{ key }}" {{ 'checked' if form.level == key }} data-ports="{{ lv.ports_label }}" data-preset="{{ preset_label(lv.preset) }}"><div><b>{{ lv.label }}</b><span>{{ lv.help }}</span></div></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <p class="quick-summary" role="status"><svg class="icon"><use href="#i-info"/></svg><span id="quick-summary" aria-live="polite">{{ summary }}</span></p>
+      <div class="row between center">
+        <span class="small text-2">Nothing runs until you press Start.</span>
+        <button class="primary" type="submit" id="quick-start" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start quick scan</button>
+      </div>
+    </div>
+  </form>
+  <div class="card">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>What happens</h2></div>
+    <div class="card-body">
+      <ol class="steps">
+        <li><div><b>Find open ports and services</b><span>nmap scans the targets with safe defaults. Results go to the <a href="/inventory">inventory</a>.</span></div></li>
+        <li><div><b>Check them for vulnerabilities</b><span>nuclei then tests every service that was found with the chosen preset. It starts on its own.</span></div></li>
+        <li><div><b>See what to fix</b><span>Findings become <a href="/issues">issues</a>, ordered by risk. Both steps show progress on their job pages.</span></div></li>
+      </ol>
+      <p class="small text-2" style="margin:14px 0 0">Need specific ports, timing or templates? Use <a href="/nmap">Nmap scan</a> or <a href="/nuclei">Nuclei scan</a> instead.</p>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent quick scans</h2><a class="btn sm ghost" href="/jobs">All jobs</a></div>
+  <div class="card-body tight">{% include "_jobs_table.html" %}</div>
+</div>
+{% endblock %}

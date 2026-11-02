@@ -22,7 +22,7 @@ from .routers import (audit as audit_router, auth as auth_router, campaigns as c
                       ai_features as ai_features_router, dashboard as dashboard_router, inventory as inventory_router, jobs as jobs_router,
                       nmap as nmap_router, nuclei as nuclei_router, rules as rules_router, templates as templates_router,
                       updates as updates_router, users as users_router, watch as watch_router, changes as changes_router,
-                      discovery as discovery_router)
+                      discovery as discovery_router, quick as quick_router)
 from .routers.templates import reindex_in_background
 from .routers.updates import start_update_job
 from .rules import seed_example_rule
@@ -79,7 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ai_ready = False
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     app.add_middleware(AuthMiddleware)
-    for r in (auth_router, dashboard_router, jobs_router, nmap_router, inventory_router, nuclei_router, discovery_router,
+    for r in (auth_router, dashboard_router, jobs_router, quick_router, nmap_router, inventory_router, nuclei_router, discovery_router,
               templates_router, rules_router, updates_router, users_router, audit_router, issues_router, campaigns_router, scopes_router, schedules_router, integrations_router, reports_router,
               api_router, apikeys_router, ai_router, ai_features_router, watch_router, changes_router):
         app.include_router(r.router)
