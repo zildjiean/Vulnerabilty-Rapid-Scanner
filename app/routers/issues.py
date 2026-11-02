@@ -129,6 +129,7 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
                   next_step=iss.next_actions(issue, user.id, has_perm(user, "scan.run")),
                   prefill_status=prefill if prefill in transitions else "",
+                  open_more=request.query_params.get("open") in ("ai", "more"),   # redirects to a section inside
                   findings=findings, rule=rule, users=assignable_users(db), verify_labels=proof.VERIFY_LABELS,
                   proof=proof.proof_from_finding(selected),
                   transitions=transitions, needs_reason=iss.NEEDS_REASON,
@@ -179,7 +180,7 @@ def _verify(request: Request, db: Session, issue: Issue, back: str):
     if live is not None:
         return _redirect(url, msg=f"Verification already running (job #{live.id}).")
     if not issue.template_id:
-        return RedirectResponse(f"/issues/{issue.id}#verify", status_code=303)
+        return RedirectResponse(f"/issues/{issue.id}?open=more#verify", status_code=303)
     try:
         job = proof.start_verify(db, request.app, issue, _actor(request, db))
     except proof.VerifyError as e:

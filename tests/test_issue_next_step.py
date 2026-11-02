@@ -41,7 +41,7 @@ def test_next_actions_table():
     me = 7
     def acts(status, **kw):
         i = SimpleNamespace(status=status, assignee_id=kw.get("assignee"), template_id=kw.get("template", ""),
-                            verify_job_id=kw.get("verify_job"))
+                            verify_job_id=kw.get("verify_job"), reverify_job_id=kw.get("reverify_job"))
         return iss.next_actions(i, me, can_scan=kw.get("can_scan", True))
     a = acts("new")
     assert (a["primary"]["kind"], a["primary"]["status"], a["primary"]["label"]) == ("status", "triaged", "Triage")
@@ -55,9 +55,12 @@ def test_next_actions_table():
     assert a["primary"]["status"] == "fixed" and a["primary"]["label"] == "Mark fixed" and a["secondary"] == []
     a = acts("fixed", template="t-1")
     assert a["primary"]["kind"] == "verify" and a["primary"]["label"] == "Verify now"
-    for kw in ({"template": ""}, {"template": "t-1", "can_scan": False}, {"template": "t-1", "verify_job": 3}):
+    for kw, why in (({"template": ""}, "no_template"), ({"template": "t-1", "can_scan": False}, "no_scan"),
+                    ({"template": "t-1", "verify_job": 3}, "running"), ({"template": "t-1", "reverify_job": 4}, "running")):
         a = acts("fixed", **kw)
-        assert a["primary"] is None and a["note"] == "Waiting for re-verification"
+        assert a["primary"] is None and a["note"] == "Waiting for re-verification" and a["why"] == why, kw
+    assert acts("fixed", template="t-1", reverify_job=4)["job_id"] == 4
+    assert acts("fixed", template="t-1", verify_job=3)["job_id"] == 3
     for st in ("verified", "false_positive", "accepted_risk"):
         a = acts(st)
         assert a["primary"]["status"] == "triaged" and a["primary"]["label"] == "Reopen"
@@ -108,6 +111,38 @@ def test_fixed_shows_verify_or_waiting(auth):
     set_status(auth, iid, "fixed", template_id="")
     c = card(auth.get(f"/issues/{iid}").text)
     assert "Waiting for re-verification" in c and "/verify" not in c and 'name="status"' not in c
+    assert "The next scan of" in c
+
+
+def test_fixed_message_while_a_verification_runs(auth):
+    from app.db import Job
+    ids = seed(auth, SPECS)
+    iid = ids["exposed-panel"]
+    with auth.app.state.SessionLocal() as db:
+        j = Job(kind="nuclei", status="running")
+        db.add(j)
+        db.commit()
+        jid = j.id
+    for field in ("reverify_job_id", "verify_job_id"):
+        set_status(auth, iid, "fixed", **{field: jid})
+        html = auth.get(f"/issues/{iid}").text
+        c = card(html)
+        assert f"A verification scan is running (job #{jid})" in c and "The next scan of" not in c, field
+        assert f'action="/issues/{iid}/verify"' not in html, field     # no second scan of the same asset
+        set_status(auth, iid, "fixed", **{field: None})
+
+
+def test_fixed_message_without_scan_rights(auth):
+    from unittest.mock import patch
+    ids = seed(auth, SPECS)
+    iid = ids["exposed-panel"]
+    set_status(auth, iid, "fixed")
+    from app import authz
+    real = authz.has_perm
+    with patch("app.authz.has_perm", lambda u, p: False if p == "scan.run" else real(u, p)), \
+         patch("app.routers.issues.has_perm", lambda u, p: False if p == "scan.run" else real(u, p)):
+        c = card(auth.get(f"/issues/{iid}").text)
+    assert "Ask someone with scan rights to run Verify now." in c
 
 
 def test_buttons_post_the_transition(auth):
@@ -145,7 +180,8 @@ def test_false_positive_link_prefills_status_form(auth):
     html = auth.get(href.split("#")[0]).text
     assert '<details class="more-actions" id="more-actions" open>' in html
     assert '<option value="false_positive" selected>' in html
-    assert re.search(r'<textarea id="comment" name="comment"[^>]*autofocus', html)
+    ta = re.search(r'<textarea id="comment" name="comment"[^>]*>', html).group(0)
+    assert "autofocus" in ta and "required" not in ta      # switching to another status must still submit
     # no reason -> 400 with More actions open; the form never posts by itself
     csrf = get_csrf(auth, f"/issues/{iid}")
     r = auth.post(f"/issues/{iid}/status", data={"csrf": csrf, "status": "false_positive", "comment": ""})
@@ -174,3 +210,63 @@ def test_resolved_shown_but_api_keeps_verified(auth):
     key = new_key(auth, role="viewer")
     r = api(auth, key, "GET", f"/issues/{iid}")
     assert r.status_code == 200 and r.json()["status"] == "verified"
+
+
+def test_header_verify_now_is_not_a_second_primary(auth):
+    ids = seed(auth, SPECS)
+    iid = ids["exposed-panel"]
+    html = auth.get(f"/issues/{iid}").text
+    head = html[html.index('<div class="page-actions">'):html.index('<div class="issue-head')]
+    assert "Verify now" in head and "btn primary" not in head
+    make_user(auth, "vhv", "viewer")
+    login_as(auth, "vhv")
+    assert card(auth.get(f"/issues/{iid}").text) is None
+
+
+def more(html):
+    m = re.search(r'<details class="more-actions" id="more-actions"( open)?>', html)
+    return m and (m.group(1) is not None)
+
+
+def test_more_actions_opens_on_err_and_open_flag(auth):
+    ids = seed(auth, SPECS)
+    iid = ids["exposed-panel"]
+    assert more(auth.get(f"/issues/{iid}").text) is False
+    assert more(auth.get(f"/issues/{iid}?err=Something+failed").text) is True
+    assert more(auth.get(f"/issues/{iid}?open=ai").text) is True
+    assert more(auth.get(f"/issues/{iid}?open=bogus").text) is False
+
+
+def test_more_actions_summary_lists_what_is_inside(auth):
+    ids = seed(auth, SPECS)
+    html = auth.get(f"/issues/{ids['exposed-panel']}").text
+    summary = re.search(r'<summary>.*?</summary>', html.split('id="more-actions"')[1], re.S).group(0)
+    assert "status, owner, severity" in summary and "tickets" not in summary and "verification template" not in summary
+
+
+def test_read_only_users_see_tickets_and_ai_results_outside(auth):
+    from app.db import AiNote, IssueTicket, NotificationChannel
+    ids = seed(auth, SPECS)
+    iid = ids["exposed-panel"]
+    with auth.app.state.SessionLocal() as db:
+        ch = NotificationChannel(name="Jira", kind="jira", enabled=True)
+        db.add(ch)
+        db.flush()
+        db.add(IssueTicket(issue_id=iid, channel_id=ch.id, key="SEC-42", url="https://jira.example/SEC-42", state="open"))
+        db.add(AiNote(feature="explain", subject_type="issue", subject_id=str(iid), content="Patch the **panel**."))
+        db.commit()
+    make_user(auth, "vro", "viewer")
+    login_as(auth, "vro")
+    html = auth.get(f"/issues/{iid}").text
+    assert "SEC-42" in html and "<strong>panel</strong>" in html
+    assert 'id="more-actions"' not in html
+
+
+def test_verify_without_template_redirect_opens_more_actions(auth):
+    ids = seed(auth, SPECS)
+    iid = ids["exposed-panel"]
+    set_status(auth, iid, "new", template_id="")
+    csrf = get_csrf(auth, f"/issues/{iid}")
+    r = auth.post(f"/issues/{iid}/verify", data={"csrf": csrf}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == f"/issues/{iid}?open=more#verify"
+    assert more(auth.get(r.headers["location"].split("#")[0]).text) is True

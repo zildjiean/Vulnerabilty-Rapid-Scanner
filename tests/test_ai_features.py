@@ -97,6 +97,7 @@ def test_issue_explain_triage_and_comment(env):
     csrf = get_csrf(env, f"/issues/{iid}")
     r = env.post(f"/ai/issues/{iid}/explain", data={"csrf": csrf}, follow_redirects=False)
     assert r.status_code == 303
+    assert "open=ai" in r.headers["location"]          # More actions opens server-side on the fresh result
     assert "10.0.0.5" not in fake.calls[0]["request"].prompt
     page = env.get(f"/issues/{iid}").text
     assert "<strong>10.0.0.5</strong>" in page and "<code>2.4.51</code>" in page and "AI assistant" in page
@@ -221,6 +222,7 @@ def test_issue_template_draft_then_save_and_run(env):
     r = env.post(f"/ai/issues/{iid}/template-draft", data={"csrf": csrf})
     assert r.status_code == 200 and "cve-2026-1-php-detect" in r.text and "Validation passed" in r.text
     assert "Save &amp; run as proof" in r.text and "Banner check only." in r.text
+    assert '<details class="more-actions" id="more-actions" open>' in r.text
     prompt = fake.calls[0]["request"].prompt
     assert "CVE-2026-1" in prompt and "authorized internal testing" in prompt and "PHP" in prompt
     assert "HOST-" in prompt and "192.168.1.10" not in prompt            # redacted

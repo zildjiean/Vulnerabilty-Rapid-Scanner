@@ -108,7 +108,7 @@ async def issue_explain(request: Request, iid: int, db: Session = Depends(get_db
     except LLMError as e:
         return _back(f"/issues/{iid}", str(e))
     ai.save_note(db, request, "explain", "issue", iid, result.text, None, provider, result.model)
-    return RedirectResponse(f"/issues/{iid}?msg=AI+explanation+ready#ai", status_code=303)
+    return RedirectResponse(f"/issues/{iid}?msg=AI+explanation+ready&open=ai#ai", status_code=303)
 
 
 @router.post("/issues/{iid}/triage", dependencies=USE)
@@ -123,7 +123,7 @@ async def issue_triage(request: Request, iid: int, db: Session = Depends(get_db)
     d = result.data or {}
     d["confidence"] = max(0, min(100, int(d.get("confidence") or 0)))
     ai.save_note(db, request, "triage", "issue", iid, d.get("reasoning", ""), d, provider, result.model)
-    return RedirectResponse(f"/issues/{iid}?msg=AI+triage+ready#ai", status_code=303)
+    return RedirectResponse(f"/issues/{iid}?msg=AI+triage+ready&open=ai#ai", status_code=303)
 
 
 @router.post("/issues/{iid}/template-draft", dependencies=[Depends(require("templates.manage")), *USE])
