@@ -21,9 +21,9 @@ header and one sidebar item.
 | **Detection library** group: Templates & rules (/templates) | Templates (/templates), Version rules (/rules) | templates, rules |
 | **System** group (collapsed, unchanged) | – | as today |
 
-- Discovery belongs to *New scan* (it starts jobs); the *Discovered* tab under Inventory links to the Discovered
-  assets table on the Discovery page (`id="assets"` anchor) and is shown as the current tab there only when reached
-  through the Inventory tab is NOT required — the Discovery page highlights *New scan → Discovery*.
+- Discovery belongs to *New scan* (it starts jobs). The *Discovered* tab under Inventory is a link to the Discovered
+  assets table on the Discovery page (`/discovery#assets`, add `id="assets"`). On the Discovery page the sidebar
+  highlights *New scan* and its tab bar shows *Discovery* as current.
 - Tab bar: one Jinja macro `page_tabs(tabs, current)` in `_tabs.html`; markup `<nav class="page-tabs"
   aria-label="<section> pages">` with links, the current one `aria-current="page"`. Plain links, no ARIA tablist,
   no JS. Scrolls horizontally inside itself at narrow widths (no page overflow at 375 px).
