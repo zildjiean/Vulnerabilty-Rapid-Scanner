@@ -168,7 +168,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>{{ t("Assignee") }}</h2></div>
       <div class="card-body row" style="align-items:flex-end">
-        <div class="field" style="flex:1"><label for="assignee">{{ t("Owner") }}</label><select id="assignee" name="assignee"><option value="">{{ t("Unassigned") }}</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if issue.assignee_id == u.id }}>{{ u.display_name or u.username }}{{ t(' (you)') if u.id == user.id }}</option>{% endfor %}</select></div>
+        <div class="field" style="flex:1"><label for="assignee">{{ tp("issue", "Owner") }}</label><select id="assignee" name="assignee"><option value="">{{ t("Unassigned") }}</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if issue.assignee_id == u.id }}>{{ u.display_name or u.username }}{{ t(' (you)') if u.id == user.id }}</option>{% endfor %}</select></div>
         <button type="submit">{{ t("Save") }}</button>
       </div>
     </form>
@@ -186,7 +186,7 @@
       <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>{{ t("Verification template") }}</h2></div>
       <div class="card-body stack">
         <p class="small text-2">{{ t("This issue comes from a version rule, so there is no nuclei template to run yet. Pick one from the library") }}{% if ai_ready and can('templates.manage') %}{{ t(" or let the AI draft a detection check") }}{% endif %}; <b>{{ t("Verify now") }}</b> {{ t("then re-runs it against {asset} and keeps the proof.", asset=issue.asset) }}</p>
-        {% if verify_refusal %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div><b>{{ t("The configured AI model declined this request") }}</b> ({{ verify_refusal }}). {{ t("Writing a verification template for your own assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model under") }} <a href="/ai">{{ t("System → AI") }}</a> {{ t("to one that supports authorized security testing, then try again.") }}</div></div>{% endif %}
+        {% if verify_refusal %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div><b>{{ t("The configured AI model declined this request") }}</b> ({{ verify_refusal }}). {{ t("Writing a verification template for your own assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model under") }} <a href="/ai">{{ t("System → AI assistant") }}</a> {{ t("to one that supports authorized security testing, then try again.") }}</div></div>{% endif %}
         {% if verify_draft %}
         <form method="post" action="/issues/{{ issue.id }}/template/save-run" class="stack" data-loading>
           <input type="hidden" name="csrf" value="{{ csrf }}">

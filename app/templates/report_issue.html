@@ -22,7 +22,7 @@
         <dt>{{ t("Title") }}</dt><dd>{{ issue.title or issue.vuln_id }}</dd>
         <dt>{{ t("Asset") }}</dt><dd class="cell-mono">{{ issue.asset }}{% if issue.hostname and issue.hostname != issue.address %} · {{ issue.hostname }}{% endif %}</dd>
         <dt>{{ t("Scope") }}</dt><dd>{% if issue.scope %}{{ issue.scope.name }} <span class="badge crit-{{ issue.scope.criticality }}">{{ t("{level} criticality", level=issue.scope.criticality) }}</span>{% else %}<span class="muted">{{ t("none") }}</span>{% endif %}</dd>
-        <dt>{{ t("Owner") }}</dt><dd>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else t('unassigned') }}</dd>
+        <dt>{{ tp("issue", "Owner") }}</dt><dd>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else t('unassigned') }}</dd>
         <dt>{{ t("Status") }}</dt><dd>{{ status_badge(issue.status) }}</dd>
         <dt>{{ t("Due") }}</dt><dd>{{ due_cell(issue) }}</dd>
         {% if campaigns %}<dt>{{ t("Campaign") }}</dt><dd>{% for cp in campaigns %}{{ cp.name }}{{ ', ' if not loop.last }}{% endfor %}</dd>{% endif %}

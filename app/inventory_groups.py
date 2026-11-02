@@ -72,6 +72,7 @@ class Group:
     key: str
     label: str
     sublabel: str = ""
+    criticality: str = ""   # scope groups: the scope's criticality (the template words it)
     rows: list = field(default_factory=list)
     host_count: int = 0
     match_count: int = 0
@@ -89,11 +90,13 @@ def group_rows(rows, mode: str, matches: dict, scope_of: dict | None = None) -> 
         return []
     buckets: dict[str, Group] = {}
     for svc, host in rows:
+        crit = ""
         if mode == "host":
             key, label, sub = f"h{host.id}", host.address, host.hostname or ""
         elif mode == "scope":
             sc = (scope_of or {}).get(host.id)
             key, label, sub = (f"s{sc.id}", sc.name, f"{sc.criticality} criticality") if sc else ("s:", "Unscoped", "")
+            crit = sc.criticality if sc else ""
         elif mode == "product":
             prod = (svc.product or "").strip()
             key, label, sub = ("p:" + prod.lower()) if prod else "p:", prod or "Unknown product", ""
@@ -102,7 +105,7 @@ def group_rows(rows, mode: str, matches: dict, scope_of: dict | None = None) -> 
             key, sub = "t:" + label.lower().replace(" ", "-").replace("&", "and"), ""
         g = buckets.get(key)
         if g is None:
-            g = buckets[key] = Group(key=key, label=label, sublabel=sub)
+            g = buckets[key] = Group(key=key, label=label, sublabel=sub, criticality=crit if mode == "scope" else "")
         g.rows.append((svc, host))
         g.match_count += len(matches.get(svc.id, ()))
     for g in buckets.values():

@@ -54,8 +54,8 @@
       <div class="field"><label for="name">{{ t("Name") }}</label><input id="name" name="name" required maxlength="128" value="{{ c.name }}"></div>
       {{ channel_fields(c.kind, config, stored) }}
       {% if c.kind == 'email' %}<p class="small text-2">{{ t("Uses the SMTP server under") }} <a href="/settings#notifications">{{ t("Settings") }}</a>.</p>{% endif %}
-      {% if c.kind == 'jira' %}<p class="small text-2">{{ t("Create an API token at id.atlassian.com → Security. Closing uses the first transition into a") }} <i>done</i> {{ t("status.") }}</p>{% endif %}
-      {% if c.kind == 'gitlab' %}<p class="small text-2">{{ t("Use a project or personal access token with the") }} <code>api</code> {{ t("scope.") }}</p>{% endif %}
+      {% if c.kind == 'jira' %}<p class="small text-2">{{ t("Create an API token at id.atlassian.com → Security. Closing uses the first transition into a {done} status.", done="done") }}</p>{% endif %}
+      {% if c.kind == 'gitlab' %}<p class="small text-2">{{ t("Use a project or personal access token with the {scope} scope.", scope="api") }}</p>{% endif %}
       {% if c.kind == 'webhook' %}<p class="small text-2">{{ t("Requests carry") }} <code>X-ZDRS-Event</code> {{ t("and, with a signing secret,") }} <code>X-ZDRS-Signature: sha256=&lt;HMAC of the body&gt;</code>.</p>{% endif %}
       <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>{{ t("Save") }}</button></div>
     </div>

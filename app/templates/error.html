@@ -5,7 +5,7 @@
 <div class="card" style="max-width:640px"><div class="card-body stack">
   <div class="alert {{ 'warn' if status == 403 else 'error' }}" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>{{ message }}</div></div>
   {% if status == 403 and user %}
-  <p class="text-2">{{ t("You are signed in as") }} <b>{{ user.username }}</b> {{ t("with the") }} <span class="badge neutral">{{ user.role }}</span> {{ t("role. Ask an administrator if you need more access.") }}</p>
+  <p class="text-2">{{ t("You are signed in as {user} with the {role} role. Ask an administrator if you need more access.", user=user.username, role=t(role_labels.get(user.role, user.role))) }}</p>
   {% endif %}
   <div class="row"><a class="btn" href="javascript:history.back()">{{ t("Go back") }}</a><a class="btn ghost" href="/">{{ t("Dashboard") }}</a></div>
 </div></div>

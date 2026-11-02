@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% set section = t("Administration") %}
+{% set section = t("System") %}
 {% set page_title = t("Audit log") %}
 {% set page_subtitle = t("Every sign-in and every change made through the scanner, newest first. Times are UTC.") %}
 {% block page_actions %}<a class="btn" href="{{ csv_url }}"><svg class="icon"><use href="#i-download"/></svg>{{ t("Export CSV") }}</a>{% endblock %}

@@ -61,7 +61,7 @@
         <button type="button" class="group-toggle" data-group-toggle="{{ g.key }}" aria-expanded="true">
           <svg class="icon"><use href="#i-chevron-right"/></svg>
           <span class="group-label{{ ' cell-mono' if group_mode == 'host' }}">{{ glabel }}</span>
-          {% if g.sublabel %}<span class="group-sub">{% if group_mode == 'scope' and g.sublabel.endswith(' criticality') %}{{ t("{level} criticality", level=g.sublabel[:-12]) }}{% else %}{{ g.sublabel }}{% endif %}</span>{% endif %}
+          {% if g.sublabel %}<span class="group-sub">{% if g.criticality %}{{ t("{level} criticality", level=g.criticality) }}{% else %}{{ g.sublabel }}{% endif %}</span>{% endif %}
         </button>
         <span class="group-meta">
           <span class="badge neutral num">{{ t("{n} service", n=1) if g.rows|length == 1 else t("{n} services", n=g.rows|length) }}</span>

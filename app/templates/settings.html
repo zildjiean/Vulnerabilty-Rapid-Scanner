@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% set section = t("Administration") %}
+{% set section = t("System") %}
 {% set page_title = t("Settings") %}
 {% set page_subtitle = t("Platform-wide settings. Changes are recorded in the audit log.") %}
 {% block content %}
@@ -76,7 +76,7 @@
       {% for name, (label, fmt, pair) in discovery_providers.items() %}
       {% set is_set = discovery_keys_set[name] %}
       <tr>
-        <td><label for="key_{{ name }}"><b>{{ label }}</b></label></td>
+        <td><label for="key_{{ name }}"><b>{{ t(label) }}</b></label></td>
         <td><span class="badge {{ 'conf-verified' if is_set else 'neutral' }}" data-provider="{{ name }}">{{ t('set') if is_set else t('not set') }}</span></td>
         <td><input id="key_{{ name }}" name="key_{{ name }}" type="password" autocomplete="new-password" spellcheck="false" placeholder="{{ fmt }}{{ ' · ' ~ t('leave blank to keep') if is_set }}" style="min-width:220px"></td>
         <td>{% if is_set %}<label class="check"><input type="checkbox" name="remove_{{ name }}" value="true" aria-label="{{ t('Remove the {name} key', name=label) }}"> {{ t("Remove") }}</label>{% else %}<span class="muted">—</span>{% endif %}</td>

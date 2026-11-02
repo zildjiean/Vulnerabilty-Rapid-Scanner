@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% set section = t("Administration") %}
+{% set section = t("System") %}
 {% set page_title = t("Manage {name}", name=target.username) %}
 {% set page_subtitle = t("Role changes sign the user out so the new permissions apply immediately.") %}
 {% set is_self = target.id == user.id %}

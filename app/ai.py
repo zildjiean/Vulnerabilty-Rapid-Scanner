@@ -41,7 +41,7 @@ async def generate(request, db: Session, feature: str, system: str, prompt: str,
     app = request.app
     provider = provider or default_provider(db)
     if provider is None:
-        raise LLMError(Msg("No AI provider is configured. An admin can add one under Administration → AI."))
+        raise LLMError(Msg("No AI provider is configured. An admin can add one under System → AI assistant."))
     config = json.loads(provider.config or "{}")
     secret = app.state.secretbox.decrypt(provider.secret)
     redactor = Redactor(known_hosts(db), enabled=provider.redact)

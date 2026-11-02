@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_channel_fields.html" import channel_fields with context %}
-{% set section = t("Administration") %}
+{% set section = t("System") %}
 {% set page_title = t("Integrations") %}
 {% set page_subtitle = t("Send alerts to chat, email and webhooks, and open tickets in Jira or GitLab. Secrets are encrypted at rest.") %}
 {% block page_actions %}<a class="btn" href="/integrations/deliveries"><svg class="icon"><use href="#i-activity"/></svg>{{ t("Delivery log") }}</a>{% if can('settings.manage') %}<a class="btn ghost" href="/settings#notifications">{{ t("Public URL & SMTP") }}</a>{% endif %}{% endblock %}

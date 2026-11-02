@@ -82,7 +82,7 @@
             {% for g in groups %}
             <label class="group-item depth-{{ g.depth }}" data-key="{{ g.key }}">
               <input type="checkbox" name="groups" value="{{ g.key }}" {{ 'checked' if g.key in form.groups }}>
-              <span class="mono">{{ g.label }}</span>
+              <span class="mono">{{ t(g.label) if g.key == 'custom' else g.label }}</span>
               <span class="chip num">{{ g.count }}</span>
             </label>
             {% else %}
