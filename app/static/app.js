@@ -1,6 +1,11 @@
 (function () {
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  // UI strings: base.html embeds the Thai values (id="i18n") for Thai users; English otherwise.
+  let I18N = {};
+  try { const el = document.getElementById("i18n"); if (el) I18N = JSON.parse(el.textContent) || {}; } catch (e) {}
+  const t = (s, p) => { let out = I18N[s] || s; if (p) out = out.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)); return out; };
+  window.zdrsT = t;
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
 
   // ---------- Theme ----------
@@ -63,7 +68,8 @@
     const el = document.createElement("div");
     el.className = "toast " + (kind === "error" ? "error" : "");
     el.setAttribute("role", "status");
-    el.innerHTML = '<svg class="icon"><use href="#i-' + (kind === "error" ? "alert-circle" : "check-circle") + '"/></svg><div></div><button type="button" class="ghost sm icon-btn" aria-label="Dismiss"><svg class="icon sm"><use href="#i-x"/></svg></button>';
+    el.innerHTML = '<svg class="icon"><use href="#i-' + (kind === "error" ? "alert-circle" : "check-circle") + '"/></svg><div></div><button type="button" class="ghost sm icon-btn" aria-label=""><svg class="icon sm"><use href="#i-x"/></svg></button>';
+    el.querySelector("button").setAttribute("aria-label", t("Dismiss"));
     el.querySelector("div").textContent = text;
     el.querySelector("button").addEventListener("click", () => el.remove());
     toasts.appendChild(el);
@@ -272,8 +278,8 @@
 
   // ---------- Copy to clipboard: <button data-copy="text"> ----------
   $$("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied to clipboard"); }
-    catch (e) { toast("Copy failed: select the text and copy it manually", "error"); }
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast(t("Copied to clipboard")); }
+    catch (e) { toast(t("Copy failed: select the text and copy it manually"), "error"); }
   }));
 
   // ---------- Proof: reveal the part cut at PROOF_LIMIT ----------
@@ -293,7 +299,8 @@
       if (q.length < 2) { vres.innerHTML = ""; return; }
       try {
         const rows = await (await fetch("/templates/search?q=" + encodeURIComponent(q))).json();
-        vres.innerHTML = rows.length ? "" : '<p class="small text-2">No templates match.</p>';
+        vres.innerHTML = rows.length ? "" : '<p class="small text-2"></p>';
+        if (!rows.length) vres.firstChild.textContent = t("No templates match.");
         rows.slice(0, 20).forEach((row, i) => {
           const l = document.createElement("label");
           l.className = "list-row verify-hit";
@@ -302,7 +309,7 @@
             `<span class="badge sev-${esc(row.severity)}">${esc(row.severity)}</span>`;
           vres.appendChild(l);
         });
-      } catch (e) { vres.innerHTML = '<p class="small text-2">Search failed; try again.</p>'; }
+      } catch (e) { vres.innerHTML = '<p class="small text-2"></p>'; vres.firstChild.textContent = t("Search failed; try again."); }
     };
     vq.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 250); });
   }
@@ -341,7 +348,7 @@
     es.addEventListener("done", (e) => {
       es.close();
       if (statusEl) { statusEl.textContent = e.data; statusEl.className = "status st-" + e.data; }
-      toast("Job #" + id + " " + e.data, e.data === "done" ? "ok" : "error");
+      toast(t("Job #{id} {status}", { id: id, status: e.data }), e.data === "done" ? "ok" : "error");
       setTimeout(() => location.reload(), 900);
     });
     es.addEventListener("error", () => {});
@@ -386,15 +393,15 @@
     const refreshCount = () => { const n = selected.children.length; count.textContent = n; if (emptyEl) emptyEl.classList.toggle("show", n === 0); };
     const isSelected = (p) => !!selected.querySelector('li[data-path="' + CSS.escape(p) + '"]');
     const mkBadge = (s) => { const b = document.createElement("span"); b.className = "badge sev-" + s; b.textContent = s; return b; };
-    const addSel = (t) => {
-      if (isSelected(t.path)) return;
+    const addSel = (tp) => {
+      if (isSelected(tp.path)) return;
       const li = document.createElement("li");
-      li.dataset.path = t.path;
-      const inp = document.createElement("input"); inp.type = "hidden"; inp.name = "template_paths"; inp.value = t.path;
-      const b = document.createElement("b"); b.textContent = t.template_id;
-      const n = document.createElement("span"); n.className = "n"; n.textContent = t.name;
-      const rm = document.createElement("button"); rm.type = "button"; rm.className = "ghost sm icon-btn rm"; rm.setAttribute("aria-label", "Remove " + t.template_id); rm.innerHTML = '<svg class="icon sm"><use href="#i-x"/></svg>';
-      li.append(inp, mkBadge(t.severity), b, n, rm);
+      li.dataset.path = tp.path;
+      const inp = document.createElement("input"); inp.type = "hidden"; inp.name = "template_paths"; inp.value = tp.path;
+      const b = document.createElement("b"); b.textContent = tp.template_id;
+      const n = document.createElement("span"); n.className = "n"; n.textContent = tp.name;
+      const rm = document.createElement("button"); rm.type = "button"; rm.className = "ghost sm icon-btn rm"; rm.setAttribute("aria-label", t("Remove {name}", { name: tp.template_id })); rm.innerHTML = '<svg class="icon sm"><use href="#i-x"/></svg>';
+      li.append(inp, mkBadge(tp.severity), b, n, rm);
       selected.appendChild(li); refreshCount();
       selected.dispatchEvent(new Event("change", { bubbles: true }));
     };
@@ -408,19 +415,19 @@
       const r = await fetch("/templates/search?q=" + encodeURIComponent(term) + "&severity=" + encodeURIComponent(sev.value) + "&source=" + encodeURIComponent(src.value));
       const items = await r.json();
       results.innerHTML = "";
-      if (!items.length) { const d = document.createElement("div"); d.className = "tpl-item muted"; d.textContent = "No templates match."; results.appendChild(d); return; }
+      if (!items.length) { const d = document.createElement("div"); d.className = "tpl-item muted"; d.textContent = t("No templates match."); results.appendChild(d); return; }
       const head = document.createElement("div"); head.className = "tpl-item head";
-      const info = document.createElement("span"); info.className = "small muted"; info.textContent = items.length + " result" + (items.length === 1 ? "" : "s");
-      const all = document.createElement("button"); all.type = "button"; all.className = "sm"; all.textContent = "Add all"; all.addEventListener("click", () => items.forEach(addSel));
+      const info = document.createElement("span"); info.className = "small muted"; info.textContent = items.length === 1 ? t("1 result") : t("{n} results", { n: items.length });
+      const all = document.createElement("button"); all.type = "button"; all.className = "sm"; all.textContent = t("Add all"); all.addEventListener("click", () => items.forEach(addSel));
       head.append(info, all); results.appendChild(head);
-      items.forEach((t) => {
+      items.forEach((tp) => {
         const d = document.createElement("div"); d.className = "tpl-item"; d.setAttribute("role", "button"); d.tabIndex = 0;
-        const b = document.createElement("b"); b.textContent = t.template_id;
-        const n = document.createElement("span"); n.className = "n text-2"; n.textContent = t.name;
-        const tags = document.createElement("span"); tags.className = "muted small truncate"; tags.style.maxWidth = "160px"; tags.textContent = t.tags;
-        const s = document.createElement("span"); s.className = "chip"; s.textContent = t.source;
-        d.append(mkBadge(t.severity), b, n, tags, s);
-        const pick = () => addSel(t);
+        const b = document.createElement("b"); b.textContent = tp.template_id;
+        const n = document.createElement("span"); n.className = "n text-2"; n.textContent = tp.name;
+        const tags = document.createElement("span"); tags.className = "muted small truncate"; tags.style.maxWidth = "160px"; tags.textContent = tp.tags;
+        const s = document.createElement("span"); s.className = "chip"; s.textContent = tp.source;
+        d.append(mkBadge(tp.severity), b, n, tags, s);
+        const pick = () => addSel(tp);
         d.addEventListener("click", pick);
         d.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
         results.appendChild(d);
@@ -464,7 +471,7 @@
       const lvl = $('input[name="level"]:checked', qform);
       if (!lvl || !out) return;
       if (!n) { out.textContent = out.dataset.empty; return; }
-      out.textContent = "nmap " + n + " target(s) (" + lvl.dataset.ports + ") → nuclei (" + lvl.dataset.preset + ") on the services found";
+      out.textContent = t("nmap {n} target(s) ({ports}) → nuclei ({preset}) on the services found", { n: n, ports: lvl.dataset.ports, preset: lvl.dataset.preset });
     };
     let pending = null;  // one polite live region; debounce so typing does not flood screen readers
     const later = () => { clearTimeout(pending); pending = setTimeout(update, 500); };

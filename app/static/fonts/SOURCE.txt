@@ -1,0 +1,13 @@
+IBM Plex Sans Thai (Thai subset, woff2), SIL Open Font License 1.1 (see OFL.txt).
+Source: npm package @fontsource/ibm-plex-sans-thai@5.2.8 via jsDelivr, downloaded 2026-11-02.
+
+https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-sans-thai@5.2.8/files/ibm-plex-sans-thai-thai-400-normal.woff2
+  sha256 2d66381c26d32bf2a95bfe559d1a5ed5475fcdac3fa128e45a33301010d42056  ibm-plex-sans-thai-thai-400-normal.woff2
+https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-sans-thai@5.2.8/files/ibm-plex-sans-thai-thai-500-normal.woff2
+  sha256 7e01c133031aba4ca902d81930096f0224d83f808014c1232016b49e0a7ecff6  ibm-plex-sans-thai-thai-500-normal.woff2
+https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-sans-thai@5.2.8/files/ibm-plex-sans-thai-thai-600-normal.woff2
+  sha256 ea935955dc3bccb684f8fb772dbd429250dd0d3dfee9483995a3ee3456471df8  ibm-plex-sans-thai-thai-600-normal.woff2
+https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-sans-thai@5.2.8/files/ibm-plex-sans-thai-thai-700-normal.woff2
+  sha256 0862e44c00761da16f929a078d2c6d5ed302b9eef84b143bc1c5a1c8a3a31878  ibm-plex-sans-thai-thai-700-normal.woff2
+https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-sans-thai@5.2.8/LICENSE
+  sha256 0eda9417087c7f8fd73ef70d2598e66bbf2e5fabc121fe796fa2e36b9eb16789  OFL.txt

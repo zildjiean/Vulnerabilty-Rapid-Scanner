@@ -31,6 +31,7 @@ class User(Base):
     session_version: Mapped[int] = mapped_column(Integer, default=0)
     onboarding_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # Get started card hidden
     show_all_menus: Mapped[bool] = mapped_column(Boolean, default=False)  # Profile: list every page, not the role's focus
+    language: Mapped[str] = mapped_column(String(8), default="en")  # UI language: en | th
 
 
 class AuditLog(Base):
@@ -568,6 +569,7 @@ _ADDED_COLUMNS = [
     ("watch_hits", "record", "TEXT NOT NULL DEFAULT '{}'"),
     ("users", "onboarding_dismissed_at", "DATETIME"),
     ("users", "show_all_menus", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("users", "language", "VARCHAR(8) NOT NULL DEFAULT 'en'"),
 ]
 
 

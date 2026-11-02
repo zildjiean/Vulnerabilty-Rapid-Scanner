@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..audit import audit
+from ..i18n import Msg, flash, tr  # noqa: F401
 from ..auth import hash_password
 from ..authz import ROLE_DESCRIPTIONS, ROLES, require
 from ..db import User
@@ -48,7 +49,7 @@ def user_change_error(db: Session, actor: User, target: User, change: str) -> st
 def _clean_profile(display_name: str, email: str) -> tuple[str, str, str | None]:
     display_name, email = display_name.strip()[:128], email.strip()[:255]
     if email and not EMAIL_RE.match(email):
-        return display_name, email, "That email address does not look valid."
+        return display_name, email, Msg("That email address does not look valid.")
     return display_name, email, None
 
 

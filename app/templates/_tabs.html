@@ -1,4 +1,4 @@
 {# Page tab bar: plain links between pages that share one sidebar item (see app/navigation.py). No JS. #}
 {% macro page_tabs(tabs, current, label='') -%}
-<nav class="page-tabs" aria-label="{{ label }} pages"><div class="page-tabs-inner">{% for t in tabs %}<a href="{{ t.href }}"{% if t.href == current %} class="current" aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}</div></nav>
+<nav class="page-tabs" aria-label="{{ t('{label} pages', label=t(label)) }}"><div class="page-tabs-inner">{% for tab in tabs %}<a href="{{ tab.href }}"{% if tab.href == current %} class="current" aria-current="page"{% endif %}>{{ t(tab.label) }}</a>{% endfor %}</div></nav>
 {%- endmacro %}
