@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "_campaign_macros.html" import kev_badge, progress_bar, campaign_status %}
-{% set section = "Campaigns" %}
 {% set page_title = "Campaigns" %}
 {% set page_subtitle = "One campaign per new vulnerability: threat intel, version rules and nuclei templates, with live exposure and remediation progress." %}
 {% block page_actions %}{% if can('campaigns.manage') %}<a class="btn primary" href="/campaigns/new"><svg class="icon"><use href="#i-plus"/></svg>New campaign</a>{% endif %}{% endblock %}

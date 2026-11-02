@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% set section = "Scanning" %}
 {% set page_title = "Job #" ~ job.id ~ " · " ~ job.kind %}
 {% block page_actions %}
 {% if job.status in ('queued', 'running') and can('scan.run') %}

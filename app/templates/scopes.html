@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% set section = "Automation" %}
 {% set page_title = "Scopes" %}
 {% set page_subtitle = "Asset groups with an owner and a business criticality. New issues inside a scope go to its owner; schedules keep each scope scanned." %}
 {% block page_actions %}{% if can('scopes.manage') %}<a class="btn primary" href="/scopes/new"><svg class="icon"><use href="#i-plus"/></svg>New scope</a>{% endif %}{% endblock %}

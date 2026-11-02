@@ -119,6 +119,12 @@ PAGES = [  # path, sidebar item href that must be highlighted, current tab href 
     ("/rules", "/templates", "/rules"),
     ("/updates", "/updates", None),
     ("/users", "/users", None),
+    ("/settings", "/settings", None),
+    ("/audit", "/audit", None),
+    ("/ai", "/ai", None),
+    ("/integrations", "/integrations", None),
+    ("/api-keys", "/api-keys", None),
+    ("/api-docs", "/api-keys", None),
 ]
 
 
@@ -193,3 +199,52 @@ def test_profile_show_all_menus_toggle(auth):
 def test_show_all_menus_column_is_migrated(tmp_path):
     from app.db import _ADDED_COLUMNS
     assert ("users", "show_all_menus", "BOOLEAN NOT NULL DEFAULT 0") in _ADDED_COLUMNS
+
+
+def test_detail_pages_highlight_parent_without_tab_bar(auth):
+    from app.db import Campaign, Job
+    from tests.test_issue_routes import SPECS, seed
+    ids = seed(auth, SPECS)
+    with auth.app.state.SessionLocal() as db:
+        jid = db.scalar(select(Job.id))
+        c = Campaign(name="Nav camp")
+        db.add(c)
+        db.commit()
+        cid = c.id
+    for path, item in ((f"/issues/{ids['exposed-panel']}", "/issues"), (f"/jobs/{jid}", "/jobs"),
+                       (f"/campaigns/{cid}", "/campaigns")):
+        r = auth.get(path)
+        assert r.status_code == 200, path
+        assert re.search(rf'<a href="{re.escape(item)}" class="active" aria-current="page"', sidebar(r.text)), path
+        assert tabbar(r.text) is None, path
+
+
+def test_analyst_with_show_all_menus():
+    g = nav.nav_items(u("analyst", show_all=True))
+    assert groups_of(g) == ["core", "scan", "automation", "library", "system"]
+    assert [i.href for i in g[-1].items] == ["/updates", "/api-keys"]
+
+
+def test_viewer_on_discovery_gets_inventory_tabs():
+    t = nav.page_tabs_for(u("viewer"), "discovery", "/discovery")
+    assert t.label == "Inventory" and t.current == "/discovery#assets"
+    assert nav.active_for(u("viewer"), "discovery", "/discovery") == "inventory"
+    assert nav.active_for(u("viewer", True), "discovery", "/discovery") == "discovery"
+    assert nav.page_tabs_for(u("viewer", True), "discovery", "/discovery").label == "New scan"
+    assert nav.active_for(u("analyst"), "discovery", "/discovery") == "discovery"
+
+
+def test_viewer_discovery_page_highlights_inventory(auth):
+    make_user(auth, "vdisc", "viewer")
+    login_as(auth, "vdisc")
+    html = auth.get("/discovery").text
+    assert re.search(r'<a href="/inventory" class="active" aria-current="page"', sidebar(html))
+    bar = tabbar(html)
+    assert bar and re.search(r'<a href="/discovery#assets"[^>]*aria-current="page"', bar)
+    assert 'aria-label="Breadcrumb"><span>Inventory</span>' in html
+
+
+def test_breadcrumbs_come_from_navigation():
+    from app.render import TEMPLATES_DIR
+    for name in ("issues.html", "findings.html", "nmap.html", "nuclei.html", "jobs.html", "rules.html", "changes.html"):
+        assert "set section" not in (TEMPLATES_DIR / name).read_text(), name

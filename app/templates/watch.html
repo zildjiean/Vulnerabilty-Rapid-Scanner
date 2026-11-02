@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "_campaign_macros.html" import campaign_status, match_badge %}
-{% set section = "Campaigns" %}
 {% set page_title = "0-day watch" %}
 {% set page_subtitle = "Every hour the scanner reads newly published or changed CVEs (NVD) and newly exploited ones (CISA KEV), matches them against the inventory and drafts a campaign for each hit. Only public data is requested; no inventory data leaves the scanner." %}
 {% block page_actions %}

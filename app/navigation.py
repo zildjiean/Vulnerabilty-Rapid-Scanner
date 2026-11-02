@@ -146,20 +146,39 @@ class PageTabs:
     current: str          # href of the current tab
 
 
+def resolve_page(user, active: str, path: str) -> tuple[str, PageTabs | None]:
+    """(sidebar ``active`` key, tab bar or None) for the page at ``path`` whose own key is ``active``."""
+    _, base = _item_for(active)
+    if base is None:
+        return active, None
+    visible = {i.key: i for g in nav_items(user) for i in g.items}
+    if base.key in visible:
+        tabs = visible[base.key].tabs
+    else:
+        # The page's own item is hidden from this user's menu (e.g. a viewer on /discovery, reached from the
+        # Inventory "Discovered" tab): show the visible item that links here instead, with that tab current.
+        alt = next((i for i in visible.values() if any(t.path == path for t in i.tabs)), None)
+        if alt is not None:
+            cur = next(t for t in alt.tabs if t.path == path)
+            return alt.active[0], (PageTabs(alt.label, alt.tabs, cur.href) if len(alt.tabs) >= 2 else None)
+        show_all = bool(getattr(user, "show_all_menus", False))
+        tabs = tuple(t for t in base.tabs if _shown(user, t.perm, t.act, show_all))
+    current = next((t for t in tabs if t.path == path and "#" not in t.href), None)
+    if current is None or len(tabs) < 2:
+        return active, None
+    return active, PageTabs(base.label, tabs, current.href)
+
+
+def active_for(user, active: str, path: str) -> str:
+    """The ``active`` key the sidebar highlights for this user (it differs from the page's own key only when the
+    page's item is hidden from them and another visible item links to the page)."""
+    return resolve_page(user, active, path)[0]
+
+
 def page_tabs_for(user, active: str, path: str) -> PageTabs | None:
     """The tab bar for the page at ``path`` (highlighting ``active``), or None when it has none.
 
     Only the tab pages themselves get a bar (detail pages do not), and only when at least two tabs are visible."""
-    _, base = _item_for(active)
-    if base is None or not base.tabs:
+    if not active:
         return None
-    visible = next((i for g in nav_items(user) for i in g.items if i.key == base.key), None)
-    if visible is None:   # the item is hidden from this user's menu: still offer the tabs they may read
-        show_all = bool(getattr(user, "show_all_menus", False))
-        tabs = tuple(t for t in base.tabs if _shown(user, t.perm, t.act, show_all))
-    else:
-        tabs = visible.tabs
-    current = next((t for t in tabs if t.path == path and "#" not in t.href), None)
-    if current is None or len(tabs) < 2:
-        return None
-    return PageTabs(base.label, tabs, current.href)
+    return resolve_page(user, active, path)[1]
