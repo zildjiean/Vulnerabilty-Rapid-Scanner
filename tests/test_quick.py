@@ -96,18 +96,21 @@ def test_hook_cancelled_starts_no_nuclei(client, db, settings):
     runner = FakeRunner(cancelled=True)
     job = nmap_job(db, ["192.168.1.10"])
     note = quick.quick_hook(settings, runner, "standard", ["192.168.1.10"])(db, job, NMAP_XML)
+    db.commit()
     assert "[quick] cancelled: nuclei step not started." in note
     assert db.scalar(select(Job).where(Job.kind == "nuclei")) is None and runner.started == []
+    assert params(job)["quick"]["nuclei"] == "cancelled" and "result" in params(job)
 
 
-def test_hook_no_services_skips_with_warning(client, db, settings):
+def test_hook_no_services_skips_without_a_warning(client, db, settings):
+    """An empty network is a result, not a scan problem: no warning, so no HIGH scan.problem alert."""
     runner = FakeRunner()
     job = nmap_job(db, ["10.99.0.1"])
     note = quick.quick_hook(settings, runner, "standard", ["10.99.0.1"])(db, job, NMAP_XML)
     db.commit()
     assert "[quick] no open services found: nuclei step skipped." in note
     p = params(job)
-    assert p["quick"]["nuclei"] == "skipped" and p["warnings"] and "result" in p
+    assert p["quick"]["nuclei"] == "skipped" and "warnings" not in p and "result" in p
     assert db.scalar(select(Job).where(Job.kind == "nuclei")) is None
 
 
@@ -237,3 +240,72 @@ def test_api_quick(auth):
 
 def test_api_docs_list_quick(auth):
     assert "/api/v1/scans/quick" in auth.get("/api-docs").text
+
+
+@pytest.mark.parametrize("target", ["example.com/30", "web01.lab/24"])
+def test_hostname_with_prefix_is_rejected(auth, target):
+    csrf = get_csrf(auth, "/quick")
+    r = auth.post("/quick/scan", data={"csrf": csrf, "targets": f"10.0.0.1\n{target}"})
+    assert r.status_code == 400 and "Use an IP/CIDR or a plain host name" in r.text
+    from tests.test_api import api, new_key
+    key = new_key(auth, name="a", role="analyst")
+    r = api(auth, key, "POST", "/scans/quick", json={"targets": [target]})
+    assert r.status_code == 400 and "Use an IP/CIDR or a plain host name" in r.json()["detail"]
+    with auth.app.state.SessionLocal() as s:
+        assert s.scalar(select(Job)) is None
+
+
+def test_ip_cidr_still_accepted(client, db, settings):
+    runner = FakeRunner()
+    job = quick.launch_quick(db, settings, runner, ["192.168.1.0/24", "2001:db8::/120", "web01.lab"], "standard")
+    assert job.kind == "nmap"
+
+
+def test_cancel_during_the_hook_starts_no_nuclei_real_runner(auth, monkeypatch):
+    """Cancel arrives while results are processed, after the first check: the re-check right before the nuclei
+    start catches it."""
+    real = quick.quick_targets
+    runner = auth.app.state.job_runner
+
+    def cancel_then(db, targets):
+        out = real(db, targets)
+        jid = db.scalar(select(Job.id).where(Job.kind == "nmap").order_by(Job.id.desc()))
+        assert runner.cancel(jid)  # still live: the hook runs before the job is finished
+        return out
+    monkeypatch.setattr(quick, "quick_targets", cancel_then)
+    csrf = get_csrf(auth, "/quick")
+    jid = job_id_of(auth.post("/quick/scan", data={"csrf": csrf, "targets": "192.168.1.10"}, follow_redirects=False))
+    wait_job(auth, jid)
+    time.sleep(0.3)
+    with auth.app.state.SessionLocal() as s:
+        assert s.scalar(select(Job).where(Job.kind == "nuclei")) is None
+        j = s.get(Job, jid)
+        assert params(j)["quick"]["nuclei"] == "cancelled" and "[quick] cancelled" in j.log
+    assert "cancelled before the vulnerability check started" in auth.get(f"/jobs/{jid}").text
+
+
+def test_target_list_write_failure_real_runner(auth, monkeypatch):
+    from app.routers import nuclei as nuclei_router
+
+    def full(*a, **kw):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(nuclei_router, "write_targets_file", full)
+    csrf = get_csrf(auth, "/quick")
+    jid = job_id_of(auth.post("/quick/scan", data={"csrf": csrf, "targets": "192.168.1.10"}, follow_redirects=False))
+    assert wait_job(auth, jid)["status"] == "done"
+    with auth.app.state.SessionLocal() as s:
+        j = s.get(Job, jid)
+        p = params(j)
+        assert p["quick"]["nuclei"] == "error" and any("No space left on device" in w for w in p["warnings"])
+        nuclei = s.scalar(select(Job).where(Job.kind == "nuclei"))
+        assert nuclei.status == "failed"
+    page = auth.get(f"/jobs/{jid}").text
+    assert "Done with warnings" in page and "could not start" in page
+
+
+def test_no_services_job_page_is_plain_done(auth):
+    csrf = get_csrf(auth, "/quick")
+    jid = job_id_of(auth.post("/quick/scan", data={"csrf": csrf, "targets": "10.99.0.1"}, follow_redirects=False))
+    assert wait_job(auth, jid)["status"] == "done"
+    page = auth.get(f"/jobs/{jid}").text
+    assert "Done with warnings" not in page and "No open services were found" in page

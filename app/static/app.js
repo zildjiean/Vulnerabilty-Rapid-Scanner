@@ -443,8 +443,10 @@
       if (!lvl || !out) return;
       out.textContent = "nmap " + n + " target(s) (" + lvl.dataset.ports + ") → nuclei (" + lvl.dataset.preset + ") on the services found";
     };
-    ta?.addEventListener("input", update);
-    $$('input[name="level"]', qform).forEach((r) => r.addEventListener("change", update));
-    update();
+    let pending = null;  // one polite live region; debounce so typing does not flood screen readers
+    const later = () => { clearTimeout(pending); pending = setTimeout(update, 500); };
+    ta?.addEventListener("input", later);
+    $$('input[name="level"]', qform).forEach((r) => r.addEventListener("change", later));
+    update();  // restored form values (back button) differ from the server-rendered text
   }
 })();

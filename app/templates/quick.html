@@ -22,7 +22,7 @@
           {% endfor %}
         </div>
       </fieldset>
-      <p class="quick-summary" role="status"><svg class="icon"><use href="#i-info"/></svg><span id="quick-summary" aria-live="polite">{{ summary }}</span></p>
+      <p class="quick-summary"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span id="quick-summary" aria-live="polite">{{ summary }}</span></p>
       <div class="row between center">
         <span class="small text-2">Nothing runs until you press Start.</span>
         <button class="primary" type="submit" id="quick-start" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start quick scan</button>

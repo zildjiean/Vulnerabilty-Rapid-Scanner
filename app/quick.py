@@ -3,6 +3,7 @@ hook ingests the results as usual, then starts step 2, a nuclei job with a prese
 hosts that were asked for. The hook runs in the runner's worker thread (like discovery -> web probe)."""
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 
@@ -39,12 +40,27 @@ def quick_targets(db: Session, nmap_targets: list[str]) -> list[str]:
     return services_in(db, nmap_targets)
 
 
+def check_targets(targets: list[str]) -> None:
+    """Quick scan matches the inventory against the targets afterwards, which works for addresses, networks, nmap
+    ranges and plain host names. ``host/prefix`` (nmap expands it, the inventory match cannot) is refused so the
+    nuclei step is not silently skipped."""
+    for t in targets:
+        if "/" not in t:
+            continue
+        try:
+            ipaddress.ip_network(t, strict=False)
+        except ValueError:
+            raise ValueError(f"{t!r}: Use an IP/CIDR or a plain host name for a quick scan "
+                             "(a host name with a /prefix is not supported).") from None
+
+
 def launch_quick(db: Session, settings: Settings, runner, targets: list[str], level: str) -> Job:
     """Start step 1 (nmap) for validated ``targets``. Raises ValueError for an unknown level or bad options."""
     from .routers.nmap import launch_nmap
     lv = LEVELS.get(level)
     if lv is None:
         raise ValueError("Invalid scan level. Choose Standard or Thorough.")
+    check_targets(targets)
     return launch_nmap(db, settings, runner, targets, port_mode=lv["port_mode"], timing=lv["timing"],
                        scan_type=lv["scan_type"], extra_params={"quick": {"level": level, "step": 1}},
                        on_complete=quick_hook(settings, runner, level, targets))
@@ -68,14 +84,20 @@ def quick_hook(settings: Settings, runner, level: str, targets: list[str]):
     def hook(db: Session, job: Job, output: str) -> str:
         from .scanners.nmap_runner import on_nmap_complete
         note = on_nmap_complete(db, job, output)
-        if runner.cancel_requested(job.id):
+        db.commit()  # the ingest is complete: release the write lock; nothing below may fail this job
+
+        def cancelled() -> str:
+            _update(job, {"nuclei": "cancelled"})
             return note + "\n[quick] cancelled: nuclei step not started."
+
+        if runner.cancel_requested(job.id):
+            return cancelled()
         services = quick_targets(db, targets)
-        if not services:
-            _update(job, {"nuclei": "skipped"},
-                    "Quick scan: no open services were found on the targets, so the nuclei step was skipped.")
+        if not services:  # an empty network is a result, not a scan problem: a note, not a warning
+            _update(job, {"nuclei": "skipped"})
             return note + "\n[quick] no open services found: nuclei step skipped."
-        db.commit()  # the ingest is complete: nothing below may turn this job into a failure
+        if runner.cancel_requested(job.id):  # cancelled while the services were collected
+            return cancelled()
         try:
             nuclei = preset_launch(db, settings, runner, services, preset,
                                    {"quick": {"level": level, "step": 2, "parent_job": job.id}})
