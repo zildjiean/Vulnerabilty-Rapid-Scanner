@@ -122,6 +122,13 @@ code{background:var(--surface-3);color:var(--text-2);padding:1px 6px;border-radi
 .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .page-head p{color:var(--text-2);margin:4px 0 0;max-width:72ch}
 .page-actions{display:flex;gap:8px;flex-wrap:wrap}
+/* Page tab bar: pages that share one sidebar item. Scrolls inside itself, never the page. */
+.page-tabs{margin:-8px 0 20px;border-bottom:1px solid var(--border);max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.page-tabs-inner{display:flex;gap:4px;width:max-content;min-width:100%}
+.page-tabs a{display:inline-flex;align-items:center;min-height:40px;padding:8px 14px;color:var(--text-2);border-bottom:2px solid transparent;font-weight:500;white-space:nowrap;text-decoration:none;border-radius:6px 6px 0 0}
+.page-tabs a:hover{color:var(--text);background:var(--surface-3);text-decoration:none}
+.page-tabs a.current{color:var(--primary);border-bottom-color:var(--primary)}
+.page-tabs a:focus-visible{outline-offset:-2px}
 .hamburger{display:none}
 .overlay{display:none;position:fixed;inset:0;background:rgba(2,6,23,.55);z-index:35}
 @media (max-width:1024px){

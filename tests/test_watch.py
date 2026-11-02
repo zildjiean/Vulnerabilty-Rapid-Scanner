@@ -457,7 +457,7 @@ def test_watch_page_check_now_and_settings(env):
     env.app.state.watch_sleep = NO_SLEEP
     page = env.get("/watch")
     assert page.status_code == 200 and "0-day watch" in page.text and "Never" in page.text and "Check now" in page.text
-    assert 'href="/watch"' in env.get("/").text
+    assert 'href="/watch"' in env.get("/campaigns").text.split('class="page-tabs"')[1]   # 0-day watch is a Campaigns tab
     csrf = get_csrf(env, "/watch")
     assert env.post("/watch/run", data={}, follow_redirects=False).status_code in (400, 403)
     r = env.post("/watch/run", data={"csrf": csrf}, follow_redirects=False)
