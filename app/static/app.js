@@ -6,6 +6,7 @@
   try { const el = document.getElementById("i18n"); if (el) I18N = JSON.parse(el.textContent) || {}; } catch (e) {}
   const t = (s, p) => { let out = I18N[s] || s; if (p) out = out.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)); return out; };
   window.zdrsT = t;
+  // job status words arrive from the event stream: t("queued") t("running") t("done") t("failed") t("cancelled")
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
 
   // ---------- Theme ----------
@@ -347,8 +348,8 @@
     es.addEventListener("log", (e) => { log.textContent += e.data + "\n"; log.scrollTop = log.scrollHeight; });
     es.addEventListener("done", (e) => {
       es.close();
-      if (statusEl) { statusEl.textContent = e.data; statusEl.className = "status st-" + e.data; }
-      toast(t("Job #{id} {status}", { id: id, status: e.data }), e.data === "done" ? "ok" : "error");
+      if (statusEl) { statusEl.textContent = t(e.data); statusEl.className = "status st-" + e.data; }
+      toast(t("Job #{id} {status}", { id: id, status: t(e.data) }), e.data === "done" ? "ok" : "error");
       setTimeout(() => location.reload(), 900);
     });
     es.addEventListener("error", () => {});
