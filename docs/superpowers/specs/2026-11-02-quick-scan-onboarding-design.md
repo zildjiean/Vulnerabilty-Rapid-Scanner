@@ -34,7 +34,10 @@ the page with status 400 and the typed values.
     (`scopes.Matcher`), converted with `service_to_target`, de-duplicated, ordered by address and port (same logic
     as `scheduler.scope_services`, factored into one shared helper used by both).
   - no targets: log `[quick] no open services found: nuclei step skipped.` and set
-    `params.quick.nuclei = "skipped"`; the job also gets a warning so it shows as *Done with warnings*.
+    `params.quick.nuclei = "skipped"`; this is an informational note shown on the job page, not a warning: the
+    job stays *Done* and no `scan.problem` alert is sent for an empty network (changed after review).
+  - cancel is checked again right before nuclei starts; when cancelled `params.quick.nuclei = "cancelled"`.
+  - Quick scan rejects `hostname/prefix` targets (400: "Use an IP/CIDR or a plain host name").
   - otherwise start nuclei with the level's preset through the shared preset launcher, nuclei params
     `{"quick": {"level", "step": 2, "parent_job": <nmap id>}, "preset": ...}`; nmap params get
     `quick.nuclei_job = <id>`; log `[quick] nuclei step started: job #<id> on <n> service(s).`
@@ -68,8 +71,9 @@ Recorded in job params as `preset`.
 **Nuclei page**: preset radio cards at the top (`name="preset"`, default `recommended`, each with a one-line help).
 All current fields (mode, templates, groups, tags, severities, profile, rate, timeout, no-mhe) move into
 `<details id="nuclei-advanced">` *Advanced options*. Choosing **Custom** opens it (JS) and it is rendered open when
-`preset == "custom"` or the form comes back with an error. With a non-custom preset the server ignores the advanced
-fields. Existing behaviour is unchanged for `preset=custom`; a POST without `preset` (old clients, tests) is treated
+`preset == "custom"` or the form comes back with an error. If a non-custom preset is posted with any advanced field
+changed from its default (e.g. JS off), the request is treated as Custom so explicit settings are honoured (changed after
+review). Existing behaviour is unchanged for `preset=custom`; a POST without `preset` (old clients, tests) is treated
 as `custom`.
 
 **Nmap page**: timing, scan type and skip-ping move into `<details>` *Advanced options* (closed by default, open on
