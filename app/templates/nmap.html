@@ -23,20 +23,25 @@
         </div>
         <div class="field" style="margin-top:10px"><label for="custom_ports">Custom ports</label><input id="custom_ports" name="custom_ports" placeholder="22,80,443,8000-9000" value="{{ form.custom_ports }}" class="mono"></div>
       </fieldset>
-      <div class="row">
-        <div class="field" style="flex:1"><label for="scan_type">Scan type</label>
-          <select id="scan_type" name="scan_type">
-            <option value="syn" {{ 'selected' if form.scan_type == 'syn' }}>SYN (-sS) · fast, needs NET_RAW</option>
-            <option value="connect" {{ 'selected' if form.scan_type == 'connect' }}>Connect (-sT) · no privileges</option>
-          </select></div>
-        <div class="field" style="flex:1"><label for="timing">Timing</label>
-          <select id="timing" name="timing">
-            <option value="T2" {{ 'selected' if form.timing == 'T2' }}>T2 · polite</option>
-            <option value="T3" {{ 'selected' if form.timing == 'T3' }}>T3 · normal</option>
-            <option value="T4" {{ 'selected' if form.timing == 'T4' }}>T4 · aggressive</option>
-          </select></div>
-      </div>
-      <label class="check"><input type="checkbox" name="skip_ping" value="true" {{ 'checked' if form.skip_ping }}> Skip host discovery (-Pn) — treat every target as up</label>
+      <details class="advanced" id="nmap-advanced"{{ ' open' if advanced_open }}>
+        <summary><svg class="icon"><use href="#i-sliders"/></svg><span><b>Advanced options</b><span class="hint">Scan type, timing and host discovery. The defaults suit most networks.</span></span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></summary>
+        <div class="advanced-body stack">
+        <div class="row">
+          <div class="field" style="flex:1"><label for="scan_type">Scan type</label>
+            <select id="scan_type" name="scan_type">
+              <option value="syn" {{ 'selected' if form.scan_type == 'syn' }}>SYN (-sS) · fast, needs NET_RAW</option>
+              <option value="connect" {{ 'selected' if form.scan_type == 'connect' }}>Connect (-sT) · no privileges</option>
+            </select></div>
+          <div class="field" style="flex:1"><label for="timing">Timing</label>
+            <select id="timing" name="timing">
+              <option value="T2" {{ 'selected' if form.timing == 'T2' }}>T2 · polite</option>
+              <option value="T3" {{ 'selected' if form.timing == 'T3' }}>T3 · normal</option>
+              <option value="T4" {{ 'selected' if form.timing == 'T4' }}>T4 · aggressive</option>
+            </select></div>
+        </div>
+        <label class="check"><input type="checkbox" name="skip_ping" value="true" {{ 'checked' if form.skip_ping }}> Skip host discovery (-Pn) — treat every target as up</label>
+        </div>
+      </details>
       <p class="muted small">Service and version detection (<code>-sV</code>) is always enabled.</p>
       <div><button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start nmap scan</button></div>
     </div>

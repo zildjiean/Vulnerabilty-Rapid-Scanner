@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 
 from sqlalchemy import select
@@ -74,3 +75,19 @@ def test_nmap_scan_end_to_end_with_fake_nmap(auth):
         assert "<nmaprun" not in job.log
         assert len(list(db.scalars(select(Host)))) == 2
         assert "[nmap] 2 host(s) up, 5 open service(s) stored" in job.log
+
+
+def test_nmap_advanced_options_closed_by_default_open_on_error(auth):
+    r = auth.get("/nmap")
+    assert '<details class="advanced" id="nmap-advanced">' in r.text
+    assert 'name="targets"' in r.text and 'name="port_mode"' in r.text  # stay visible
+    csrf = get_csrf(auth, "/nmap")
+    r = auth.post("/nmap/scan", data={"csrf": csrf, "targets": "-oN /tmp/x"})
+    assert r.status_code == 400 and '<details class="advanced" id="nmap-advanced" open>' in r.text
+
+
+@pytest.mark.parametrize("field,value", [("timing", "T4"), ("scan_type", "connect"), ("skip_ping", "true")])
+def test_nmap_advanced_open_with_non_default_values(field, value):
+    from app.routers import nmap as nm
+    assert not nm.advanced_open({**nm.DEFAULT_FORM})
+    assert nm.advanced_open({**nm.DEFAULT_FORM, field: value if field != "skip_ping" else True})

@@ -17,9 +17,15 @@ router = APIRouter()
 DEFAULT_FORM = {"targets": "", "port_mode": "top", "custom_ports": "", "timing": "T3", "skip_ping": False, "scan_type": "syn"}
 
 
+def advanced_open(form: dict) -> bool:
+    """Advanced options (timing, scan type, skip ping) start open when any differs from the default."""
+    return any(form.get(k) != DEFAULT_FORM[k] for k in ("timing", "scan_type", "skip_ping"))
+
+
 def _page(request: Request, db: Session, form: dict, error: str | None = None, status_code: int = 200):
     return render(request, "nmap.html", status_code=status_code, active="nmap", form=form, error=error,
-                  jobs=recent_jobs(db, kind="nmap"), job_summary=job_summary)
+                  advanced_open=bool(error) or advanced_open(form), jobs=recent_jobs(db, kind="nmap"),
+                  job_summary=job_summary)
 
 
 def launch_nmap(db: Session, settings, runner, target_list: list[str], *, port_mode: str = "top",
