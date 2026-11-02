@@ -105,3 +105,15 @@ def profile_update(request: Request, display_name: str = Form(""), email: str = 
     if changes:
         audit(db, request, "profile.updated", target=me.username, user=me, **changes)
     return RedirectResponse("/profile?msg=Profile+saved", status_code=303)
+
+
+@router.post("/profile/menus", dependencies=[Depends(verify_csrf)])
+def profile_menus(request: Request, show_all_menus: str = Form(""), db: Session = Depends(get_db)):
+    """Show every menu item the user may open, instead of the focused menu for their role. Display only."""
+    me = db.get(User, request.state.user.id)
+    new = bool(show_all_menus)
+    if bool(me.show_all_menus) != new:
+        me.show_all_menus = new
+        db.commit()
+        audit(db, request, "profile.menus", target=me.username, user=me, show_all_menus=new)
+    return RedirectResponse("/profile?msg=Menu+preference+saved#menus", status_code=303)
