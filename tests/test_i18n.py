@@ -14,7 +14,16 @@ from app.i18n_th import CATALOG_TH
 from tests.conftest import get_csrf, login_and_change_password
 
 APP = Path(__file__).resolve().parent.parent / "app"
-THAI = re.compile(r"[฀-๿]")
+THAI = re.compile(r"[\u0E00-\u0E7F]")
+
+
+@pytest.fixture(autouse=True)
+def _record_missing(monkeypatch):
+    """Missing Thai lookups are recorded only while a test asks for it."""
+    monkeypatch.setattr(i18n, "RECORD_MISSING", True)
+    i18n.MISSING.clear()
+    yield
+    i18n.MISSING.clear()
 
 
 # ----------------------------------------------------------------- translate
@@ -40,6 +49,44 @@ def test_missing_thai_lookups_are_recorded():
     translate("en", "Also not in the catalog")
     assert i18n.MISSING == {"Certainly not in the catalog"}
     i18n.MISSING.clear()
+
+
+def test_missing_lookups_not_recorded_by_default(monkeypatch):
+    monkeypatch.setattr(i18n, "RECORD_MISSING", False)
+    for n in range(50):
+        translate("th", f"provider error {n}")
+    assert not i18n.MISSING
+
+
+def test_context_keys(monkeypatch):
+    assert i18n.translate_ctx("th", "issues", "Active") == CATALOG_TH["issues|Active"] != CATALOG_TH["Active"]
+    assert i18n.translate_ctx("en", "issues", "Active") == "Active"
+    assert i18n.translate_ctx("th", "nowhere", "Active") == "Active"
+    monkeypatch.setitem(CATALOG_TH, "x|{n} left", "เหลือ {n}")
+    assert i18n.translate_ctx("th", "x", "{n} left", n=2) == "เหลือ 2"
+    assert i18n.translate_ctx("en", "x", "{n} left", n=2) == "2 left"
+
+
+def test_words_with_two_meanings_have_distinct_thai():
+    assert CATALOG_TH["issues|Active"] == "ยังไม่ปิด" and CATALOG_TH["Active"] != "ยังไม่ปิด"
+    assert CATALOG_TH["issues|Closed"] != CATALOG_TH["Resolved"]
+    assert CATALOG_TH["issue|Owner"] == CATALOG_TH["Owner:"].rstrip(":") == "ผู้รับผิดชอบ"
+    assert CATALOG_TH["dismissed"] != CATALOG_TH["cancelled"]
+
+
+def test_nested_labels_are_translated():
+    from app import validation
+    from app.issues import STATUS_LABELS
+    with pytest.raises(ValueError) as e:
+        validation.parse_nmap_targets("")
+    assert CATALOG_TH["nmap target"] in translate("th", e.value)
+    assert translate("en", e.value) == "Enter at least one nmap target."
+    with pytest.raises(ValueError) as e:
+        validation.parse_nuclei_targets("bad target!!")
+    assert CATALOG_TH["nuclei target"] in translate("th", e.value)
+    m = Msg("Cannot move an issue from {old} to {new}.", old=Msg(STATUS_LABELS["new"]), new=Msg(STATUS_LABELS["verified"]))
+    th = translate("th", ValueError(m))
+    assert CATALOG_TH["New"] in th and CATALOG_TH["Resolved"] in th
 
 
 def test_msg_keeps_template_and_params(monkeypatch):
@@ -128,6 +175,21 @@ def test_switch_allowed_during_forced_password_change(client):
     assert '<html lang="th">' in client.get("/change-password").text
 
 
+def test_switch_from_a_post_rendered_page_returns_to_a_get_page(auth):
+    from tests.test_issue_routes import SPECS, seed
+    iid = seed(auth, SPECS)["CVE-2021-41773"]
+    csrf = get_csrf(auth, f"/issues/{iid}")
+    bad = {"csrf": csrf, "status": "false_positive", "comment": ""}       # needs a reason: the form is re-rendered
+    nxt = lambda r: re.search(r'name="next" value="([^"]*)"', r.text).group(1)  # noqa: E731
+    r = auth.post(f"/issues/{iid}/status", data=bad, headers={"Referer": f"http://testserver/issues/{iid}?x=1"})
+    assert r.status_code == 400 and nxt(r) == f"/issues/{iid}?x=1"
+    r = auth.post(f"/issues/{iid}/status", data=bad, headers={"Referer": "https://evil.example/issues/1"})
+    assert nxt(r) == f"/issues/{iid}"                                          # nearest page that answers GET
+    r = auth.post(f"/issues/{iid}/status", data=bad)
+    assert nxt(r) == f"/issues/{iid}"
+    assert set_lang(auth, "th", nxt(r)).headers["location"] == f"/issues/{iid}"
+
+
 def test_translations_are_escaped(auth, monkeypatch):
     monkeypatch.setitem(CATALOG_TH, "Dashboard", "<b>x</b>")
     set_lang(auth, "th")
@@ -139,6 +201,7 @@ def test_translations_are_escaped(auth, monkeypatch):
 
 # ----------------------------------------------------------------- catalog checks (static)
 _T_CALL = re.compile(r"""\bt\(\s*(?P<q>["'])(?P<s>(?:\\.|(?!(?P=q)).)*)(?P=q)""", re.S)
+_TP_CALL = re.compile(r"""\btp\(\s*(["'])(?P<c>[^"']+)\1\s*,\s*(?P<q>["'])(?P<s>(?:\\.|(?!(?P=q)).)*)(?P=q)""", re.S)
 
 
 def _template_keys() -> dict[str, str]:
@@ -148,6 +211,8 @@ def _template_keys() -> dict[str, str]:
         for m in _T_CALL.finditer(src):
             s = m.group("s").replace("\\'", "'").replace('\\"', '"')
             out.setdefault(s, f.name)
+        for m in _TP_CALL.finditer(src):
+            out.setdefault(f"{m.group('c')}|{m.group('s')}", f.name)
     return out
 
 
@@ -203,6 +268,36 @@ def test_catalog_values_are_plain_thai_text():
         if "ครับ" in v or "ค่ะ" in v:
             bad.append(k)
     assert not bad, bad[:40]
+
+
+# Buttons whose names Thai sentences mention: the sentence must use the Thai label shown on the button.
+BUTTON_LABELS = ("Verify now", "Update nuclei templates", "Show Get started again", "Remove stored key",
+                 "Probe web services with httpx")
+
+
+def test_thai_sentences_quote_thai_button_labels():
+    bad = []
+    for label in BUTTON_LABELS:
+        short = label.replace(" with httpx", "")
+        for k, v in CATALOG_TH.items():
+            if k != label and short in k and (short in v or CATALOG_TH[label] not in v):
+                bad.append((label, k, v))
+    assert not bad, bad
+
+
+def _confirm_keys() -> set[str]:
+    keys = set()
+    for f in (APP / "templates").glob("*.html"):
+        for m in re.finditer(r'data-confirm="\{\{\s*(.*?)\}\}"', f.read_text()):
+            keys |= {mm.group("s") for mm in _T_CALL.finditer(m.group(1))}
+    return keys
+
+
+def test_confirm_dialogs_ask_with_rue_mai():
+    keys = _confirm_keys()
+    assert len(keys) >= 15
+    bad = {k: CATALOG_TH.get(k) for k in keys if "?" in CATALOG_TH.get(k, "?") or "หรือไม่" not in CATALOG_TH.get(k, "")}
+    assert not bad, bad
 
 
 def test_js_strings_are_in_app_js():
@@ -316,3 +411,23 @@ def test_signed_out_pages_in_thai(client):
         r = client.get(path, headers={"Accept-Language": "th"})
         assert THAI.search(r.text), path
     assert not i18n.MISSING, sorted(i18n.MISSING)
+
+
+def test_scope_group_criticality_is_its_own_field(thai):
+    from app.inventory_groups import group_rows
+    from types import SimpleNamespace as NS
+    sc = NS(id=1, name="LAN", criticality="high")
+    g = group_rows([(NS(id=1, product="x"), NS(id=1, address="10.0.0.1", hostname=""))], "scope", {}, {1: sc})[0]
+    assert g.criticality == "high" and g.sublabel == "high criticality"
+    r = thai.get("/inventory?group=scope")
+    assert CATALOG_TH["{level} criticality"].format(level="high") in r.text
+
+
+def test_error_page_role_is_translated(thai):
+    from tests.test_rbac import login_as
+    with thai.app.state.SessionLocal() as db:
+        db.query(User).filter(User.username == "vera").update({"language": "th"})
+        db.commit()
+    login_as(thai, "vera")
+    r = thai.get("/users")
+    assert r.status_code == 403 and CATALOG_TH["Viewer"] in r.text and ">viewer<" not in r.text

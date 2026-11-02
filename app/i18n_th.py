@@ -1,192 +1,209 @@
 """Thai catalog for the user interface: exact English source string -> Thai. See app/i18n.py.
 
+Keys are the English text. Where one English word needs different Thai in different places, the template uses
+tp("context", "Word") and the key is "context|Word" (e.g. "issues|Active", "issue|Owner").
+
 Glossary (keep these the same everywhere; tone follows docs/USER_GUIDE.th.md: short, direct, no ครับ/ค่ะ):
-  Kept in English inside Thai sentences:
+  Kept in English inside Thai sentences (lowercase singular in sentences; capitalised only at the start of a label):
     issue, finding, scan, nmap, nuclei, subfinder, httpx, template, scope, campaign, CVE, KEV, EPSS, CVSS, job,
-    inventory, preset, profile (scan profile), host, service, port, asset, subdomain, version rule, rule (in
-    "version rule"), schedule (noun in sentences), webhook, Slack, Teams, Jira, GitLab, API, API key, token, SLA,
-    AI, provider, prompt, log, CSV, JSON, dashboard (in sentences), audit log, 0-day, proof, payload, URL, CSRF
+    inventory, preset, profile (scan profile), host, service, port, asset, subdomain, version rule, webhook, Slack,
+    Teams, Jira, GitLab, API, API key, token, SLA, AI, provider, prompt, log, CSV, JSON, audit log, 0-day, proof,
+    payload, URL, CSRF, exploit
     severity names: critical / high / medium / low / info / unknown
   Translated:
     Dashboard แดชบอร์ด · Reports รายงาน · Settings ตั้งค่า · Users ผู้ใช้ · Updates อัปเดต · Integrations การเชื่อมต่อ
-    Scanning การสแกน · New scan สแกนใหม่ · Automation อัตโนมัติ · Schedules ตารางสแกน · Detection library คลังการตรวจจับ
-    Version rules กฎเวอร์ชัน · Changes การเปลี่ยนแปลง · Discovered ที่ค้นพบ · Raw findings ผลดิบ (finding)
-    0-day watch เฝ้าระวัง 0-day · AI assistant ผู้ช่วย AI · System ระบบ
-    status: New ใหม่ · Triaged คัดกรองแล้ว · In progress กำลังแก้ · Fixed แก้แล้ว · Resolved ปิดแล้ว ·
+    Scanning การสแกน · New scan สแกนใหม่ · Automation งานอัตโนมัติ · Schedules ตารางสแกน
+    Detection library คลังการตรวจจับ · Version rules (tab) Version rule · rule (short, in sentences) กฎ
+    Changes การเปลี่ยนแปลง · Discovered Asset ที่ค้นพบ · Raw findings ผลดิบ (finding)
+    0-day watch การเฝ้าระวัง 0-day (tab: เฝ้าระวัง 0-day) · AI assistant ผู้ช่วย AI · System ระบบ
+    status: New ใหม่ · Triaged คัดกรองแล้ว · In progress กำลังแก้ · Fixed แก้แล้ว · Resolved ปิดแล้ว (Resolved) ·
             False positive False positive · Accepted risk ยอมรับความเสี่ยง
+    issue views: Active ยังไม่ปิด · Closed ที่ปิดแล้ว (ทั้งหมด) · campaign status: Active ใช้งานอยู่ · Closed ปิดแล้ว ·
+            dismissed ไม่รับ · job: cancelled ยกเลิกแล้ว
     confidence: Suspected สงสัย · Confirmed ยืนยันแล้ว · Verified พิสูจน์แล้ว
     roles: Admin ผู้ดูแลระบบ · Analyst นักวิเคราะห์ · Viewer ผู้ดู
     Save บันทึก · Cancel ยกเลิก · Delete ลบ · Edit แก้ไข · Add เพิ่ม · Create สร้าง · Search ค้นหา · Filter กรอง
-    Enable/Disable เปิดใช้/ปิดใช้ · Pause หยุดชั่วคราว · Run now รันเลย · Verify now ตรวจซ้ำเลย · Re-verify ตรวจซ้ำ
-    Assignee ผู้รับผิดชอบ · Due date วันครบกำหนด · Overdue เกินกำหนด · Owner เจ้าของ · Criticality ความสำคัญ
-    Severity ความรุนแรง · Status สถานะ · Target(s) เป้าหมาย · Exclusions ยกเว้น · Timeline ไทม์ไลน์
-    Comment ความเห็น · Reason เหตุผล · Next step ขั้นต่อไป · More actions การทำงานเพิ่มเติม · Get started เริ่มต้นใช้งาน
-    Remediation การแก้ไข · Vulnerability ช่องโหว่ · Exposure ความเสี่ยงที่เปิดเผย · Evidence หลักฐาน
+    Apply (filters) ใช้ตัวกรอง · Enable/Disable เปิดใช้/ปิดใช้ · Pause หยุดชั่วคราว · Run now รันเลย
+    Verify / Re-verify ตรวจซ้ำ · Verify now ตรวจซ้ำเลย · Verification template Template สำหรับตรวจซ้ำ
+    Assignee / issue Owner ผู้รับผิดชอบ · Owner (scope, API key) เจ้าของ · Due date วันครบกำหนด · Overdue เกินกำหนด
+    Criticality ความสำคัญ · Severity ความรุนแรง (never English "severity" in Thai text) · Status สถานะ
+    Target(s) เป้าหมาย · Exclusions รายการยกเว้น · Timeline ไทม์ไลน์ · Comment ความเห็น · Reason เหตุผล
+    Next step ขั้นต่อไป · More actions การทำงานเพิ่มเติม · Get started เริ่มต้นใช้งาน · Quick start ขั้นตอนเริ่มต้น
+    Remediation การแก้ไข · Vulnerability ช่องโหว่ · Exposure ความเสี่ยงที่เปิดอยู่ · Exposed (asset) ได้รับผลกระทบ
+    Known exploited ถูกนำไปใช้โจมตีจริงแล้ว · KEV federal due date กำหนดแก้ของหน่วยงานรัฐบาลกลางสหรัฐฯ
+    SLA compliance การแก้ไขทัน SLA · Published / Started เผยแพร่เมื่อ / เริ่มเมื่อ · Evidence หลักฐาน
+    nmap timing: T2 polite ช้า (polite) · profile Gentle เบา
     Advanced options ตัวเลือกขั้นสูง · Optional (ไม่บังคับ) · Required ต้องระบุ
     "No X yet" -> "ยังไม่มี X" · "{n} item(s)" -> "{n} รายการ"
+  Rules: a Thai sentence that names a button quotes the Thai label shown on it ("ตรวจซ้ำเลย", not Verify now);
+    confirm dialogs ask with "…หรือไม่" (no "?").
 """
 
 CATALOG_TH: dict[str, str] = {
     # ------------------------------------------------------------- shell: base.html, navigation, account
-    "Scanner": "Scanner",
-    "Skip to content": "ข้ามไปที่เนื้อหา",
-    "Primary navigation": "เมนูหลัก",
-    "0-Day Rapid Scanner home": "หน้าแรก 0-Day Rapid Scanner",
-    "Enterprise exposure platform": "แพลตฟอร์มดูแลความเสี่ยงองค์กร",
-    "Collapse sidebar": "ย่อแถบเมนู",
-    "Collapse": "ย่อเมนู",
-    "Changelog": "บันทึกการเปลี่ยนแปลง",
-    "Open navigation": "เปิดเมนู",
-    "Breadcrumb": "ตำแหน่งหน้า",
-    "Toggle dark mode": "สลับโหมดมืด",
-    "Toggle theme": "สลับธีม",
-    "Your profile": "โปรไฟล์ของคุณ",
-    "Logout": "ออกจากระบบ",
-    "Please confirm": "โปรดยืนยัน",
-    "Cancel": "ยกเลิก",
-    "Confirm": "ยืนยัน",
-    "Language": "ภาษา",
+    'Scanner': 'Scanner',
+    'Skip to content': 'ข้ามไปที่เนื้อหา',
+    'Primary navigation': 'เมนูหลัก',
+    '0-Day Rapid Scanner home': 'หน้าแรก 0-Day Rapid Scanner',
+    'Enterprise exposure platform': 'แพลตฟอร์มดูแลความเสี่ยงองค์กร',
+    'Collapse sidebar': 'ย่อแถบเมนู',
+    'Collapse': 'ย่อเมนู',
+    'Changelog': 'บันทึกการเปลี่ยนแปลง',
+    'Open navigation': 'เปิดเมนู',
+    'Breadcrumb': 'ตำแหน่งหน้า',
+    'Toggle dark mode': 'สลับโหมดมืด',
+    'Toggle theme': 'สลับธีม',
+    'Your profile': 'โปรไฟล์ของคุณ',
+    'Logout': 'ออกจากระบบ',
+    'Please confirm': 'โปรดยืนยัน',
+    'Cancel': 'ยกเลิก',
+    'Confirm': 'ยืนยัน',
+    'Language': 'ภาษา',
     # app/static/app.js (i18n.JS_STRINGS)
-    "Dismiss": "ปิด",
-    "Copied to clipboard": "คัดลอกแล้ว",
-    "Copy failed: select the text and copy it manually": "คัดลอกไม่สำเร็จ ให้เลือกข้อความแล้วคัดลอกเอง",
-    "No templates match.": "ไม่พบ template ที่ตรงกัน",
-    "Search failed; try again.": "ค้นหาไม่สำเร็จ ลองอีกครั้ง",
-    "Job #{id} {status}": "Job #{id} {status}",
-    "Remove {name}": "เอา {name} ออก",
-    "1 result": "1 รายการ",
-    "{n} results": "{n} รายการ",
-    "Add all": "เพิ่มทั้งหมด",
-    "nmap {n} target(s) ({ports}) → nuclei ({preset}) on the services found":
-        "nmap {n} เป้าหมาย ({ports}) → nuclei ({preset}) กับ service ที่พบ",
+    'Dismiss': 'ปิด',
+    'Copied to clipboard': 'คัดลอกแล้ว',
+    'Copy failed: select the text and copy it manually': 'คัดลอกไม่สำเร็จ ให้เลือกข้อความแล้วคัดลอกเอง',
+    'No templates match.': 'ไม่พบ template ที่ตรงกัน',
+    'Search failed; try again.': 'ค้นหาไม่สำเร็จ ลองอีกครั้ง',
+    'Job #{id} {status}': 'Job #{id} {status}',
+    'Remove {name}': 'เอา {name} ออก',
+    '1 result': '1 รายการ',
+    '{n} results': '{n} รายการ',
+    'Add all': 'เพิ่มทั้งหมด',
+    'nmap {n} target(s) ({ports}) → nuclei ({preset}) on the services found':
+        'nmap {n} เป้าหมาย ({ports}) → nuclei ({preset}) กับ service ที่พบ',
     # sign-in, password, profile, error pages
-    "Sign in": "เข้าสู่ระบบ",
-    "Use your operator account to continue.": "ใช้บัญชีผู้ปฏิบัติงานของคุณเพื่อดำเนินการต่อ",
-    "Username": "ชื่อผู้ใช้",
-    "Password": "รหัสผ่าน",
-    "Default account is": "บัญชีเริ่มต้นคือ",
-    ". The password must be changed on first login.": " ต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก",
-    "Too many failed attempts. Try again in a minute.": "ลองผิดหลายครั้งเกินไป รอสักครู่แล้วลองใหม่",
-    "Invalid username or password.": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
-    "Account": "บัญชี",
-    "Set a new password": "ตั้งรหัสผ่านใหม่",
-    "Change password": "เปลี่ยนรหัสผ่าน",
-    "Choose a strong password of at least 12 characters.": "เลือกรหัสผ่านที่คาดเดายาก อย่างน้อย 12 ตัวอักษร",
-    "Current password": "รหัสผ่านปัจจุบัน",
-    "New password": "รหัสผ่านใหม่",
-    "Minimum 12 characters. Use a passphrase or a password manager.":
-        "อย่างน้อย 12 ตัวอักษร แนะนำให้ใช้วลีรหัสผ่านหรือโปรแกรมจัดการรหัสผ่าน",
-    "Confirm new password": "ยืนยันรหัสผ่านใหม่",
-    "Save password": "บันทึกรหัสผ่าน",
-    "The default password must be changed before you can use the scanner.":
-        "ต้องเปลี่ยนรหัสผ่านเริ่มต้นก่อนใช้งานระบบ",
-    "Current password is incorrect.": "รหัสผ่านปัจจุบันไม่ถูกต้อง",
-    "New password must be at least {n} characters.": "รหัสผ่านใหม่ต้องมีอย่างน้อย {n} ตัวอักษร",
-    "Passwords do not match.": "รหัสผ่านไม่ตรงกัน",
-    "New password must differ from the current one.": "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน",
-    "Password updated": "เปลี่ยนรหัสผ่านแล้ว",
-    "Profile": "โปรไฟล์",
-    "Your details, what your role allows and your recent activity.":
-        "ข้อมูลของคุณ สิ่งที่บทบาทของคุณทำได้ และกิจกรรมล่าสุด",
-    "Your details": "ข้อมูลของคุณ",
-    "Display name": "ชื่อที่แสดง",
-    "Email": "อีเมล",
-    "Used for notifications in a later release.": "ใช้สำหรับการแจ้งเตือนในเวอร์ชันถัดไป",
-    "Save": "บันทึก",
-    "Role": "บทบาท",
-    "Show Get started again": "แสดง Get started อีกครั้ง",
-    "Brings the checklist back to the Dashboard.": "นำรายการขั้นตอนเริ่มต้นกลับมาที่แดชบอร์ด",
-    "Show all menu items": "แสดงเมนูทั้งหมด",
-    "The sidebar normally lists what your role works with. Turn this on to list every page you may open.":
-        "ปกติแถบเมนูแสดงเฉพาะส่วนที่บทบาทของคุณใช้งาน เปิดตัวเลือกนี้เพื่อแสดงทุกหน้าที่คุณเปิดได้",
-    "Save menu preference": "บันทึกการตั้งค่าเมนู",
-    "Language of menus, buttons and messages. Scan results, CVE details and exports stay as they are.":
-        "ภาษาของเมนู ปุ่ม และข้อความ ผลสแกน รายละเอียด CVE และไฟล์ export คงเดิม",
-    "Save language": "บันทึกภาษา",
-    "Last sign-in": "เข้าสู่ระบบล่าสุด",
-    "now": "ขณะนี้",
-    "Member since": "เป็นสมาชิกตั้งแต่",
-    "Your recent activity": "กิจกรรมล่าสุดของคุณ",
-    "When": "เวลา",
-    "Action": "การกระทำ",
-    "Target": "เป้าหมาย",
-    "No activity yet": "ยังไม่มีกิจกรรม",
-    "Profile saved": "บันทึกโปรไฟล์แล้ว",
-    "Menu preference saved": "บันทึกการตั้งค่าเมนูแล้ว",
-    "That email address does not look valid.": "รูปแบบอีเมลไม่ถูกต้อง",
-    "{label} pages": "หน้าใน {label}",
-    "Error": "ข้อผิดพลาด",
-    "Access denied": "ไม่มีสิทธิ์เข้าถึง",
-    "Your role does not allow this action ({perm}).": "บทบาทของคุณไม่มีสิทธิ์ทำสิ่งนี้ ({perm})",
-    "The form expired or the request was not sent from this application. Reload the page and try again.":
-        "ฟอร์มหมดอายุหรือคำขอไม่ได้ส่งมาจากระบบนี้ โหลดหน้าใหม่แล้วลองอีกครั้ง",
-    "Not found": "ไม่พบหน้า",
-    "The page or item you asked for does not exist.": "ไม่พบหน้าหรือรายการที่คุณต้องการ",
-    "You are signed in as": "คุณเข้าสู่ระบบในชื่อ",
-    "with the": "ด้วยบทบาท",
-    "role. Ask an administrator if you need more access.": "หากต้องการสิทธิ์เพิ่ม ให้ติดต่อผู้ดูแลระบบ",
-    "Go back": "ย้อนกลับ",
+    'Sign in': 'เข้าสู่ระบบ',
+    'Use your operator account to continue.': 'ใช้บัญชีผู้ปฏิบัติงานของคุณเพื่อดำเนินการต่อ',
+    'Username': 'ชื่อผู้ใช้',
+    'Password': 'รหัสผ่าน',
+    'Default account is': 'บัญชีเริ่มต้นคือ',
+    '. The password must be changed on first login.': ' ต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก',
+    'Too many failed attempts. Try again in a minute.': 'ลองผิดหลายครั้งเกินไป รอสักครู่แล้วลองใหม่',
+    'Invalid username or password.': 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+    'Account': 'บัญชี',
+    'Set a new password': 'ตั้งรหัสผ่านใหม่',
+    'Change password': 'เปลี่ยนรหัสผ่าน',
+    'Choose a strong password of at least 12 characters.': 'เลือกรหัสผ่านที่คาดเดายาก อย่างน้อย 12 ตัวอักษร',
+    'Current password': 'รหัสผ่านปัจจุบัน',
+    'New password': 'รหัสผ่านใหม่',
+    'Minimum 12 characters. Use a passphrase or a password manager.':
+        'อย่างน้อย 12 ตัวอักษร แนะนำให้ใช้วลีรหัสผ่านหรือโปรแกรมจัดการรหัสผ่าน',
+    'Confirm new password': 'ยืนยันรหัสผ่านใหม่',
+    'Save password': 'บันทึกรหัสผ่าน',
+    'The default password must be changed before you can use the scanner.': 'ต้องเปลี่ยนรหัสผ่านเริ่มต้นก่อนใช้งานระบบ',
+    'Current password is incorrect.': 'รหัสผ่านปัจจุบันไม่ถูกต้อง',
+    'New password must be at least {n} characters.': 'รหัสผ่านใหม่ต้องมีอย่างน้อย {n} ตัวอักษร',
+    'Passwords do not match.': 'รหัสผ่านไม่ตรงกัน',
+    'New password must differ from the current one.': 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน',
+    'Password updated': 'เปลี่ยนรหัสผ่านแล้ว',
+    'Profile': 'โปรไฟล์',
+    'Your details, what your role allows and your recent activity.':
+        'ข้อมูลของคุณ สิ่งที่บทบาทของคุณทำได้ และกิจกรรมล่าสุด',
+    'Your details': 'ข้อมูลของคุณ',
+    'Display name': 'ชื่อที่แสดง',
+    'Email': 'อีเมล',
+    'Used for notifications in a later release.': 'ใช้สำหรับการแจ้งเตือนในเวอร์ชันถัดไป',
+    'Save': 'บันทึก',
+    'Role': 'บทบาท',
+    'Show Get started again': 'แสดง Get started อีกครั้ง',
+    'Brings the checklist back to the Dashboard.': 'นำรายการขั้นตอนเริ่มต้นกลับมาที่แดชบอร์ด',
+    'Show all menu items': 'แสดงเมนูทั้งหมด',
+    'The sidebar normally lists what your role works with. Turn this on to list every page you may open.':
+        'ปกติแถบเมนูแสดงเฉพาะส่วนที่บทบาทของคุณใช้งาน เปิดตัวเลือกนี้เพื่อแสดงทุกหน้าที่คุณเปิดได้',
+    'Save menu preference': 'บันทึกการตั้งค่าเมนู',
+    'Language of menus, buttons and messages. Scan results, CVE details and exports stay as they are.':
+        'ภาษาของเมนู ปุ่ม และข้อความ ผลสแกน รายละเอียด CVE และไฟล์ export คงเดิม',
+    'Save language': 'บันทึกภาษา',
+    'Last sign-in': 'เข้าสู่ระบบล่าสุด',
+    'now': 'ขณะนี้',
+    'Member since': 'เป็นสมาชิกตั้งแต่',
+    'Your recent activity': 'กิจกรรมล่าสุดของคุณ',
+    'When': 'เวลา',
+    'Action': 'การกระทำ',
+    'Target': 'เป้าหมาย',
+    'No activity yet': 'ยังไม่มีกิจกรรม',
+    'Profile saved': 'บันทึกโปรไฟล์แล้ว',
+    'Menu preference saved': 'บันทึกการตั้งค่าเมนูแล้ว',
+    'That email address does not look valid.': 'รูปแบบอีเมลไม่ถูกต้อง',
+    '{label} pages': 'หน้าใน {label}',
+    'Error': 'ข้อผิดพลาด',
+    'Access denied': 'ไม่มีสิทธิ์เข้าถึง',
+    'Your role does not allow this action ({perm}).': 'บทบาทของคุณไม่มีสิทธิ์ทำสิ่งนี้ ({perm})',
+    'The form expired or the request was not sent from this application. Reload the page and try again.':
+        'ฟอร์มหมดอายุหรือคำขอไม่ได้ส่งมาจากระบบนี้ โหลดหน้าใหม่แล้วลองอีกครั้ง',
+    'Not found': 'ไม่พบหน้า',
+    'The page or item you asked for does not exist.': 'ไม่พบหน้าหรือรายการที่คุณต้องการ',
+    'You are signed in as {user} with the {role} role. Ask an administrator if you need more access.':
+        'คุณเข้าสู่ระบบในชื่อ {user} บทบาท {role} หากต้องการสิทธิ์เพิ่ม ให้ติดต่อผู้ดูแลระบบ',
+    'Go back': 'ย้อนกลับ',
+    'Create an API token at id.atlassian.com → Security. Closing uses the first transition into a {done} status.':
+        'สร้าง API token ได้ที่ id.atlassian.com → Security การปิด ticket ใช้ transition แรกที่ไปยังสถานะ {done}',
+    'Use a project or personal access token with the {scope} scope.':
+        'ใช้ project access token หรือ personal access token ที่มี scope {scope}',
+    'nmap target': 'เป้าหมาย nmap',
+    'nuclei target': 'เป้าหมาย nuclei',
     # nav groups / items / tabs (app/navigation.py)
-    "Dashboard": "แดชบอร์ด",
-    "Issues": "Issues",
-    "Raw findings": "ผลดิบ (finding)",
-    "Campaigns": "Campaigns",
-    "0-day watch": "เฝ้าระวัง 0-day",
-    "Inventory": "Inventory",
-    "Changes": "การเปลี่ยนแปลง",
-    "Discovered": "ที่ค้นพบ",
-    "Reports": "รายงาน",
-    "Scanning": "การสแกน",
-    "New scan": "สแกนใหม่",
-    "Quick": "Quick",
-    "Nmap": "Nmap",
-    "Nuclei": "Nuclei",
-    "Discovery": "Discovery",
-    "Jobs": "Jobs",
-    "Automation": "อัตโนมัติ",
-    "Scopes": "Scopes",
-    "Schedules": "ตารางสแกน",
-    "Detection library": "คลังการตรวจจับ",
-    "Templates & rules": "Templates และกฎ",
-    "Templates": "Templates",
-    "Version rules": "กฎเวอร์ชัน",
-    "System": "ระบบ",
-    "Updates": "อัปเดต",
-    "API": "API",
-    "Users": "ผู้ใช้",
-    "Settings": "ตั้งค่า",
-    "Integrations": "การเชื่อมต่อ",
-    "AI assistant": "ผู้ช่วย AI",
-    "Audit log": "Audit log",
+    'Dashboard': 'แดชบอร์ด',
+    'Issues': 'Issues',
+    'Raw findings': 'ผลดิบ (finding)',
+    'Campaigns': 'Campaigns',
+    '0-day watch': 'เฝ้าระวัง 0-day',
+    'Inventory': 'Inventory',
+    'Changes': 'การเปลี่ยนแปลง',
+    'Discovered': 'Asset ที่ค้นพบ',
+    'Reports': 'รายงาน',
+    'Scanning': 'การสแกน',
+    'New scan': 'สแกนใหม่',
+    'Quick': 'Quick',
+    'Nmap': 'Nmap',
+    'Nuclei': 'Nuclei',
+    'Discovery': 'Discovery',
+    'Jobs': 'Jobs',
+    'Automation': 'งานอัตโนมัติ',
+    'Scopes': 'Scopes',
+    'Schedules': 'ตารางสแกน',
+    'Detection library': 'คลังการตรวจจับ',
+    'Templates & rules': 'Template และ version rule',
+    'Templates': 'Templates',
+    'Version rules': 'Version rule',
+    'System': 'ระบบ',
+    'Updates': 'อัปเดต',
+    'API': 'API',
+    'Users': 'ผู้ใช้',
+    'Settings': 'ตั้งค่า',
+    'Integrations': 'การเชื่อมต่อ',
+    'AI assistant': 'ผู้ช่วย AI',
+    'Audit log': 'Audit log',
     # roles and permissions (app/authz.py)
-    "Admin": "ผู้ดูแลระบบ",
-    "Analyst": "นักวิเคราะห์",
-    "Viewer": "ผู้ดู",
-    "Everything, including updates, user management and the audit log.":
-        "ทำได้ทุกอย่าง รวมถึงอัปเดต จัดการผู้ใช้ และดู audit log",
-    "Run scans, triage issues, manage inventory, version rules and templates.":
-        "สั่งสแกน คัดกรอง issue จัดการ inventory, version rule และ template",
-    "Read-only access to every page.": "ดูได้ทุกหน้า แก้ไขไม่ได้",
-    "Read every page, job log, finding and inventory row": "ดูทุกหน้า, log ของ job, finding และ inventory",
-    "Start nmap / nuclei scans and cancel jobs": "สั่งสแกน nmap / nuclei และยกเลิก job",
-    "Delete inventory services or clear the inventory": "ลบ service ใน inventory หรือล้าง inventory",
-    "Create, edit, toggle, delete and evaluate version rules": "สร้าง แก้ไข เปิด/ปิด ลบ และประเมิน version rule",
-    "Upload, pull, delete and reindex nuclei templates": "อัปโหลด ดึง ลบ และ reindex nuclei template",
-    "Triage issues: change status, assign, change severity, comment":
-        "คัดกรอง issue: เปลี่ยนสถานะ มอบหมาย เปลี่ยน severity และแสดงความเห็น",
-    "Create and run 0-day campaigns: intel, version rules, templates":
-        "สร้างและรัน campaign 0-day: intel, version rule, template",
-    "Define scopes (asset groups, owners, criticality) and scheduled scans":
-        "กำหนด scope (กลุ่ม asset, เจ้าของ, ความสำคัญ) และตารางสแกน",
-    "Update nmap, nuclei and the nuclei templates": "อัปเดต nmap, nuclei และ nuclei template",
-    "Create, edit, deactivate and delete users": "สร้าง แก้ไข ปิดการใช้งาน และลบผู้ใช้",
-    "Read and export the audit log": "ดูและ export audit log",
-    "Change platform settings such as remediation SLAs": "เปลี่ยนการตั้งค่าระบบ เช่น SLA การแก้ไข",
-    "Configure notification channels, rules and ticketing integrations":
-        "ตั้งค่าช่องทางแจ้งเตือน กฎ และการเชื่อมต่อระบบ ticket",
-    "Ask the AI assistant: drafts, explanations, triage, search, summaries":
-        "ใช้ผู้ช่วย AI: ร่าง campaign อธิบาย คัดกรอง ค้นหา และสรุป",
-    "Configure AI providers and API keys, see AI usage": "ตั้งค่า AI provider และ API key ดูการใช้งาน AI",
+    'Admin': 'ผู้ดูแลระบบ',
+    'Analyst': 'นักวิเคราะห์',
+    'Viewer': 'ผู้ดู',
+    'Everything, including updates, user management and the audit log.':
+        'ทำได้ทุกอย่าง รวมถึงอัปเดต จัดการผู้ใช้ และดู audit log',
+    'Run scans, triage issues, manage inventory, version rules and templates.':
+        'สั่งสแกน คัดกรอง issue จัดการ inventory, version rule และ template',
+    'Read-only access to every page.': 'ดูได้ทุกหน้า แก้ไขไม่ได้',
+    'Read every page, job log, finding and inventory row': 'ดูทุกหน้า, log ของ job, finding และ inventory',
+    'Start nmap / nuclei scans and cancel jobs': 'สั่งสแกน nmap / nuclei และยกเลิก job',
+    'Delete inventory services or clear the inventory': 'ลบ service ใน inventory หรือล้าง inventory',
+    'Create, edit, toggle, delete and evaluate version rules': 'สร้าง แก้ไข เปิด/ปิด ลบ และประเมิน version rule',
+    'Upload, pull, delete and reindex nuclei templates': 'อัปโหลด ดึง ลบ และ reindex nuclei template',
+    'Triage issues: change status, assign, change severity, comment':
+        'คัดกรอง issue: เปลี่ยนสถานะ มอบหมาย เปลี่ยนความรุนแรง และแสดงความเห็น',
+    'Create and run 0-day campaigns: intel, version rules, templates':
+        'สร้างและรัน campaign 0-day: intel, version rule, template',
+    'Define scopes (asset groups, owners, criticality) and scheduled scans':
+        'กำหนด scope (กลุ่ม asset, เจ้าของ, ความสำคัญ) และตารางสแกน',
+    'Update nmap, nuclei and the nuclei templates': 'อัปเดต nmap, nuclei และ nuclei template',
+    'Create, edit, deactivate and delete users': 'สร้าง แก้ไข ปิดการใช้งาน และลบผู้ใช้',
+    'Read and export the audit log': 'ดูและ export audit log',
+    'Change platform settings such as remediation SLAs': 'เปลี่ยนการตั้งค่าระบบ เช่น SLA การแก้ไข',
+    'Configure notification channels, rules and ticketing integrations':
+        'ตั้งค่าช่องทางแจ้งเตือน กฎ และการเชื่อมต่อระบบ ticket',
+    'Ask the AI assistant: drafts, explanations, triage, search, summaries':
+        'ใช้ผู้ช่วย AI: ร่าง campaign อธิบาย คัดกรอง ค้นหา และสรุป',
+    'Configure AI providers and API keys, see AI usage': 'ตั้งค่า AI provider และ API key ดูการใช้งาน AI',
     # ============================================================= dashboard, findings, charts, Get started
     'Overview': 'ภาพรวม',
     'Exposure overview across discovered hosts, nuclei findings and version-rule matches.':
@@ -216,7 +233,7 @@ CATALOG_TH: dict[str, str] = {
     'with product / version': 'ที่รู้ product / เวอร์ชัน',
     'Nuclei findings': 'Finding จาก nuclei',
     'Findings by severity: {critical} critical, {high} high, {medium} medium, {low} low, {info} info':
-        'Finding ตาม severity: critical {critical}, high {high}, medium {medium}, low {low}, info {info}',
+        'Finding ตามความรุนแรง: critical {critical}, high {high}, medium {medium}, low {low}, info {info}',
     'no findings yet': 'ยังไม่มี finding',
     'Potential 0-day': 'อาจเป็น 0-day',
     '{n} rule(s) enabled': 'เปิดใช้ {n} กฎ',
@@ -225,7 +242,7 @@ CATALOG_TH: dict[str, str] = {
     'Period': 'ช่วงเวลา',
     'Scope': 'Scope',
     'All scopes': 'ทุก scope',
-    'Apply': 'ใช้',
+    'Apply': 'ใช้ตัวกรอง',
     'Surface changes (7 days)': 'การเปลี่ยนแปลงของ attack surface (7 วัน)',
     'Review changes': 'ดูการเปลี่ยนแปลง',
     'No unacknowledged changes in the last 7 days.': 'ไม่มีการเปลี่ยนแปลงที่ยังไม่รับทราบใน 7 วันที่ผ่านมา',
@@ -236,7 +253,7 @@ CATALOG_TH: dict[str, str] = {
     'Asset': 'Asset',
     'Listed in the CISA Known Exploited Vulnerabilities catalog':
         'อยู่ในรายการ CISA Known Exploited Vulnerabilities (KEV)',
-    'Known exploited': 'ถูกโจมตีจริงแล้ว',
+    'Known exploited': 'ถูกนำไปใช้โจมตีจริงแล้ว',
     'Active campaigns': 'Campaign ที่ทำงานอยู่',
     'All campaigns': 'Campaign ทั้งหมด',
     'Campaign': 'Campaign',
@@ -244,8 +261,8 @@ CATALOG_TH: dict[str, str] = {
     'Open': 'เปิดอยู่',
     'Remediation': 'การแก้ไข',
     '{pct}% remediated': 'แก้แล้ว {pct}%',
-    'Quick start': 'เริ่มใช้งานด่วน',
-    'Update nuclei templates': 'อัปเดต nuclei templates',
+    'Quick start': 'ขั้นตอนเริ่มต้น',
+    'Update nuclei templates': 'อัปเดต nuclei template',
     'Runs automatically on first start. Repeat whenever a CVE drops.':
         'ทำงานอัตโนมัติเมื่อเปิดระบบครั้งแรก ทำซ้ำทุกครั้งที่มี CVE ใหม่',
     'Run an nmap scan': 'สแกนด้วย nmap',
@@ -307,7 +324,7 @@ CATALOG_TH: dict[str, str] = {
     'no data': 'ไม่มีข้อมูล',
     '{lo} to {hi}': '{lo} ถึง {hi}',
     'Open exposure': 'ความเสี่ยงที่เปิดอยู่',
-    'Open issues at the end of each {per}, by severity': 'Issue ที่เปิดอยู่ ณ สิ้นแต่ละ{per} แยกตาม severity',
+    'Open issues at the end of each {per}, by severity': 'Issue ที่เปิดอยู่ ณ สิ้นแต่ละ{per} แยกตามความรุนแรง',
     'Open issues went from {a} to {b}.': 'Issue ที่เปิดอยู่เปลี่ยนจาก {a} เป็น {b}',
     'Other': 'อื่นๆ',
     'Total': 'รวม',
@@ -315,7 +332,7 @@ CATALOG_TH: dict[str, str] = {
     'Issues first seen and issues resolved per {per}': 'Issue ที่พบครั้งแรกและที่ปิดแล้วต่อ{per}',
     '{new} new and {res} resolved issues in this period.': 'ช่วงนี้มี issue ใหม่ {new} และปิดแล้ว {res}',
     'New': 'ใหม่',
-    'Resolved': 'ปิดแล้ว',
+    'Resolved': 'ปิดแล้ว (Resolved)',
     'new': 'ใหม่',
     'resolved': 'ปิดแล้ว',
     'Mean time to remediate (days)': 'เวลาเฉลี่ยในการแก้ไข (วัน)',
@@ -340,7 +357,7 @@ CATALOG_TH: dict[str, str] = {
     'added': 'เพิ่มขึ้น',
     'other': 'อื่นๆ',
     'Findings': 'Findings',
-    'Nuclei results across all jobs, ordered by severity.': 'ผลจาก nuclei จากทุก job เรียงตาม severity',
+    'Nuclei results across all jobs, ordered by severity.': 'ผลจาก nuclei จากทุก job เรียงตามความรุนแรง',
     'Results for job #{job} are incomplete.': 'ผลของ job #{job} ไม่ครบถ้วน',
     'nuclei reported problems during the scan, so "no findings" does not mean "not vulnerable".':
         'nuclei รายงานปัญหาระหว่างสแกน ดังนั้น "ไม่พบ finding" ไม่ได้แปลว่า "ไม่มีช่องโหว่"',
@@ -399,7 +416,7 @@ CATALOG_TH: dict[str, str] = {
     'Started {jobs} job(s) for {issues} issue(s)': 'เริ่ม {jobs} job สำหรับ {issues} issue',
     '; skipped ': ' ข้าม ',
     'CVSS base score × 5': 'คะแนน CVSS base × 5',
-    'Issue severity (no CVSS score known)': 'severity ของ issue (ไม่มีคะแนน CVSS)',
+    'Issue severity (no CVSS score known)': 'ความรุนแรงของ issue (ไม่มีคะแนน CVSS)',
     'Listed in CISA Known Exploited Vulnerabilities': 'อยู่ในรายการ CISA Known Exploited Vulnerabilities',
     'Known use in ransomware campaigns': 'มีการใช้ในการโจมตีด้วย ransomware',
     'FIRST EPSS percentile × 20': 'percentile ของ FIRST EPSS × 20',
@@ -453,8 +470,8 @@ CATALOG_TH: dict[str, str] = {
     'version rule': 'version rule',
     'matches the inventory.': 'ตรงกับ inventory',
     'Widen the filters.': 'ลองขยายเงื่อนไขการกรอง',
-    'Reproduced by Verify now before the fix; proof kept': 'พบซ้ำด้วย Verify now ก่อนการแก้ไข เก็บ proof ไว้แล้ว',
-    'Reproduced by Verify now; proof captured': 'พบซ้ำด้วย Verify now เก็บ proof แล้ว',
+    'Reproduced by Verify now before the fix; proof kept': 'พบซ้ำด้วย "ตรวจซ้ำเลย" ก่อนการแก้ไข เก็บ proof ไว้แล้ว',
+    'Reproduced by Verify now; proof captured': 'พบซ้ำด้วย "ตรวจซ้ำเลย" เก็บ proof แล้ว',
     'Seen by nuclei': 'nuclei ตรวจพบ',
     'Version rule match, not yet verified by a scan': 'ตรงกับ version rule ยังไม่ได้ยืนยันด้วยการสแกน',
     'Due {when} UTC': 'ครบกำหนด {when} UTC',
@@ -471,7 +488,7 @@ CATALOG_TH: dict[str, str] = {
         'รายงานหลักฐานสำหรับพิมพ์: ความเสี่ยง ไทม์ไลน์ และ request/response ฉบับเต็ม',
     'Print proof': 'พิมพ์ proof',
     'Back to issues': 'กลับไปที่ Issues',
-    'Changed manually; scans no longer raise it': 'เปลี่ยนด้วยมือแล้ว การสแกนจะไม่ปรับเพิ่มอีก',
+    'Changed manually; scans no longer raise it': 'กำหนดเองแล้ว การสแกนจะไม่ปรับความรุนแรงขึ้นอีก',
     '(manual)': '(กำหนดเอง)',
     'Re-verification scan': 'สแกนตรวจซ้ำอัตโนมัติ',
     're-verifying (job #{id})': 'กำลังตรวจซ้ำอัตโนมัติ (job #{id})',
@@ -492,7 +509,7 @@ CATALOG_TH: dict[str, str] = {
     'Re-run {template} against {asset} to prove the fix.': 'รัน {template} กับ {asset} อีกครั้งเพื่อพิสูจน์ว่าแก้แล้ว',
     'A verification scan is running (job #{id}).': 'กำลังสแกนตรวจซ้ำ (job #{id})',
     'Open the job': 'เปิด job',
-    'Ask someone with scan rights to run Verify now.': 'ให้ผู้ที่มีสิทธิ์สแกนกด Verify now',
+    'Ask someone with scan rights to run Verify now.': 'ให้ผู้ที่มีสิทธิ์สแกนกด "ตรวจซ้ำเลย"',
     'The next scan of {asset} confirms the fix.': 'การสแกน {asset} ครั้งถัดไปจะยืนยันว่าแก้แล้ว',
     'Closed as {status}. Reopen it if the problem comes back.': 'ปิดเป็น {status} แล้ว เปิดใหม่ได้หากปัญหากลับมา',
     'Details': 'รายละเอียด',
@@ -540,7 +557,7 @@ CATALOG_TH: dict[str, str] = {
     'not scored yet': 'ยังไม่มีคะแนน',
     'no CVE': 'ไม่มี CVE',
     'Used by ransomware': 'ถูกใช้โดย ransomware',
-    'federal due date {date}': 'กำหนดแก้ของหน่วยงานรัฐสหรัฐฯ {date}',
+    'federal due date {date}': 'กำหนดแก้ของหน่วยงานรัฐบาลกลางสหรัฐฯ {date}',
     'not listed': 'ไม่อยู่ในรายการ',
     'Intel for {cve} has not been fetched yet; it refreshes hourly':
         'ยังไม่ได้ดึง intel ของ {cve} ระบบรีเฟรชทุกชั่วโมง',
@@ -569,7 +586,7 @@ CATALOG_TH: dict[str, str] = {
     'The configured AI model declined this request': 'AI model ที่ตั้งค่าไว้ปฏิเสธคำขอนี้',
     'Writing a verification template for your own assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model under':
         'การเขียน template ตรวจซ้ำสำหรับ asset ของคุณเองเป็นงานทดสอบความปลอดภัยที่ชอบธรรม แต่บาง model ปฏิเสธ ให้เปลี่ยน provider หรือ model เริ่มต้นที่',
-    'System → AI': 'ระบบ → AI',
+    'System → AI assistant': 'ระบบ → ผู้ช่วย AI',
     'to one that supports authorized security testing, then try again.':
         'เป็นตัวที่รองรับการทดสอบความปลอดภัยที่ได้รับอนุญาต แล้วลองอีกครั้ง',
     'Review and edit before running': 'ตรวจทานและแก้ไขก่อนรัน',
@@ -579,8 +596,8 @@ CATALOG_TH: dict[str, str] = {
     'Search the template index: CVE id, product, keyword': 'ค้นหาใน template index: CVE id, ชื่อผลิตภัณฑ์, คำค้น',
     'Link template': 'เชื่อม template',
     'Draft verification template with AI': 'ให้ AI ร่าง template สำหรับตรวจซ้ำ',
-    'Explain & remediate': 'อธิบายและวิธีแก้',
-    'Triage evidence': 'คัดกรองหลักฐาน',
+    'Explain & remediate': 'อธิบายและแนะนำวิธีแก้',
+    'Triage evidence': 'ให้ AI คัดกรองจากหลักฐาน',
     'confidence {n}%': 'ความมั่นใจ {n}%',
     'Add to timeline': 'เพิ่มลงไทม์ไลน์',
     'Tickets': 'Ticket',
@@ -600,9 +617,9 @@ CATALOG_TH: dict[str, str] = {
     'Wait for the running verification to finish before changing the template.':
         'รอให้การตรวจซ้ำที่กำลังรันเสร็จก่อน แล้วค่อยเปลี่ยน template',
     'Pick a template that exists in the template index.': 'เลือก template ที่มีอยู่ใน template index',
-    'Template linked. Press Verify now to run it.': 'เชื่อม template แล้ว กด Verify now เพื่อรัน',
+    'Template linked. Press Verify now to run it.': 'เชื่อม template แล้ว กด "ตรวจซ้ำเลย" เพื่อรัน',
     'This issue already has a verification template. Press Verify now to run it.':
-        'issue นี้มี template สำหรับตรวจซ้ำแล้ว กด Verify now เพื่อรัน',
+        'issue นี้มี template สำหรับตรวจซ้ำแล้ว กด "ตรวจซ้ำเลย" เพื่อรัน',
     'Validation failed: {error}': 'ตรวจสอบ template ไม่ผ่าน: {error}',
     "Template id '{id}' already exists in the library; change the id.":
         "มี template id '{id}' ในคลังแล้ว ให้เปลี่ยน id",
@@ -617,7 +634,7 @@ CATALOG_TH: dict[str, str] = {
     'Unknown status.': 'ไม่รู้จักสถานะนี้',
     'Cannot move an issue from {old} to {new}.': 'เปลี่ยนสถานะ issue จาก {old} เป็น {new} ไม่ได้',
     '{status} needs a reason in the comment.': 'สถานะ {status} ต้องระบุเหตุผลในช่องความเห็น',
-    'Unknown severity.': 'ไม่รู้จัก severity นี้',
+    'Unknown severity.': 'ไม่รู้จักระดับความรุนแรงนี้',
     'Comment is empty.': 'ยังไม่ได้กรอกความเห็น',
     '{sev} SLA must be a whole number of days.': 'SLA ของ {sev} ต้องเป็นจำนวนวันเต็ม',
     '{sev} SLA must be between 1 and 3650 days.': 'SLA ของ {sev} ต้องอยู่ระหว่าง 1 ถึง 3650 วัน',
@@ -660,7 +677,7 @@ CATALOG_TH: dict[str, str] = {
         '1,000 port ที่ใช้บ่อยที่สุด แล้วตรวจด้วยชุด Recommended ใช้เวลาไม่กี่นาทีสำหรับเครือข่ายเล็ก',
     'Thorough': 'ละเอียด',
     'All 65,535 ports, then every check at every severity. Much slower; best for a few important hosts.':
-        'ทั้ง 65,535 port แล้วตรวจทุกชุดทุก severity ช้ากว่ามาก เหมาะกับ host สำคัญไม่กี่เครื่อง',
+        'ทั้ง 65,535 port แล้วตรวจทุกชุดทุกระดับความรุนแรง ช้ากว่ามาก เหมาะกับ host สำคัญไม่กี่เครื่อง',
     '1,000 ports': '1,000 port',
     'all 65,535 ports': 'ทั้ง 65,535 port',
     'Enter at least one target to see what will run.': 'ระบุเป้าหมายอย่างน้อยหนึ่งรายการเพื่อดูว่าจะรันอะไร',
@@ -704,7 +721,7 @@ CATALOG_TH: dict[str, str] = {
     'fast, needs NET_RAW': 'เร็ว ต้องมีสิทธิ์ NET_RAW',
     'no privileges': 'ไม่ต้องใช้สิทธิ์พิเศษ',
     'Timing': 'ความเร็ว (timing)',
-    'polite': 'สุภาพ',
+    'polite': 'ช้า (polite)',
     'normal': 'ปกติ',
     'aggressive': 'เร่งเต็มที่',
     'Skip host discovery (-Pn) — treat every target as up': 'ข้ามการค้นหา host (-Pn) — ถือว่าทุกเป้าหมายออนไลน์',
@@ -733,7 +750,7 @@ CATALOG_TH: dict[str, str] = {
         'CVE ที่รู้จักระดับ critical หรือ high วิธีที่เร็วที่สุดในการหาสิ่งที่ต้อง patch ทันที',
     'Full': 'เต็มรูปแบบ',
     'Every template at every severity, including low and info. Slowest, most detail.':
-        'ทุก template ทุก severity รวม low และ info ช้าที่สุดแต่ละเอียดที่สุด',
+        'ทุก template ทุกระดับความรุนแรง รวม low และ info ช้าที่สุดแต่ละเอียดที่สุด',
     'Choose templates, filters and speed yourself under Advanced options.':
         'เลือก template, ตัวกรอง และความเร็วเองในตัวเลือกขั้นสูง',
     'Templates, filters and speed. Used only with the Custom preset; changing anything here selects Custom.':
@@ -769,7 +786,7 @@ CATALOG_TH: dict[str, str] = {
     'e.g. CVE-2026-109619, php, apache, rce': 'เช่น CVE-2026-109619, php, apache, rce',
     'Click a result to add it. Pick a single template or build a multi-template set.':
         'คลิกผลลัพธ์เพื่อเพิ่ม เลือก template เดียวหรือรวมหลาย template เป็นชุด',
-    'Any severity': 'ทุก severity',
+    'Any severity': 'ทุกระดับความรุนแรง',
     'Source': 'แหล่งที่มา',
     'Official + custom': 'ทางการ + สร้างเอง',
     'Official': 'ทางการ',
@@ -780,11 +797,11 @@ CATALOG_TH: dict[str, str] = {
     'cves, 2026, technologies, network …': 'cves, 2026, technologies, network …',
     'No groups yet': 'ยังไม่มีกลุ่ม',
     'Run "Update nuclei templates" on the Updates page, then re-index.':
-        'รัน "Update nuclei templates" ที่หน้าอัปเดต แล้ว re-index',
+        'กด "อัปเดต nuclei template" ที่หน้าอัปเดต แล้ว re-index',
     'group(s) selected. Parent directories include everything below them.':
         'กลุ่มที่เลือก directory แม่จะรวมทุกอย่างที่อยู่ข้างใต้',
     'Runs the complete official template set plus your custom templates. Narrow it down with the tag and severity filters below; a full run against many targets can take a long time.':
-        'รัน template ทางการทั้งชุดรวมกับ template ที่สร้างเอง จำกัดขอบเขตด้วยตัวกรอง tag และ severity ด้านล่าง การรันเต็มชุดกับเป้าหมายจำนวนมากอาจใช้เวลานาน',
+        'รัน template ทางการทั้งชุดรวมกับ template ที่สร้างเอง จำกัดขอบเขตด้วยตัวกรอง tag และความรุนแรงด้านล่าง การรันเต็มชุดกับเป้าหมายจำนวนมากอาจใช้เวลานาน',
     'Filters (optional, apply to every mode)': 'ตัวกรอง (ไม่บังคับ ใช้กับทุกโหมด)',
     'Tags': 'Tags',
     'Comma-separated nuclei tags': 'nuclei tag คั่นด้วยจุลภาค',
@@ -799,7 +816,7 @@ CATALOG_TH: dict[str, str] = {
     'Select at least one template.': 'เลือก template อย่างน้อยหนึ่งรายการ',
     'Select at least one template group.': 'เลือกกลุ่ม template อย่างน้อยหนึ่งกลุ่ม',
     "No templates available yet. Run 'Update nuclei templates' first.":
-        "ยังไม่มี template ให้ใช้ รัน 'Update nuclei templates' ก่อน",
+        "ยังไม่มี template ให้ใช้ กด 'อัปเดต nuclei template' ก่อน",
     "Invalid tag {raw!r}: use letters, digits, '-', '_' or '.' only.":
         "Tag {raw!r} ไม่ถูกต้อง: ใช้ได้เฉพาะตัวอักษร ตัวเลข '-', '_' หรือ '.'",
     'Template path is not in the template directories: {p}': 'Template path ไม่อยู่ใน directory ของ template: {p}',
@@ -877,7 +894,7 @@ CATALOG_TH: dict[str, str] = {
     "httpx is not installed ({bin} is missing, or it is the Python httpx client's script, not ProjectDiscovery httpx). It ships in the Docker image; set HTTPX_BIN to the ProjectDiscovery binary when running outside it.":
         'ไม่ได้ติดตั้ง httpx (ไม่พบ {bin} หรือเป็น script ของ Python httpx client ไม่ใช่ ProjectDiscovery httpx) httpx มีอยู่ใน Docker image แล้ว ถ้ารันนอก Docker ให้ตั้ง HTTPX_BIN ชี้ไปที่ binary ของ ProjectDiscovery',
     "httpx is not installed ({bin} is missing, or it is the Python httpx client's script, not ProjectDiscovery httpx). It ships in the Docker image; set HTTPX_BIN to the ProjectDiscovery binary when running outside it. Untick 'Probe web services' to enumerate only.":
-        "ไม่ได้ติดตั้ง httpx (ไม่พบ {bin} หรือเป็น script ของ Python httpx client ไม่ใช่ ProjectDiscovery httpx) httpx มีอยู่ใน Docker image แล้ว ถ้ารันนอก Docker ให้ตั้ง HTTPX_BIN ชี้ไปที่ binary ของ ProjectDiscovery หรือยกเลิกการเลือก 'Probe web services' เพื่อค้นหา subdomain อย่างเดียว",
+        'ไม่ได้ติดตั้ง httpx (ไม่พบ {bin} หรือเป็น script ของ Python httpx client ไม่ใช่ ProjectDiscovery httpx) httpx มีอยู่ใน Docker image แล้ว ถ้ารันนอก Docker ให้ตั้ง HTTPX_BIN ชี้ไปที่ binary ของ ProjectDiscovery หรือยกเลิกการเลือก "ตรวจ web service ด้วย httpx" เพื่อค้นหา subdomain อย่างเดียว',
     'subfinder is not installed ({bin} not found). It ships in the Docker image; set SUBFINDER_BIN when running outside it.':
         'ไม่ได้ติดตั้ง subfinder (ไม่พบ {bin}) subfinder มีอยู่ใน Docker image แล้ว ถ้ารันนอก Docker ให้ตั้ง SUBFINDER_BIN',
     'Cannot write a temporary file in the data directory (DATA_DIR/tmp): {err}.':
@@ -888,7 +905,7 @@ CATALOG_TH: dict[str, str] = {
         'ทุกการสแกนและอัปเดต พร้อมสถานะ ระยะเวลา และ log ที่บันทึกไว้',
     'Kind': 'ประเภท',
     'Summary': 'สรุป',
-    'Started': 'เริ่ม',
+    'Started': 'เริ่มเมื่อ',
     'Duration': 'ระยะเวลา',
     'Assets': 'Assets',
     'No jobs yet': 'ยังไม่มี job',
@@ -898,7 +915,7 @@ CATALOG_TH: dict[str, str] = {
     'failed': 'ล้มเหลว',
     'cancelled': 'ยกเลิกแล้ว',
     'Job #{id}': 'Job #{id}',
-    'Cancel job #{id}?': 'ยกเลิก job #{id}?',
+    'Cancel job #{id}?': 'ยกเลิก job #{id} หรือไม่',
     'Cancel job': 'ยกเลิก job',
     'View inventory': 'ดู inventory',
     'View findings': 'ดู finding',
@@ -911,7 +928,7 @@ CATALOG_TH: dict[str, str] = {
     'Diagnose with AI': 'วิเคราะห์ปัญหาด้วย AI',
     'Done with warnings — coverage is incomplete.': 'เสร็จแต่มีคำเตือน — สแกนได้ไม่ครบถ้วน',
     'Re-run with the': 'ลองรันใหม่ด้วย',
-    'Gentle profile': 'profile นุ่มนวล',
+    'Gentle profile': 'profile เบา',
     ', a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.':
         ' ลด rate limit หรือเลือก "ไม่ตัด host ที่ไม่ตอบสนอง" และขอให้เพิ่ม IP ของ scanner ใน allow-list ของ WAF',
     'Quick scan · step {n} of 2': 'Quick scan · ขั้นที่ {n} จาก 2',
@@ -955,7 +972,7 @@ CATALOG_TH: dict[str, str] = {
     '{n} template(s): {items}': '{n} template: {items}',
     '{profile} profile': 'profile {profile}',
     'tags {tags}': 'tags {tags}',
-    'severity {severities}': 'severity {severities}',
+    'severity {severities}': 'ความรุนแรง {severities}',
     'campaign {name}': 'campaign {name}',
     'scheduled: {name}': 'ตามตาราง: {name}',
     'Quick scan step 2/2: nuclei on {n} service(s) from job #{job}':
@@ -965,7 +982,7 @@ CATALOG_TH: dict[str, str] = {
     'Every open service discovered by nmap with product, version and CPE. Select rows to hand them to nuclei.':
         'service ที่เปิดอยู่ทั้งหมดที่ nmap พบ พร้อม product, เวอร์ชัน และ CPE เลือกแถวเพื่อส่งต่อให้ nuclei',
     'Remove every host and service from the inventory? Findings and jobs are kept. This cannot be undone.':
-        'ลบ host และ service ทั้งหมดออกจาก inventory? finding และ job ยังอยู่ ย้อนกลับไม่ได้',
+        'ลบ host และ service ทั้งหมดออกจาก inventory หรือไม่ finding และ job ยังอยู่ ย้อนกลับไม่ได้',
     'Clear inventory': 'ล้าง inventory',
     'Ask in plain language, e.g. "which hosts run OpenSSH 8?"': 'ถามเป็นภาษาธรรมดา เช่น "host ไหนใช้ OpenSSH 8?"',
     'address, hostname, product, version, cpe': 'address, hostname, product, เวอร์ชัน, cpe',
@@ -978,7 +995,7 @@ CATALOG_TH: dict[str, str] = {
     'Expand all': 'ขยายทั้งหมด',
     'Collapse all': 'ย่อทั้งหมด',
     'Delete the selected services from the inventory? Hosts left without services are removed as well. Rule matches for them are dropped. This does not touch the targets.':
-        'ลบ service ที่เลือกออกจาก inventory? host ที่ไม่เหลือ service จะถูกลบด้วย และผลที่ตรงกับกฎของ service เหล่านี้จะหายไป ไม่มีผลต่อเครื่องเป้าหมาย',
+        'ลบ service ที่เลือกออกจาก inventory หรือไม่ host ที่ไม่เหลือ service จะถูกลบด้วย และผลที่ตรงกับกฎของ service เหล่านี้จะหายไป ไม่มีผลต่อเครื่องเป้าหมาย',
     'Delete selected': 'ลบรายการที่เลือก',
     'Scan selected with nuclei': 'สแกนรายการที่เลือกด้วย nuclei',
     'Select all services': 'เลือก service ทั้งหมด',
@@ -1019,7 +1036,7 @@ CATALOG_TH: dict[str, str] = {
     'What every nmap scan changed in the attack surface: new hosts, opened and closed ports, version changes and hosts that stopped responding, plus new subdomains from external discovery. Times are UTC.':
         'สิ่งที่เปลี่ยนไปใน attack surface จากการสแกน nmap แต่ละครั้ง: host ใหม่ port ที่เปิดและปิด เวอร์ชันที่เปลี่ยน และ host ที่ไม่ตอบสนอง รวมถึง subdomain ใหม่จาก discovery ภายนอก เวลาเป็น UTC',
     'Acknowledge all {n} open change(s) matching the current filters?':
-        'รับทราบการเปลี่ยนแปลงที่ยังเปิดอยู่ {n} รายการตามตัวกรองนี้ทั้งหมด?',
+        'รับทราบการเปลี่ยนแปลงที่ยังเปิดอยู่ {n} รายการตามตัวกรองนี้ทั้งหมดหรือไม่',
     'Acknowledge all ({n})': 'รับทราบทั้งหมด ({n})',
     'change(s)': 'รายการ',
     'Time (UTC)': 'เวลา (UTC)',
@@ -1042,14 +1059,14 @@ CATALOG_TH: dict[str, str] = {
     'Last 90 days': '90 วันล่าสุด',
     'All time': 'ทั้งหมด',
     'One campaign per new vulnerability: threat intel, version rules and nuclei templates, with live exposure and remediation progress.':
-        'หนึ่ง campaign ต่อช่องโหว่ใหม่: threat intel, version rule และ nuclei template พร้อมความเสี่ยงที่พบจริงและความคืบหน้าการแก้ไข',
+        'หนึ่ง campaign ต่อช่องโหว่ใหม่: threat intel, version rule และ nuclei template พร้อมความเสี่ยงที่เปิดอยู่และความคืบหน้าการแก้ไข',
     'New campaign': 'Campaign ใหม่',
     'Draft': 'ฉบับร่าง',
     '{n} waiting for review': '{n} รายการรอตรวจ',
     'Drafts are prepared by the': 'ฉบับร่างสร้างโดย',
     'when a new CVE matches the inventory. Their rules stay disabled until someone activates the campaign.':
         'เมื่อมี CVE ใหม่ตรงกับ inventory กฎของฉบับร่างจะปิดไว้จนกว่าจะมีคนเปิดใช้ campaign',
-    'Exposed assets': 'Asset ที่เสี่ยง',
+    'Exposed assets': 'Asset ที่ได้รับผลกระทบ',
     'Confirmed or verified by a scan': 'ยืนยันหรือพิสูจน์แล้วด้วยการสแกน',
     'No active campaigns': 'ไม่มี campaign ที่ใช้งานอยู่',
     'No draft campaigns': 'ไม่มี campaign ฉบับร่าง',
@@ -1070,15 +1087,15 @@ CATALOG_TH: dict[str, str] = {
     'active': 'ใช้งานอยู่',
     'draft': 'ฉบับร่าง',
     'closed': 'ปิดแล้ว',
-    'dismissed': 'ยกเลิกแล้ว',
+    'dismissed': 'ไม่รับ',
     'Report': 'รายงาน',
     'Refresh intel': 'อัปเดต intel',
     'Dismiss this draft? Its rules stay disabled and the 0-day watch will not draft this CVE again.':
-        'ยกเลิกฉบับร่างนี้? กฎจะยังปิดอยู่ และ 0-day watch จะไม่สร้างฉบับร่างของ CVE นี้อีก',
+        'ไม่รับฉบับร่างนี้หรือไม่ กฎจะยังปิดอยู่ และการเฝ้าระวัง 0-day จะไม่สร้างฉบับร่างของ CVE นี้อีก',
     'Activate': 'เปิดใช้งาน',
     'Reopen as draft': 'เปิดกลับเป็นฉบับร่าง',
     'Close this campaign? Issues stay as they are; you can reopen it later.':
-        'ปิด campaign นี้? issue ทั้งหมดคงเดิม และเปิดกลับได้ภายหลัง',
+        'ปิด campaign นี้หรือไม่ issue ทั้งหมดคงเดิม และเปิดกลับได้ภายหลัง',
     'Close campaign': 'ปิด campaign',
     'Reopen campaign': 'เปิด campaign อีกครั้ง',
     'Started {when} UTC by {user}': 'เริ่มเมื่อ {when} UTC โดย {user}',
@@ -1088,31 +1105,31 @@ CATALOG_TH: dict[str, str] = {
     'Its version rules stay disabled and open no issues until it is activated.':
         'version rule ของฉบับร่างจะปิดอยู่และไม่เปิด issue จนกว่าจะเปิดใช้',
     '{n} matched assets have no readable version; the version rules will not cover them — check them manually or run Verify after activation. Activating opens a suspected issue for each.':
-        'asset ที่ตรงกัน {n} รายการอ่านเวอร์ชันไม่ได้ version rule จึงครอบคลุมไม่ถึง ให้ตรวจเองหรือรัน Verify หลังเปิดใช้ การเปิดใช้จะเปิด issue สถานะสงสัยให้แต่ละรายการ',
+        'asset ที่ตรงกัน {n} รายการอ่านเวอร์ชันไม่ได้ version rule จึงครอบคลุมไม่ถึง ให้ตรวจเองหรือรัน "ตรวจซ้ำ" หลังเปิดใช้ การเปิดใช้จะเปิด issue สถานะสงสัยให้แต่ละรายการ',
     '{n} matched asset has no readable version; the version rules will not cover it — check it manually or run Verify after activation. Activating opens a suspected issue for each.':
-        'asset ที่ตรงกัน {n} รายการอ่านเวอร์ชันไม่ได้ version rule จึงครอบคลุมไม่ถึง ให้ตรวจเองหรือรัน Verify หลังเปิดใช้ การเปิดใช้จะเปิด issue สถานะสงสัยให้รายการนี้',
+        'asset ที่ตรงกัน {n} รายการอ่านเวอร์ชันไม่ได้ version rule จึงครอบคลุมไม่ถึง ให้ตรวจเองหรือรัน "ตรวจซ้ำ" หลังเปิดใช้ การเปิดใช้จะเปิด issue สถานะสงสัยให้รายการนี้',
     'This draft was dismissed. The 0-day watch will not draft {cve} again; reopen it as a draft to review it.':
-        'ฉบับร่างนี้ถูกยกเลิกแล้ว 0-day watch จะไม่สร้างฉบับร่างของ {cve} อีก เปิดกลับเป็นฉบับร่างเพื่อตรวจอีกครั้ง',
+        'ไม่รับฉบับร่างนี้แล้ว การเฝ้าระวัง 0-day จะไม่สร้างฉบับร่างของ {cve} อีก เปิดกลับเป็นฉบับร่างเพื่อตรวจอีกครั้ง',
     'This draft was dismissed. The 0-day watch will not draft it again; reopen it as a draft to review it.':
-        'ฉบับร่างนี้ถูกยกเลิกแล้ว 0-day watch จะไม่สร้างฉบับร่างนี้อีก เปิดกลับเป็นฉบับร่างเพื่อตรวจอีกครั้ง',
+        'ไม่รับฉบับร่างนี้แล้ว การเฝ้าระวัง 0-day จะไม่สร้างฉบับร่างนี้อีก เปิดกลับเป็นฉบับร่างเพื่อตรวจอีกครั้ง',
     '{c} confirmed · {v} verified · {s} suspected': 'ยืนยันแล้ว {c} · พิสูจน์แล้ว {v} · สงสัย {s}',
     'new, triaged or in progress': 'ใหม่ คัดกรองแล้ว หรือกำลังแก้',
     'Threat intel': 'Threat intel',
     'updated {when} UTC': 'อัปเดตเมื่อ {when} UTC',
-    'Published': 'เผยแพร่',
+    'Published': 'เผยแพร่เมื่อ',
     'Vector': 'Vector',
-    'chance of exploitation in 30 days': 'โอกาสถูกโจมตีภายใน 30 วัน',
+    'chance of exploitation in 30 days': 'โอกาสถูกนำไป exploit ภายใน 30 วัน',
     '(top {pct} %)': '(อยู่ใน {pct} % แรก)',
-    'Added {date} · federal due date': 'เพิ่มเมื่อ {date} · กำหนดแก้ของหน่วยงานรัฐ US',
+    'Added {date} · federal due date': 'เพิ่มเมื่อ {date} · กำหนดแก้ของหน่วยงานรัฐบาลกลางสหรัฐฯ',
     'References ({n})': 'แหล่งอ้างอิง ({n})',
-    'Matched by the 0-day watch': 'ตรงกันจาก 0-day watch',
-    'Match': 'การตรงกัน',
+    'Matched by the 0-day watch': 'พบโดยการเฝ้าระวัง 0-day',
+    'Match': 'ผลจับคู่',
     'Why': 'เหตุผล',
-    'Exposure': 'ความเสี่ยงที่พบ',
+    'Exposure': 'ความเสี่ยงที่เปิดอยู่',
     'Open in Issues': 'เปิดใน Issues',
-    'No exposed assets found': 'ไม่พบ asset ที่เสี่ยง',
+    'No exposed assets found': 'ไม่พบ asset ที่ได้รับผลกระทบ',
     'Add a version rule below to match the inventory, or run Verify against extra targets.':
-        'เพิ่ม version rule ด้านล่างเพื่อจับคู่กับ inventory หรือรัน Verify กับเป้าหมายเพิ่มเติม',
+        'เพิ่ม version rule ด้านล่างเพื่อจับคู่กับ inventory หรือรัน "ตรวจซ้ำ" กับเป้าหมายเพิ่มเติม',
     'The inventory has nothing matching the rules. Re-run nmap after adding hosts.':
         'ไม่มีอะไรใน inventory ตรงกับกฎ รัน nmap ใหม่หลังเพิ่ม host',
     'Verification jobs': 'Job การตรวจยืนยัน',
@@ -1123,11 +1140,11 @@ CATALOG_TH: dict[str, str] = {
     'Verify all with proof': 'ตรวจยืนยันทั้งหมดพร้อมหลักฐาน',
     'Verify with nuclei': 'ตรวจยืนยันด้วย nuclei',
     'Runs the {n} attached template(s) against {m} exposed asset(s) that are not closed':
-        'รัน template ที่แนบไว้ {n} รายการกับ asset ที่เสี่ยงและยังไม่ปิด {m} รายการ',
+        'รัน template ที่แนบไว้ {n} รายการกับ asset ที่ได้รับผลกระทบและยังไม่ปิด {m} รายการ',
     '… {n} more': '… อีก {n} รายการ',
     'Extra targets': 'เป้าหมายเพิ่มเติม',
     'Edit rule': 'แก้ไขกฎ',
-    'Remove this rule? Issues it opened stay in place.': 'เอากฎนี้ออก? issue ที่กฎนี้เปิดไว้ยังคงอยู่',
+    'Remove this rule? Issues it opened stay in place.': 'เอากฎนี้ออกหรือไม่ issue ที่กฎนี้เปิดไว้ยังคงอยู่',
     'Remove rule': 'เอากฎออก',
     'No version rule yet.': 'ยังไม่มี version rule',
     'Product pattern': 'รูปแบบ product',
@@ -1147,7 +1164,7 @@ CATALOG_TH: dict[str, str] = {
     'Activate this draft campaign before verifying it.': 'เปิดใช้ campaign ฉบับร่างนี้ก่อนตรวจยืนยัน',
     'Attach at least one nuclei template before verifying.': 'แนบ nuclei template อย่างน้อยหนึ่งรายการก่อนตรวจยืนยัน',
     'No exposed assets to verify. Add a version rule, run an nmap scan, or type extra targets.':
-        'ไม่มี asset ที่เสี่ยงให้ตรวจยืนยัน เพิ่ม version rule รัน nmap scan หรือพิมพ์เป้าหมายเพิ่มเติม',
+        'ไม่มี asset ที่ได้รับผลกระทบให้ตรวจยืนยัน เพิ่ม version rule รัน nmap scan หรือพิมพ์เป้าหมายเพิ่มเติม',
     'Rule added and evaluated': 'เพิ่มกฎและประเมินแล้ว',
     'Rule removed': 'เอากฎออกแล้ว',
     'Template attached': 'แนบ template แล้ว',
@@ -1238,11 +1255,11 @@ CATALOG_TH: dict[str, str] = {
     'No hits yet': 'ยังไม่พบรายการ',
     'When a new CVE affects a product in the inventory, it appears here with a draft campaign to review.':
         'เมื่อมี CVE ใหม่กระทบ product ใน inventory จะแสดงที่นี่พร้อม campaign ฉบับร่างให้ตรวจ',
-    '0-day watch settings saved': 'บันทึกการตั้งค่า 0-day watch แล้ว',
+    '0-day watch settings saved': 'บันทึกการตั้งค่าการเฝ้าระวัง 0-day แล้ว',
     'Draft created': 'สร้างฉบับร่างแล้ว',
     '0-day watch started. Reload in a minute for the result':
-        'เริ่ม 0-day watch แล้ว โหลดหน้าใหม่ในอีกสักครู่เพื่อดูผล',
-    'A 0-day watch run is already in progress': '0-day watch กำลังรันอยู่แล้ว',
+        'เริ่มการเฝ้าระวัง 0-day แล้ว โหลดหน้าใหม่ในอีกสักครู่เพื่อดูผล',
+    'A 0-day watch run is already in progress': 'การเฝ้าระวัง 0-day กำลังรันอยู่แล้ว',
     'Minimum CVSS must be a number between 0 and 10.': 'CVSS ขั้นต่ำต้องเป็นตัวเลขระหว่าง 0 ถึง 10',
     'Drafts per run must be a whole number between 1 and 200.': 'ฉบับร่างต่อรอบต้องเป็นจำนวนเต็มระหว่าง 1 ถึง 200',
     '{cve} already has a campaign.': '{cve} มี campaign อยู่แล้ว',
@@ -1260,7 +1277,7 @@ CATALOG_TH: dict[str, str] = {
     'Mean time to remediate': 'เวลาเฉลี่ยในการแก้ไข',
     '{n} d': '{n} วัน',
     'first seen → fixed, this period': 'จากพบครั้งแรก → แก้แล้ว ในช่วงนี้',
-    'SLA compliance': 'การแก้ไขตาม SLA',
+    'SLA compliance': 'การแก้ไขทัน SLA',
     'fixed within the due date': 'แก้ทันวันครบกำหนด',
     'Charts cover': 'กราฟครอบคลุม',
     '(nearest chart period to {n} days)': '(ช่วงกราฟที่ใกล้เคียง {n} วันที่สุด)',
@@ -1294,10 +1311,10 @@ CATALOG_TH: dict[str, str] = {
     'Evidence report for': 'รายงานหลักฐานของ',
     'on': 'บน',
     'Title': 'ชื่อเรื่อง',
-    'from the verification that reproduced it': 'จากการตรวจซ้ำที่ทำให้เกิดซ้ำได้',
+    'from the verification that reproduced it': 'จากการตรวจซ้ำที่พบช่องโหว่ซ้ำ',
     'newest scan finding': 'finding ล่าสุดจากการสแกน',
     'Run Verify now on the issue to capture the request and response.':
-        'กด ตรวจซ้ำเลย ที่ issue เพื่อเก็บ request และ response',
+        'กด "ตรวจซ้ำเลย" ที่ issue เพื่อเก็บ request และ response',
     'last {n} event(s)': '{n} เหตุการณ์ล่าสุด',
     'When (UTC)': 'เวลา (UTC)',
     'Who': 'ผู้ทำ',
@@ -1317,7 +1334,7 @@ CATALOG_TH: dict[str, str] = {
     'verified {when} UTC': 'พิสูจน์แล้วเมื่อ {when} UTC',
     'No scan evidence yet.': 'ยังไม่มีหลักฐานจากการสแกน',
     'No verified issues': 'ไม่มี issue ที่พิสูจน์แล้ว',
-    'Run Verify now on an issue to capture its proof.': 'กด ตรวจซ้ำเลย ที่ issue เพื่อเก็บ proof',
+    'Run Verify now on an issue to capture its proof.': 'กด "ตรวจซ้ำเลย" ที่ issue เพื่อเก็บ proof',
     'Asset groups with an owner and a business criticality. New issues inside a scope go to its owner; schedules keep each scope scanned.':
         'กลุ่ม asset ที่มีเจ้าของและระดับความสำคัญทางธุรกิจ issue ใหม่ใน scope จะมอบให้เจ้าของ และตารางสแกนช่วยให้แต่ละ scope ถูกสแกนสม่ำเสมอ',
     'New scope': 'สร้าง scope',
@@ -1334,7 +1351,7 @@ CATALOG_TH: dict[str, str] = {
     'Nothing discovered yet': 'ยังไม่พบอะไร',
     'Add an nmap schedule below or run a scan of the targets.': 'เพิ่มตารางสแกน nmap ด้านล่าง หรือสแกนเป้าหมาย',
     'Scope settings': 'ตั้งค่า scope',
-    'Exclusions': 'ยกเว้น',
+    'Exclusions': 'รายการยกเว้น',
     'Group assets by business function so issues get an owner and a priority, and scans can be scheduled.':
         'จัดกลุ่ม asset ตามหน้าที่ทางธุรกิจ เพื่อให้ issue มีเจ้าของและลำดับความสำคัญ และตั้งตารางสแกนได้',
     'Create scope': 'สร้าง scope',
@@ -1349,7 +1366,7 @@ CATALOG_TH: dict[str, str] = {
     'Scope name is too long (max 128).': 'ชื่อ scope ยาวเกินไป (สูงสุด 128 ตัวอักษร)',
     'Unknown criticality.': 'ไม่รู้จักระดับความสำคัญนี้',
     'Targets: {error}': 'เป้าหมาย: {error}',
-    'Exclusions: {error}': 'ยกเว้น: {error}',
+    'Exclusions: {error}': 'รายการยกเว้น: {error}',
     "A scope named '{name}' already exists.": "มี scope ชื่อ '{name}' อยู่แล้ว",
     'The owner must be an active admin or analyst.': 'เจ้าของต้องเป็นผู้ดูแลระบบหรือนักวิเคราะห์ที่ยังใช้งานอยู่',
     'Scope created': 'สร้าง scope แล้ว',
@@ -1387,7 +1404,7 @@ CATALOG_TH: dict[str, str] = {
     'Skip host discovery (-Pn)': 'ข้ามการค้นหา host (-Pn)',
     'Preset': 'Preset',
     'Templates, groups, severities and profile below apply only to Custom.':
-        'template, กลุ่ม, severity และ profile ด้านล่างใช้เฉพาะเมื่อเลือก กำหนดเอง',
+        'template กลุ่ม ความรุนแรง และ profile ด้านล่างใช้เฉพาะเมื่อเลือก "กำหนดเอง"',
     'Groups (when using groups)': 'กลุ่ม (เมื่อเลือกแบบกลุ่ม)',
     'Severities': 'ระดับความรุนแรง',
     'One per line, up to 20. Only domains you own or are authorized to test.':
@@ -1396,7 +1413,7 @@ CATALOG_TH: dict[str, str] = {
     'Create schedule': 'สร้างตารางสแกน',
     'Every {n} hours': 'ทุก {n} ชั่วโมง',
     'Every {n} hour': 'ทุก {n} ชั่วโมง',
-    'Weekly on {day} at {time}': 'ทุกสัปดาห์ วัน{day} เวลา {time}',
+    'Weekly on {day} at {time}': 'ทุกวัน{day} เวลา {time}',
     'Daily at {time}': 'ทุกวัน เวลา {time}',
     'nmap discovery': 'nmap discovery',
     'Verify active campaigns': 'ตรวจซ้ำ campaign ที่ active',
@@ -1503,7 +1520,7 @@ CATALOG_TH: dict[str, str] = {
     'Disable': 'ปิดใช้',
     'Disabled': 'ปิดใช้',
     'This rule belongs to a 0-day watch draft and produces no issues until the campaign is activated':
-        'กฎนี้เป็นของร่างจาก เฝ้าระวัง 0-day และจะไม่สร้าง issue จนกว่าจะเปิดใช้ campaign',
+        'กฎนี้เป็นของฉบับร่างจากการเฝ้าระวัง 0-day และจะไม่สร้าง issue จนกว่าจะเปิดใช้ campaign',
     'waiting for activation': 'รอเปิดใช้',
     'campaign dismissed': 'campaign ถูกยกเลิก',
     'Edit': 'แก้ไข',
@@ -1550,7 +1567,7 @@ CATALOG_TH: dict[str, str] = {
     'not installed': 'ไม่ได้ติดตั้ง',
     'web probe': 'ตรวจ web',
     'No nuclei templates downloaded yet. Run "Update nuclei templates" below.':
-        'ยังไม่ได้ดาวน์โหลด nuclei template กด "อัปเดต nuclei templates" ด้านล่าง',
+        'ยังไม่ได้ดาวน์โหลด nuclei template กด "อัปเดต nuclei template" ด้านล่าง',
     'Run update': 'รันอัปเดต',
     'Rebuilding the image': 'Build image ใหม่',
     'nmap comes from the Debian package of the base image; nuclei, subfinder and httpx are pinned by':
@@ -1574,7 +1591,6 @@ CATALOG_TH: dict[str, str] = {
     'Update httpx': 'อัปเดต httpx',
     'Self-updates the ProjectDiscovery httpx binary (httpx -update). Lost on image rebuild; bump HTTPX_VERSION in the Dockerfile for a permanent change.':
         'อัปเดตโปรแกรม httpx ของ ProjectDiscovery เอง (httpx -update) จะหายเมื่อ build image ใหม่ หากต้องการถาวรให้เปลี่ยน HTTPX_VERSION ใน Dockerfile',
-    'Administration': 'การดูแลระบบ',
     'Who can sign in and what their role allows. New users receive a temporary password they must change at first sign-in.':
         'ใครเข้าสู่ระบบได้บ้างและบทบาทแต่ละแบบทำอะไรได้ ผู้ใช้ใหม่จะได้รหัสผ่านชั่วคราวที่ต้องเปลี่ยนเมื่อเข้าสู่ระบบครั้งแรก',
     'Reset the password of': 'รีเซ็ตรหัสผ่านของ',
@@ -1602,17 +1618,17 @@ CATALOG_TH: dict[str, str] = {
         'คุณปิดใช้งาน ลบ หรือรีเซ็ตบัญชีตัวเองที่นี่ไม่ได้ เปลี่ยนรหัสผ่านของตัวเองได้ที่',
     'your profile': 'โปรไฟล์ของคุณ',
     'Reset the password of {name}? They are signed out and get a new temporary password.':
-        'รีเซ็ตรหัสผ่านของ {name}? ผู้ใช้จะถูกออกจากระบบและได้รหัสผ่านชั่วคราวใหม่',
+        'รีเซ็ตรหัสผ่านของ {name} หรือไม่ ผู้ใช้จะถูกออกจากระบบและได้รหัสผ่านชั่วคราวใหม่',
     'Reset password': 'รีเซ็ตรหัสผ่าน',
     'Generates a temporary password and signs the user out.': 'สร้างรหัสผ่านชั่วคราวและให้ผู้ใช้ออกจากระบบ',
     'Deactivate {name}? They are signed out and cannot sign in until reactivated.':
-        'ปิดใช้งาน {name}? ผู้ใช้จะถูกออกจากระบบและเข้าสู่ระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง',
+        'ปิดใช้งาน {name} หรือไม่ ผู้ใช้จะถูกออกจากระบบและเข้าสู่ระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง',
     'Deactivate': 'ปิดใช้งาน',
     'Blocks sign-in and ends current sessions. History is kept.':
-        'ห้ามเข้าสู่ระบบและปิด session ที่ใช้อยู่ ประวัติยังเก็บไว้',
+        'ระงับการเข้าสู่ระบบและปิด session ที่ใช้อยู่ ประวัติยังเก็บไว้',
     'Allows the user to sign in again.': 'ให้ผู้ใช้เข้าสู่ระบบได้อีกครั้ง',
     'Delete {name} permanently? Audit entries keep their username.':
-        'ลบ {name} ถาวร? รายการใน audit log ยังเก็บชื่อผู้ใช้ไว้',
+        'ลบ {name} ถาวรหรือไม่ รายการใน audit log ยังเก็บชื่อผู้ใช้ไว้',
     'Delete user': 'ลบผู้ใช้',
     'Prefer deactivating: deletion cannot be undone.': 'แนะนำให้ปิดใช้งานแทน เพราะการลบย้อนกลับไม่ได้',
     'You cannot change your own role. Ask another administrator.':
@@ -1649,7 +1665,7 @@ CATALOG_TH: dict[str, str] = {
     'API key': 'API key',
     'Key stored · leave blank to keep': 'เก็บ key ไว้แล้ว · เว้นว่างเพื่อใช้ค่าเดิม',
     'Type a new key to replace it; a typed key takes priority over Remove stored key.':
-        'พิมพ์ key ใหม่เพื่อแทนที่ key ที่พิมพ์จะมีผลก่อนตัวเลือก ลบ key ที่เก็บไว้',
+        'พิมพ์ key ใหม่เพื่อแทนที่ ถ้าพิมพ์ key ใหม่ ระบบจะใช้ key นั้นแม้ติ๊ก "ลบ key ที่เก็บไว้"',
     'Remove stored key': 'ลบ key ที่เก็บไว้',
     'Encrypted at rest, never shown again. Optional for local servers.':
         'เข้ารหัสเมื่อจัดเก็บและไม่แสดงอีก ไม่บังคับสำหรับเซิร์ฟเวอร์ในเครื่อง',
@@ -1665,7 +1681,7 @@ CATALOG_TH: dict[str, str] = {
     'ok': 'ผ่าน',
     'Test': 'ทดสอบ',
     'Make default': 'ตั้งเป็นค่าเริ่มต้น',
-    "Delete provider '{name}' and its key?": "ลบ provider '{name}' และ key ของมัน?",
+    "Delete provider '{name}' and its key?": "ลบ provider '{name}' พร้อม key หรือไม่",
     'Delete provider': 'ลบ provider',
     'No AI provider yet': 'ยังไม่มี AI provider',
     'Add one on the right to enable drafting, explanations, triage, search and summaries.':
@@ -1694,7 +1710,7 @@ CATALOG_TH: dict[str, str] = {
         'ระบุ base URL ของเซิร์ฟเวอร์ที่รองรับ OpenAI เช่น http://host.docker.internal:11434/v1 สำหรับ Ollama',
     'Base URL must start with http:// or https://.': 'Base URL ต้องขึ้นต้นด้วย http:// หรือ https://',
     ' The API key from the previous provider type was kept; tick Remove stored key if the new provider does not use it.':
-        ' ยังเก็บ API key ของ provider ประเภทเดิมไว้ หาก provider ใหม่ไม่ใช้ key นี้ให้ติ๊ก ลบ key ที่เก็บไว้',
+        ' ยังเก็บ API key ของ provider ประเภทเดิมไว้ หาก provider ใหม่ไม่ใช้ key นี้ให้ติ๊ก "ลบ key ที่เก็บไว้"',
     'Give the provider a name.': 'ตั้งชื่อ provider',
     'Max output tokens must be between 256 and 128000.': 'Output token สูงสุดต้องอยู่ระหว่าง 256 ถึง 128000',
     'Test succeeded.': 'ทดสอบผ่าน',
@@ -1705,8 +1721,8 @@ CATALOG_TH: dict[str, str] = {
     'Provider added. Press Test to check the key.': 'เพิ่ม provider แล้ว กด ทดสอบ เพื่อตรวจ key',
     'Default provider changed': 'เปลี่ยน provider เริ่มต้นแล้ว',
     'Provider deleted': 'ลบ provider แล้ว',
-    'No AI provider is configured. An admin can add one under Administration → AI.':
-        'ยังไม่ได้ตั้งค่า AI provider ผู้ดูแลระบบเพิ่มได้ที่ การดูแลระบบ → AI',
+    'No AI provider is configured. An admin can add one under System → AI assistant.':
+        'ยังไม่ได้ตั้งค่า AI provider ผู้ดูแลระบบเพิ่มได้ที่ ระบบ → ผู้ช่วย AI',
     'Paste the advisory text or enter a CVE id for the AI draft.':
         'วางข้อความ advisory หรือระบุ CVE id เพื่อให้ AI ร่าง',
     'Describe the vulnerability or give a CVE id for the AI draft.': 'อธิบายช่องโหว่หรือระบุ CVE id เพื่อให้ AI ร่าง',
@@ -1738,7 +1754,7 @@ CATALOG_TH: dict[str, str] = {
     'revoked': 'เพิกถอนแล้ว',
     'expired': 'หมดอายุแล้ว',
     "Revoke key '{name}'? Anything using it stops working immediately.":
-        "เพิกถอน key '{name}'? ทุกระบบที่ใช้ key นี้จะหยุดทำงานทันที",
+        "เพิกถอน key '{name}' หรือไม่ ทุกระบบที่ใช้ key นี้จะหยุดทำงานทันที",
     'Revoke': 'เพิกถอน',
     'No API keys': 'ยังไม่มี API key',
     'Create one to automate scans or feed issues into a SIEM.':
@@ -1830,7 +1846,7 @@ CATALOG_TH: dict[str, str] = {
     'Check connection': 'ตรวจการเชื่อมต่อ',
     'Send test': 'ส่งข้อความทดสอบ',
     "Delete channel '{name}', its rules, queued deliveries and ticket links?":
-        "ลบช่องทาง '{name}' พร้อมกฎ รายการที่รอส่ง และลิงก์ ticket?",
+        "ลบช่องทาง '{name}' พร้อมกฎ รายการที่รอส่ง และลิงก์ ticket หรือไม่",
     'Last test {when} UTC:': 'ทดสอบล่าสุด {when} UTC:',
     'scope': 'scope',
     'Delete rule': 'ลบกฎ',
@@ -1838,17 +1854,12 @@ CATALOG_TH: dict[str, str] = {
         'ยังไม่มีกฎ ช่องทางนี้จะไม่ได้รับอะไรจนกว่าจะเพิ่มกฎ',
     'Open a ticket when': 'เปิด ticket เมื่อ',
     'Notify on': 'แจ้งเตือนเมื่อ',
-    'Minimum severity': 'Severity ขั้นต่ำ',
+    'Minimum severity': 'ความรุนแรงขั้นต่ำ',
     'Any scope': 'ทุก scope',
     'Recent deliveries': 'การส่งล่าสุด',
     'Message': 'ข้อความ',
     'Nothing sent yet': 'ยังไม่มีการส่ง',
     'Uses the SMTP server under': 'ใช้ SMTP server ที่ตั้งไว้ใน',
-    'Create an API token at id.atlassian.com → Security. Closing uses the first transition into a':
-        'สร้าง API token ได้ที่ id.atlassian.com → Security การปิด ticket ใช้ transition แรกที่ไปยังสถานะ',
-    'status.': ' ',
-    'Use a project or personal access token with the': 'ใช้ project หรือ personal access token ที่มี scope',
-    'scope.': ' ',
     'Requests carry': 'คำขอมี header',
     'and, with a signing secret,': 'และเมื่อตั้ง signing secret จะมี',
     'Every message and ticket operation, newest first. Failures retry after 1, 5, 15 and 60 minutes.':
@@ -1937,7 +1948,7 @@ CATALOG_TH: dict[str, str] = {
     'Public URL of this scanner': 'Public URL ของระบบนี้',
     'Used for links in Slack, Teams, email and tickets.': 'ใช้สร้างลิงก์ใน Slack, Teams, อีเมล และ ticket',
     'SMTP host': 'SMTP host',
-    'Security': 'ความปลอดภัย',
+    'Security': 'การเข้ารหัส',
     'None': 'ไม่มี',
     'From address': 'อีเมลผู้ส่ง',
     'Save notification settings': 'บันทึกการตั้งค่าการแจ้งเตือน',
@@ -1960,5 +1971,18 @@ CATALOG_TH: dict[str, str] = {
     'Daily and weekly schedules run at local time in this zone (daylight saving is handled). Saving recalculates their next run.':
         'ตารางสแกนรายวันและรายสัปดาห์รันตามเวลาท้องถิ่นของเขตนี้ (รองรับ daylight saving) การบันทึกจะคำนวณเวลารันครั้งถัดไปใหม่',
     'IANA timezone': 'IANA timezone',
+    # discovery source names (settings) and the custom template group (nuclei)
+    'SecurityTrails': 'SecurityTrails',
+    'Shodan': 'Shodan',
+    'Censys (Personal Access Token)': 'Censys (token ส่วนบุคคล)',
+    'VirusTotal': 'VirusTotal',
+    'Chaos': 'Chaos',
+    'GitHub': 'GitHub',
+    'BinaryEdge': 'BinaryEdge',
+    'FOFA': 'FOFA',
+    'Custom (0-day) templates': 'Template ที่สร้างเอง (0-day)',
     'Save timezone': 'บันทึกเขตเวลา',
+    'issues|Active': 'ยังไม่ปิด',
+    'issues|Closed': 'ที่ปิดแล้ว (ทั้งหมด)',
+    'issue|Owner': 'ผู้รับผิดชอบ',
 }
