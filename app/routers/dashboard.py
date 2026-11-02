@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..db import Finding, Host, Rule, RuleMatch, Scope, Service, TemplateIndex, User, utcnow
 from ..deps import get_db, verify_csrf
+from ..i18n import flash, request_lang
 from ..render import SEVERITIES, render
 from .. import onboarding
 from .jobs import job_summary, recent_jobs
@@ -67,7 +68,7 @@ def dashboard(request: Request, trend_days: str = "", trend_scope_id: str = Quer
     return render(request, "dashboard.html", active="dashboard", stats=stats, sev_counts=sev_counts, kpis=issue_kpis(db),
                   active_campaigns=active_campaigns, drafts_waiting=drafts, top_risks=top_risks(db),
                   jobs=recent_jobs(db, limit=10), job_summary=job_summary, surface_counts=surface.open_counts(db, 7),
-                  surface_labels=surface.KIND_LABELS, trend=t, trend_charts=trend_charts(t),
+                  surface_labels=surface.KIND_LABELS, trend=t, trend_charts=trend_charts(t, lang=request_lang(request)),
                   trend_periods=trends.PERIOD_LABELS, trend_scopes=list(db.scalars(select(Scope).order_by(Scope.name))),
                   get_started=onboarding.card(db, request.state.user))
 
@@ -78,7 +79,7 @@ def onboarding_dismiss(request: Request, db: Session = Depends(get_db)):
     me = db.get(User, request.state.user.id)
     me.onboarding_dismissed_at = utcnow()
     db.commit()
-    return RedirectResponse("/?msg=Get+started+hidden.+Bring+it+back+from+your+profile.", status_code=303)
+    return RedirectResponse("/?msg=" + flash(request, "Get started hidden. Bring it back from your profile."), status_code=303)
 
 
 @router.post("/onboarding/reset", dependencies=[Depends(verify_csrf)])

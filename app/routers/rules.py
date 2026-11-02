@@ -9,6 +9,7 @@ from ..db import Campaign, Host, Rule, RuleMatch, Service
 from ..audit import audit
 from ..authz import require
 from ..deps import get_db, verify_csrf
+from ..i18n import Msg, flash, tr
 from ..render import SEVERITIES, render
 from ..rules import UNREVIEWED, evaluate_rules, validate_rule
 
@@ -46,9 +47,9 @@ def _form_from(name, product_pattern, version_constraint, cve_id, severity, desc
 
 def _validate_form(form: dict) -> str | None:
     if not form["name"]:
-        return "Name is required."
+        return Msg("Name is required.")
     if not form["product_pattern"]:
-        return "Product pattern is required."
+        return Msg("Product pattern is required.")
     return validate_rule(form["product_pattern"], form["version_constraint"])
 
 
@@ -64,7 +65,7 @@ def rules_create(request: Request, name: str = Form(""), product_pattern: str = 
     form = _form_from(name, product_pattern, version_constraint, cve_id, severity, description, enabled)
     err = _validate_form(form)
     if err:
-        return _rules_page(request, db, form=form, error=err, status_code=400)
+        return _rules_page(request, db, form=form, error=tr(request, err), status_code=400)
     rule = Rule(**form)
     db.add(rule)
     db.commit()
@@ -72,7 +73,7 @@ def rules_create(request: Request, name: str = Form(""), product_pattern: str = 
     db.commit()
     audit(db, request, "rule.created", target=rule.name, rule_id=rule.id, product=rule.product_pattern,
           constraint=rule.version_constraint, cve=rule.cve_id)
-    return RedirectResponse("/rules?msg=Rule+created+and+evaluated", status_code=303)
+    return RedirectResponse("/rules?msg=" + flash(request, "Rule created and evaluated"), status_code=303)
 
 
 @router.get("/rules/{rule_id}/edit", dependencies=[Depends(require("rules.manage"))])
@@ -94,7 +95,7 @@ def rule_edit(request: Request, rule_id: int, name: str = Form(""), product_patt
     form = _form_from(name, product_pattern, version_constraint, cve_id, severity, description, enabled)
     err = _validate_form(form)
     if err:
-        return render(request, "rule_form.html", status_code=400, active="rules", rule=rule, form=form, error=err)
+        return render(request, "rule_form.html", status_code=400, active="rules", rule=rule, form=form, error=tr(request, err))
     for k, v in form.items():
         setattr(rule, k, v)
     db.commit()
@@ -104,8 +105,8 @@ def rule_edit(request: Request, rule_id: int, name: str = Form(""), product_patt
           constraint=rule.version_constraint, cve=rule.cve_id, enabled=rule.enabled)
     draft = _unreviewed_campaign(db, rule)
     if draft is not None:   # a draft's rule is reviewed on its campaign page
-        return RedirectResponse(f"/campaigns/{draft.id}?msg=Rule+updated", status_code=303)
-    return RedirectResponse("/rules?msg=Rule+updated+and+evaluated", status_code=303)
+        return RedirectResponse(f"/campaigns/{draft.id}?msg=" + flash(request, "Rule updated"), status_code=303)
+    return RedirectResponse("/rules?msg=" + flash(request, "Rule updated and evaluated"), status_code=303)
 
 
 @router.post("/rules/{rule_id}/toggle", dependencies=[Depends(require("rules.manage")), Depends(verify_csrf)])
@@ -129,7 +130,7 @@ def rule_delete(request: Request, rule_id: int, db: Session = Depends(get_db)):
         db.delete(rule)
         db.commit()
         audit(db, request, "rule.deleted", target=name, rule_id=rule_id)
-    return RedirectResponse("/rules?msg=Rule+deleted", status_code=303)
+    return RedirectResponse("/rules?msg=" + flash(request, "Rule deleted"), status_code=303)
 
 
 @router.post("/rules/evaluate", dependencies=[Depends(require("rules.manage")), Depends(verify_csrf)])
@@ -137,4 +138,4 @@ def rules_evaluate(request: Request, db: Session = Depends(get_db)):
     n = evaluate_rules(db)
     db.commit()
     audit(db, request, "rule.evaluated", target="all enabled rules", matches=n)
-    return RedirectResponse(f"/rules?msg={n}+match(es)+found", status_code=303)
+    return RedirectResponse("/rules?msg=" + flash(request, "{n} match(es) found", n=n), status_code=303)

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import math
 
+from .i18n import current_lang, translate
+
 W, H = 640, 220
 ML, MR, MT, MB = 40, 12, 12, 28          # plot margins: left (y labels), right, top, bottom (x labels)
 PW, PH = W - ML - MR, H - MT - MB
@@ -16,6 +18,11 @@ MAX_XLABELS = 6
 RADIUS = 4                               # rounded top of the topmost segment
 MARKER_R = 4                             # 8 px markers
 XLABEL_HALF = 22                         # half the width of an 11 px "Mmm dd" label, plus a little room
+
+
+def _en(text: str, **params) -> str:
+    """Default translator for the geometry functions: the English text, formatted."""
+    return text.format(**params) if params else text
 
 
 def nice_ticks(vmax: float, max_ticks: int = 5, integer: bool = True) -> list:
@@ -90,7 +97,7 @@ def _frame(points: list[dict], ticks: list, labels: list[str], empty: bool) -> d
             "xlabels": _xlabels(points), "hits": _hits(points, labels), "empty": empty}
 
 
-def stacked_bars(points: list[dict], keys: tuple, names: dict | None = None, field: str = "open") -> dict:
+def stacked_bars(points: list[dict], keys: tuple, names: dict | None = None, field: str = "open", tr=_en) -> dict:
     """One bar per bucket stacked bottom → top in ``keys`` order, from ``point[field][key]``."""
     names = names or {k: k for k in keys}
     totals = [sum(p[field].get(k, 0) for k in keys) for p in points]
@@ -116,8 +123,9 @@ def stacked_bars(points: list[dict], keys: tuple, names: dict | None = None, fie
             s["d"] = _bar_path(s["x"], s["y"], s["w"], s["dh"], RADIUS if s["top"] else 0)
         bars.append({"x": round(x, 2), "w": round(bw, 2), "y": BOTTOM - sc(totals[n]), "h": sc(totals[n]),
                      "total": totals[n], "segments": segs})
-    labels = [f"{p['range']}: " + ", ".join(f"{p[field].get(k, 0)} {names[k]}" for k in reversed(keys))
-              + f" ({t} total)" for p, t in zip(points, totals)]
+    labels = [tr("{range}: {values} ({total} total)", range=p["range"], total=t,
+                 values=", ".join(f"{p[field].get(k, 0)} {names[k]}" for k in reversed(keys)))
+              for p, t in zip(points, totals)]
     out = _frame(points, ticks, labels, not any(totals))
     last = bars[-1] if bars else None
     out["bars"] = bars
@@ -126,7 +134,7 @@ def stacked_bars(points: list[dict], keys: tuple, names: dict | None = None, fie
     return out
 
 
-def grouped_bars(points: list[dict], keys: tuple, names: dict | None = None) -> dict:
+def grouped_bars(points: list[dict], keys: tuple, names: dict | None = None, tr=_en) -> dict:
     """Side-by-side bars per bucket (e.g. new vs resolved), ``GAP`` px apart."""
     names = names or {k: k for k in keys}
     peak = max((p[k] or 0 for p in points for k in keys), default=0)
@@ -143,13 +151,15 @@ def grouped_bars(points: list[dict], keys: tuple, names: dict | None = None) -> 
             bars.append({"key": k, "value": p[k], "x": round(x, 2), "y": BOTTOM - h, "w": round(bw, 2), "h": h,
                          "d": _bar_path(x, BOTTOM - h, bw, h, 2) if h else ""})
         groups.append({"bars": bars})
-    labels = [f"{p['range']}: " + ", ".join(f"{p[k]} {names[k]}" for k in keys) for p in points]
+    labels = [tr("{range}: {values}", range=p["range"], values=", ".join(f"{p[k]} {names[k]}" for k in keys))
+              for p in points]
     out = _frame(points, ticks, labels, not peak)
     out["groups"] = groups
     return out
 
 
-def line(points: list[dict], key: str, ymax: float | None = None, unit: str = "", integer: bool = True) -> dict:
+def line(points: list[dict], key: str, ymax: float | None = None, unit: str = "", integer: bool = True,
+         tr=_en) -> dict:
     """A 2 px line through the non-null values, broken at gaps (None), with a marker on every value."""
     values = [p[key] for p in points]
     ticks = nice_ticks(ymax if ymax else max((v for v in values if v is not None), default=0), integer=integer)
@@ -167,7 +177,7 @@ def line(points: list[dict], key: str, ymax: float | None = None, unit: str = ""
     if cur:
         segments.append(cur)
     segs = [{"points": s, "d": "M" + " L".join(f"{q['x']},{q['y']}" for q in s)} for s in segments]
-    labels = [f"{p['range']}: " + (f"{_fmt(v)}{unit}" if v is not None else "no data")
+    labels = [tr("{range}: {values}", range=p["range"], values=f"{_fmt(v)}{unit}" if v is not None else tr("no data"))
               for p, v in zip(points, values)]
     out = _frame(points, ticks, labels, all(v is None for v in values))
     out["segments"], out["markers"] = segs, markers
@@ -178,64 +188,73 @@ def line(points: list[dict], key: str, ymax: float | None = None, unit: str = ""
 SEVERITY_STACK = ("low", "medium", "high", "critical")   # bottom → top
 
 
-def _range_text(lo, hi, unit: str) -> str:
-    return f"{_fmt(lo)}{unit}" if lo == hi else f"{_fmt(lo)}{unit} to {_fmt(hi)}{unit}"
+def _range_text(lo, hi, unit: str, tr=_en) -> str:
+    return f"{_fmt(lo)}{unit}" if lo == hi else tr("{lo} to {hi}", lo=f"{_fmt(lo)}{unit}", hi=f"{_fmt(hi)}{unit}")
 
 
-def trend_charts(t: dict, surface: bool = True) -> list[dict]:
-    """The Trends card: open exposure, new vs resolved, MTTR, SLA and (optionally) surface changes."""
-    pts, per = t["points"], t["bucket"]
-    period = "Period" if per == "week" else "Day"
+def trend_charts(data: dict, surface: bool = True, lang: str | None = None) -> list[dict]:
+    """The Trends card: open exposure, new vs resolved, MTTR, SLA and (optionally) surface changes.
+
+    Titles, legends, table heads and descriptions are in ``lang`` (default: the page being rendered)."""
+    lang = lang or current_lang()
+
+    def t(text, **params):
+        return translate(lang, text, **params)
+
+    pts, per = data["points"], data["bucket"]
+    period = t("Period") if per == "week" else t("Day")
+    each = t("week") if per == "week" else t("day")
+    days = t(" days")
     out = []
 
     out.append({
-        "id": "open", "kind": "stacked", "title": "Open exposure",
-        "subtitle": f"Open issues at the end of each {per}, by severity",
-        "desc": f"Open issues went from {pts[0]['open_total']} to {pts[-1]['open_total']}.",
+        "id": "open", "kind": "stacked", "title": t("Open exposure"),
+        "subtitle": t("Open issues at the end of each {per}, by severity", per=each),
+        "desc": t("Open issues went from {a} to {b}.", a=pts[0]['open_total'], b=pts[-1]['open_total']),
         "legend": [(f"c-{k}", k.capitalize()) for k in reversed(SEVERITY_STACK)],
-        "g": stacked_bars(pts, SEVERITY_STACK),
-        "head": [period, "Critical", "High", "Medium", "Low", "Other", "Total"],
+        "g": stacked_bars(pts, SEVERITY_STACK, tr=t),
+        "head": [period, "Critical", "High", "Medium", "Low", t("Other"), t("Total")],
         "rows": [[p["range"], *(p["open"][k] for k in reversed(SEVERITY_STACK)), p["other"], p["open_total"]]
                  for p in pts]})
 
     new, res = sum(p["new"] for p in pts), sum(p["resolved"] for p in pts)
     out.append({
-        "id": "flow", "kind": "grouped", "title": "New vs resolved",
-        "subtitle": f"Issues first seen and issues resolved per {per}",
-        "desc": f"{new} new and {res} resolved issues in this period.",
-        "legend": [("c-1", "New"), ("c-2", "Resolved")],
-        "g": grouped_bars(pts, ("new", "resolved")),
-        "head": [period, "New", "Resolved"], "rows": [[p["range"], p["new"], p["resolved"]] for p in pts]})
+        "id": "flow", "kind": "grouped", "title": t("New vs resolved"),
+        "subtitle": t("Issues first seen and issues resolved per {per}", per=each),
+        "desc": t("{new} new and {res} resolved issues in this period.", new=new, res=res),
+        "legend": [("c-1", t("New")), ("c-2", t("Resolved"))],
+        "g": grouped_bars(pts, ("new", "resolved"), {"new": t("new"), "resolved": t("resolved")}, tr=t),
+        "head": [period, t("New"), t("Resolved")], "rows": [[p["range"], p["new"], p["resolved"]] for p in pts]})
 
     vals = [p["mttr_days"] for p in pts if p["mttr_days"] is not None]
     out.append({
-        "id": "mttr", "kind": "line", "title": "Mean time to remediate (days)",
-        "subtitle": f"First seen to fixed, for issues remediated in each {per}",
-        "desc": (f"Mean time to remediate ranged from {_range_text(min(vals), max(vals), ' days')}." if vals
-                 else "No issues were remediated in this period."),
-        "legend": [], "g": line(pts, "mttr_days", unit=" days", integer=False),
-        "head": [period, "Days", "Remediated"],
+        "id": "mttr", "kind": "line", "title": t("Mean time to remediate (days)"),
+        "subtitle": t("First seen to fixed, for issues remediated in each {per}", per=each),
+        "desc": (t("Mean time to remediate ranged from {range}.", range=_range_text(min(vals), max(vals), days, t))
+                 if vals else t("No issues were remediated in this period.")),
+        "legend": [], "g": line(pts, "mttr_days", unit=days, integer=False, tr=t),
+        "head": [period, t("Days"), t("Remediated")],
         "rows": [[p["range"], "—" if p["mttr_days"] is None else _fmt(p["mttr_days"]), p["remediated"]] for p in pts]})
 
     vals = [p["sla_pct"] for p in pts if p["sla_pct"] is not None]
     out.append({
-        "id": "sla", "kind": "line", "title": "SLA compliance (%)",
-        "subtitle": "Remediated issues with a due date that were fixed on time",
-        "desc": (f"SLA compliance ranged from {_range_text(min(vals), max(vals), '%')}." if vals
-                 else "No issues with a due date were remediated in this period."),
-        "legend": [], "g": line(pts, "sla_pct", ymax=100, unit="%"),
-        "head": [period, "On time", "With due date"],
+        "id": "sla", "kind": "line", "title": t("SLA compliance (%)"),
+        "subtitle": t("Remediated issues with a due date that were fixed on time"),
+        "desc": (t("SLA compliance ranged from {range}.", range=_range_text(min(vals), max(vals), "%", t)) if vals
+                 else t("No issues with a due date were remediated in this period.")),
+        "legend": [], "g": line(pts, "sla_pct", ymax=100, unit="%", tr=t),
+        "head": [period, t("On time"), t("With due date")],
         "rows": [[p["range"], "—" if p["sla_pct"] is None else f"{p['sla_pct']}%", p["with_due"]] for p in pts]})
 
     if surface:
         add, oth = sum(p["surface_added"] for p in pts), sum(p["surface_other"] for p in pts)
         out.append({
-            "id": "surface", "kind": "grouped", "title": "Surface changes",
-            "subtitle": "New hosts, opened ports and new subdomains vs closed ports, changed services and hosts gone",
-            "desc": f"{add} added and {oth} other attack-surface changes in this period.",
-            "legend": [("c-1", "Added"), ("c-2", "Other")],
+            "id": "surface", "kind": "grouped", "title": t("Surface changes"),
+            "subtitle": t("New hosts, opened ports and new subdomains vs closed ports, changed services and hosts gone"),
+            "desc": t("{add} added and {oth} other attack-surface changes in this period.", add=add, oth=oth),
+            "legend": [("c-1", t("Added")), ("c-2", t("Other"))],
             "g": grouped_bars(pts, ("surface_added", "surface_other"),
-                              {"surface_added": "added", "surface_other": "other"}),
-            "head": [period, "Added", "Other"],
+                              {"surface_added": t("added"), "surface_other": t("other")}, tr=t),
+            "head": [period, t("Added"), t("Other")],
             "rows": [[p["range"], p["surface_added"], p["surface_other"]] for p in pts]})
     return out

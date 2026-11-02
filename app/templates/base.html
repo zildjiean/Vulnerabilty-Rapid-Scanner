@@ -1,23 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ lang or 'en' }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}{{ page_title or 'Scanner' }} · 0-Day Rapid Scanner{% endblock %}</title>
+<title>{% block title %}{{ page_title or t('Scanner') }} · 0-Day Rapid Scanner{% endblock %}</title>
 <link rel="stylesheet" href="/static/app.css?v={{ static_v }}">
 <script>try{var t=localStorage.getItem("zdrs-theme");if(t)document.documentElement.setAttribute("data-theme",t);if(localStorage.getItem("zdrs-sidebar")==="collapsed")document.documentElement.classList.add("pre-collapsed")}catch(e){}</script>
 </head>
 <body>
 {% include "_icons.html" %}
-<a class="skip-link" href="#main">Skip to content</a>
+{% from "_lang_switch.html" import lang_switch with context %}
+<a class="skip-link" href="#main">{{ t("Skip to content") }}</a>
 {% if user and not auth_page %}
 <div class="shell" id="shell">
-  <aside class="sidebar" aria-label="Primary navigation">
-    <a class="brand" href="/" aria-label="0-Day Rapid Scanner home">
+  <aside class="sidebar" aria-label="{{ t('Primary navigation') }}">
+    <a class="brand" href="/" aria-label="{{ t('0-Day Rapid Scanner home') }}">
       <span class="logo"><svg class="icon"><use href="#i-shield"/></svg></span>
-      <span class="name">0-Day Rapid Scanner<small>Enterprise exposure platform</small></span>
+      <span class="name">0-Day Rapid Scanner<small>{{ t("Enterprise exposure platform") }}</small></span>
     </a>
-    {% macro item(i) %}{% set on = active in i.active %}<a href="{{ i.href }}" class="{{ 'active' if on }}" {% if on %}aria-current="page"{% endif %} title="{{ i.label }}"><svg class="icon"><use href="#i-{{ i.icon }}"/></svg><span>{{ i.label }}</span></a>{% endmacro %}
+    {% macro item(i) %}{% set on = active in i.active %}<a href="{{ i.href }}" class="{{ 'active' if on }}" {% if on %}aria-current="page"{% endif %} title="{{ t(i.label) }}"><svg class="icon"><use href="#i-{{ i.icon }}"/></svg><span>{{ t(i.label) }}</span></a>{% endmacro %}
     <nav class="nav">
       {% for g in nav %}
       {% if g.key == 'core' %}
@@ -25,26 +26,27 @@
       {% else %}
       {% set has_active = active in g.keys %}{% set closed = g.closed_by_default and not has_active %}
       <div class="nav-group{{ ' closed' if closed }}" data-nav-group="{{ g.key }}"{% if has_active %} data-has-active{% endif %}>
-        <button type="button" class="nav-group-label" aria-expanded="{{ 'false' if closed else 'true' }}" aria-controls="nav-{{ g.key }}"><span>{{ g.label }}</span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></button>
+        <button type="button" class="nav-group-label" aria-expanded="{{ 'false' if closed else 'true' }}" aria-controls="nav-{{ g.key }}"><span>{{ t(g.label) }}</span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></button>
         <div class="nav-items" id="nav-{{ g.key }}">{% for i in g.items %}{{ item(i) }}{% endfor %}</div>
       </div>
       {% endif %}
       {% endfor %}
     </nav>
     <div class="sidebar-foot">
-      <button type="button" class="collapse-btn" id="collapse-btn" aria-label="Collapse sidebar"><svg class="icon"><use href="#i-chevrons-left"/></svg><span>Collapse</span></button>
-      <a class="app-version" href="https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/blob/master/CHANGELOG.md" target="_blank" rel="noopener noreferrer" title="Changelog">v{{ app_version }}</a>
+      <button type="button" class="collapse-btn" id="collapse-btn" aria-label="{{ t('Collapse sidebar') }}"><svg class="icon"><use href="#i-chevrons-left"/></svg><span>{{ t("Collapse") }}</span></button>
+      <a class="app-version" href="https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/blob/master/CHANGELOG.md" target="_blank" rel="noopener noreferrer" title="{{ t('Changelog') }}">v{{ app_version }}</a>
     </div>
   </aside>
   <div class="overlay" id="nav-overlay"></div>
   <div class="main">
     <header class="topbar">
-      <button type="button" class="hamburger icon-btn ghost" id="nav-toggle" aria-label="Open navigation" aria-controls="shell" aria-expanded="false"><svg class="icon"><use href="#i-menu"/></svg></button>
-      <div class="crumbs" aria-label="Breadcrumb"><span>{{ section or 'Scanner' }}</span><svg class="icon sm"><use href="#i-chevron-right"/></svg><b>{{ page_title or '' }}</b></div>
+      <button type="button" class="hamburger icon-btn ghost" id="nav-toggle" aria-label="{{ t('Open navigation') }}" aria-controls="shell" aria-expanded="false"><svg class="icon"><use href="#i-menu"/></svg></button>
+      <div class="crumbs" aria-label="{{ t('Breadcrumb') }}"><span>{{ section or t('Scanner') }}</span><svg class="icon sm"><use href="#i-chevron-right"/></svg><b>{{ page_title or '' }}</b></div>
       <div class="spacer"></div>
-      <button type="button" class="icon-btn ghost theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle theme"><svg class="icon sun"><use href="#i-sun"/></svg><svg class="icon moon"><use href="#i-moon"/></svg></button>
-      <a class="user-chip" href="/profile" title="Your profile"><span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span><span class="stack" style="gap:0"><span class="small">{{ user.display_name or user.username }}</span><span class="role">{{ role_labels.get(user.role, user.role) }}</span></span></a>
-      <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-logout"/></svg>Logout</button></form>
+      {{ lang_switch() }}
+      <button type="button" class="icon-btn ghost theme-toggle" id="theme-toggle" aria-label="{{ t('Toggle dark mode') }}" title="{{ t('Toggle theme') }}"><svg class="icon sun"><use href="#i-sun"/></svg><svg class="icon moon"><use href="#i-moon"/></svg></button>
+      <a class="user-chip" href="/profile" title="{{ t('Your profile') }}"><span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span><span class="stack" style="gap:0"><span class="small">{{ user.display_name or user.username }}</span><span class="role">{{ t(role_labels.get(user.role, user.role)) }}</span></span></a>
+      <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-logout"/></svg>{{ t("Logout") }}</button></form>
     </header>
     <main class="content" id="main" tabindex="-1">
       {% block header %}
@@ -70,11 +72,12 @@
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false" data-msg="{{ msg or '' }}"></div>
 <dialog class="confirm" id="confirm-dialog" aria-labelledby="confirm-title">
   <div class="card-body">
-    <h2 id="confirm-title" style="margin-bottom:6px">Please confirm</h2>
+    <h2 id="confirm-title" style="margin-bottom:6px">{{ t("Please confirm") }}</h2>
     <p class="text-2" id="confirm-text"></p>
-    <div class="actions"><button type="button" id="confirm-cancel">Cancel</button><button type="button" class="danger" id="confirm-ok">Confirm</button></div>
+    <div class="actions"><button type="button" id="confirm-cancel">{{ t("Cancel") }}</button><button type="button" class="danger" id="confirm-ok">{{ t("Confirm") }}</button></div>
   </div>
 </dialog>
-<script src="/static/app.js?v={{ static_v }}"></script>
+{% if js_i18n %}<script type="application/json" id="i18n">{{ js_i18n|tojson }}</script>
+{% endif %}<script src="/static/app.js?v={{ static_v }}"></script>
 </body>
 </html>

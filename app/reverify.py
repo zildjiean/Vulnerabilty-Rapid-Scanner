@@ -8,6 +8,7 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .i18n import Msg
 from .db import AppSetting, Host, Issue, IssueEvent, Job, Service, TemplateIndex, utcnow
 
 SETTINGS_KEY = "reverify"
@@ -27,7 +28,7 @@ def get_reverify_settings(db: Session) -> dict:
 
 def set_reverify_settings(db: Session, enabled: bool, delay_minutes: int) -> None:
     if not 0 <= int(delay_minutes) <= 1440:
-        raise ValueError("Re-verify delay must be between 0 and 1440 minutes.")
+        raise ValueError(Msg("Re-verify delay must be between 0 and 1440 minutes."))
     row = db.get(AppSetting, SETTINGS_KEY) or AppSetting(key=SETTINGS_KEY)
     row.value = json.dumps({"enabled": bool(enabled), "delay_minutes": int(delay_minutes)})
     db.add(row)

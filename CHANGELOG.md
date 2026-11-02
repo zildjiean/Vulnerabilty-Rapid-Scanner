@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-02
+
+### Added
+- **Thai user interface.** Each user chooses ไทย / English with the switch in the top bar or on the Profile page
+  (`users.language`, default English); the sign-in page follows the browser's `Accept-Language`. Every page, tab,
+  button, form, help text, confirm dialog, flash and validation message, chart label and the in-browser reports
+  are translated (about 1,700 strings). Technical terms stay in English inside Thai sentences, as in the Thai guide.
+- Bundled **IBM Plex Sans Thai** (SIL OFL 1.1) for Thai text only; no external font requests.
+
+### Changed
+- Breadcrumbs on the System pages read "System" (was "Administration"); the error page shows the role label.
+- Scanner and intel data, AI output, the REST API, CSV / JSON exports, notifications, tickets and the audit log stay
+  English whatever the user's language.
+
+Version 2.0.0 marks the end of the usability round (1.9.0 Quick scan, 1.10.0 navigation, 2.0.0 Thai UI). There are
+no breaking changes to the API or stored data.
+
 ## [1.10.0] - 2026-11-02
 
 ### Changed
@@ -316,7 +333,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.10.0...v2.0.0
 [1.10.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.7.0...v1.8.0

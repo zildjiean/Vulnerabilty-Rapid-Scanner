@@ -12,6 +12,7 @@ from ..authz import has_perm
 from ..db import ApiKey, User, utcnow
 from ..deps import get_db, verify_csrf
 from ..notifications import get_base_url
+from ..i18n import flash, tr
 from ..render import render
 
 router = APIRouter()
@@ -40,7 +41,7 @@ def api_key_create(request: Request, name: str = Form(""), role: str = Form("vie
         key, raw = create_key(db, owner, name, role, expires)
     except ValueError as e:
         db.rollback()
-        return _page(request, db, 400, str(e))
+        return _page(request, db, 400, tr(request, e))
     db.commit()
     audit(db, request, "apikey.created", target=key.name, key_id=key.id, role=role, expires=expires, prefix=key.prefix)
     return _page(request, db, new_key=raw)
@@ -56,7 +57,7 @@ def api_key_revoke(request: Request, kid: int, db: Session = Depends(get_db)):
         key.revoked_at = utcnow()
         db.commit()
         audit(db, request, "apikey.revoked", target=key.name, key_id=key.id, owner=key.owner.username)
-    return RedirectResponse("/api-keys?msg=Key+revoked", status_code=303)
+    return RedirectResponse("/api-keys?msg=" + flash(request, "Key revoked"), status_code=303)
 
 
 @router.get("/api-docs")

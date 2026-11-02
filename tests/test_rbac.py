@@ -91,7 +91,7 @@ def test_forbidden_renders_access_denied_page(auth):
     csrf = get_csrf(auth, "/nmap")
     r = auth.post("/nmap/scan", data={"csrf": csrf, "targets": "10.0.0.1"})
     assert r.status_code == 403
-    assert "Access denied" in r.text and "viewer" in r.text
+    assert "Access denied" in r.text and "Viewer" in r.text   # the role label (translated in Thai)
 
 
 # ---------------------------------------------------------------- sessions

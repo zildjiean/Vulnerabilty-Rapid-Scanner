@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from .config import Settings
 from .db import Job
+from .i18n import Msg, translate
 from .nuclei_presets import preset_label, preset_launch
 from .scopes import services_in
 
@@ -32,12 +33,13 @@ DEFAULT_LEVEL = "standard"
 EMPTY_SUMMARY = "Enter at least one target to see what will run."
 
 
-def summary(n_targets: int, level: str) -> str:
+def summary(n_targets: int, level: str, lang: str = "en") -> str:
+    """What the form will run, in ``lang`` (app.js keeps it up to date with the same text)."""
     if n_targets <= 0:
-        return EMPTY_SUMMARY
+        return translate(lang, EMPTY_SUMMARY)
     lv = LEVELS.get(level, LEVELS[DEFAULT_LEVEL])
-    return (f"nmap {n_targets} target(s) ({lv['ports_label']}) → nuclei ({preset_label(lv['preset'])}) "
-            "on the services found")
+    return translate(lang, "nmap {n} target(s) ({ports}) → nuclei ({preset}) on the services found", n=n_targets,
+                     ports=translate(lang, lv["ports_label"]), preset=translate(lang, preset_label(lv["preset"])))
 
 
 def quick_targets(db: Session, nmap_targets: list[str]) -> list[str]:
@@ -55,8 +57,8 @@ def check_targets(targets: list[str]) -> None:
         try:
             ipaddress.ip_network(t, strict=False)
         except ValueError:
-            raise ValueError(f"{t!r}: Use an IP/CIDR or a plain host name for a quick scan "
-                             "(a host name with a /prefix is not supported).") from None
+            raise ValueError(Msg("{t!r}: Use an IP/CIDR or a plain host name for a quick scan "
+                                 "(a host name with a /prefix is not supported).", t=t)) from None
 
 
 def launch_quick(db: Session, settings: Settings, runner, targets: list[str], level: str) -> Job:
@@ -64,7 +66,7 @@ def launch_quick(db: Session, settings: Settings, runner, targets: list[str], le
     from .routers.nmap import launch_nmap
     lv = LEVELS.get(level)
     if lv is None:
-        raise ValueError("Invalid scan level. Choose Standard or Thorough.")
+        raise ValueError(Msg("Invalid scan level. Choose Standard or Thorough."))
     check_targets(targets)
     return launch_nmap(db, settings, runner, targets, port_mode=lv["port_mode"], timing=lv["timing"],
                        scan_type=lv["scan_type"], extra_params={"quick": {"level": level, "step": 1}},

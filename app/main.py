@@ -96,12 +96,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if exc.status_code not in (403, 404) or wants_json or request.url.path.startswith("/api/") \
                 or request.url.path.endswith(("/status", "/stream", "/search")):
             return await http_exception_handler(request, exc)
+        from .i18n import tr
         if isinstance(exc, Forbidden):
-            title, message = "Access denied", f"Your role does not allow this action ({exc.perm})."
+            title, message = tr(request, "Access denied"), tr(request, "Your role does not allow this action ({perm}).", perm=exc.perm)
         elif exc.status_code == 403:
-            title, message = "Access denied", "The form expired or the request was not sent from this application. Reload the page and try again."
+            title, message = tr(request, "Access denied"), tr(request, "The form expired or the request was not sent from this application. Reload the page and try again.")
         else:
-            title, message = "Not found", "The page or item you asked for does not exist."
+            title, message = tr(request, "Not found"), tr(request, "The page or item you asked for does not exist.")
         return render(request, "error.html", status_code=exc.status_code, title=title, message=message, status=exc.status_code)
 
     @app.get("/healthz")

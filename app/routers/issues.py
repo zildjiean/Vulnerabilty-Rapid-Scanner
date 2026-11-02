@@ -18,6 +18,7 @@ from ..ai import latest_note
 from ..ai_features import TRIAGE_LABELS
 from ..reverify import get_reverify_settings
 from ..authz import has_perm, require
+from ..i18n import Msg, flash, tr
 from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, TemplateIndex, User, utcnow
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import SEVERITY_ORDER, render, templates
@@ -142,6 +143,15 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
                   **extra)
 
 
+def _err(request: Request, e) -> str:
+    """A ValueError / VerifyError message in the user's language; status labels inside it are translated too."""
+    arg = e.args[0] if getattr(e, "args", None) else str(e)
+    if isinstance(arg, Msg):
+        labels = set(iss.STATUS_LABELS.values())
+        return tr(request, arg, **{k: tr(request, v) for k, v in arg.params.items() if isinstance(v, str) and v in labels})
+    return tr(request, arg)
+
+
 def _label(issue: Issue) -> str:
     return f"#{issue.id} {issue.vuln_id} on {issue.asset}"
 
@@ -178,17 +188,17 @@ def _verify(request: Request, db: Session, issue: Issue, back: str):
     url = _safe_back(back, issue)
     live = proof.live_verify_job(db, issue)
     if live is not None:
-        return _redirect(url, msg=f"Verification already running (job #{live.id}).")
+        return _redirect(url, msg=tr(request, "Verification already running (job #{id}).", id=live.id))
     if not issue.template_id:
         return RedirectResponse(f"/issues/{issue.id}?open=more#verify", status_code=303)
     try:
         job = proof.start_verify(db, request.app, issue, _actor(request, db))
     except proof.VerifyError as e:
         if back:
-            return _redirect(url, err=str(e))
-        return _detail(request, db, issue, status_code=400, error=str(e))
+            return _redirect(url, err=_err(request, e))
+        return _detail(request, db, issue, status_code=400, error=_err(request, e))
     audit(db, request, "issue.verify", target=_label(issue), job_id=job.id, template_id=issue.template_id)
-    return _redirect(url, msg=f"Verification started for {issue.asset} (job #{job.id}).")
+    return _redirect(url, msg=tr(request, "Verification started for {asset} (job #{id}).", asset=issue.asset, id=job.id))
 
 
 @router.get("/issues/{issue_id}")
@@ -200,7 +210,7 @@ def issue_detail(request: Request, issue_id: int, db: Session = Depends(get_db))
 def issues_bulk(request: Request, issue_ids: list[int] = Form(default=[]), action: str = Form(""),
                 assignee: str = Form(""), status: str = Form(""), comment: str = Form(""), db: Session = Depends(get_db)):
     if not issue_ids or action not in ("assign", "status"):
-        return render(request, "issues.html", status_code=400, error="Select at least one issue and an action.",
+        return render(request, "issues.html", status_code=400, error=tr(request, "Select at least one issue and an action."),
                       **list_context(request, db))
     actor = _actor(request, db)
     target_user = db.get(User, int(assignee)) if action == "assign" and assignee.isdigit() else None
@@ -219,8 +229,9 @@ def issues_bulk(request: Request, issue_ids: list[int] = Form(default=[]), actio
     audit(db, request, "issue.bulk_updated", target=f"{updated} issue(s)", operation=action,
           value=(target_user.username if target_user else "unassigned") if action == "assign" else status,
           skipped=skipped)
-    msg = f"Updated {updated} issue(s)" + (f", skipped {skipped} (transition not allowed)" if skipped else "")
-    return RedirectResponse("/issues?msg=" + msg.replace(" ", "+"), status_code=303)
+    msg = flash(request, "Updated {n} issue(s)", n=updated) + (
+        flash(request, ", skipped {n} (transition not allowed)", n=skipped) if skipped else "")
+    return RedirectResponse("/issues?msg=" + msg, status_code=303)
 
 
 def bulk_verify(request: Request, db: Session, issues: list[Issue], back: str, audit_action: str, target: str, **extra):
@@ -229,7 +240,8 @@ def bulk_verify(request: Request, db: Session, issues: list[Issue], back: str, a
     res = proof.start_verify_many(db, request.app, issues, _actor(request, db))
     audit(db, request, audit_action, target=target, jobs=len(res.jobs), job_ids=res.jobs, issues=res.issues,
           skipped=sum(res.skipped.values()), **extra)
-    return _redirect(back, **({"msg": res.summary()} if res.jobs else {"err": res.summary()}))
+    text = res.summary(lambda s, **p: tr(request, s, **p))
+    return _redirect(back, **({"msg": text} if res.jobs else {"err": text}))
 
 
 @router.post("/issues/bulk-verify", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
@@ -238,7 +250,7 @@ async def issues_bulk_verify(request: Request, issue_ids: list[int] = Form(defau
     url = _same_site(back, "/issues")
     wanted = list(dict.fromkeys(issue_ids))
     if not wanted:
-        return _redirect(url, err="Select at least one issue to verify.")
+        return _redirect(url, err=tr(request, "Select at least one issue to verify."))
     found = {i.id: i for i in db.scalars(select(Issue).where(Issue.id.in_(wanted)))}
     issues = [found[i] for i in wanted if i in found]
     return bulk_verify(request, db, issues, url, "issue.bulk_verify", f"{len(issues)} issue(s)")
@@ -253,11 +265,11 @@ def issue_status(request: Request, issue_id: int, status: str = Form(""), commen
         iss.change_status(db, issue, status, _actor(request, db), comment)
     except ValueError as e:
         db.rollback()
-        return _detail(request, db, _get(db, issue_id), status_code=400, error=str(e))
+        return _detail(request, db, _get(db, issue_id), status_code=400, error=_err(request, e))
     db.commit()
     audit(db, request, "issue.status_changed", target=_label(issue), status=f"{old} -> {status}",
           **({"comment": comment.strip()[:200]} if comment.strip() else {}))
-    return RedirectResponse(f"/issues/{issue_id}?msg=Status+updated", status_code=303)
+    return RedirectResponse(f"/issues/{issue_id}?msg=" + flash(request, "Status updated"), status_code=303)
 
 
 @router.post("/issues/{issue_id}/assign", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
@@ -265,11 +277,11 @@ def issue_assign(request: Request, issue_id: int, assignee: str = Form(""), db: 
     issue = _get(db, issue_id)
     user = db.get(User, int(assignee)) if assignee.isdigit() else None
     if assignee and (user is None or user not in assignable_users(db)):
-        return _detail(request, db, issue, status_code=400, error="That user cannot be assigned issues.")
+        return _detail(request, db, issue, status_code=400, error=tr(request, "That user cannot be assigned issues."))
     iss.assign(db, issue, user, _actor(request, db))
     db.commit()
     audit(db, request, "issue.assigned", target=_label(issue), assignee=user.username if user else "unassigned")
-    return RedirectResponse(f"/issues/{issue_id}?msg=Assignee+updated", status_code=303)
+    return RedirectResponse(f"/issues/{issue_id}?msg=" + flash(request, "Assignee updated"), status_code=303)
 
 
 @router.post("/issues/{issue_id}/severity", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
@@ -280,10 +292,10 @@ def issue_severity(request: Request, issue_id: int, severity: str = Form(""), db
         iss.set_severity(db, issue, severity, _actor(request, db))
     except ValueError as e:
         db.rollback()
-        return _detail(request, db, _get(db, issue_id), status_code=400, error=str(e))
+        return _detail(request, db, _get(db, issue_id), status_code=400, error=_err(request, e))
     db.commit()
     audit(db, request, "issue.severity_changed", target=_label(issue), severity=f"{old} -> {severity}")
-    return RedirectResponse(f"/issues/{issue_id}?msg=Severity+updated", status_code=303)
+    return RedirectResponse(f"/issues/{issue_id}?msg=" + flash(request, "Severity updated"), status_code=303)
 
 
 @router.post("/issues/{issue_id}/comment", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
@@ -292,10 +304,10 @@ def issue_comment(request: Request, issue_id: int, body: str = Form(""), db: Ses
     try:
         iss.add_comment(db, issue, body, _actor(request, db))
     except ValueError as e:
-        return _detail(request, db, issue, status_code=400, error=str(e))
+        return _detail(request, db, issue, status_code=400, error=_err(request, e))
     db.commit()
     audit(db, request, "issue.commented", target=_label(issue))
-    return RedirectResponse(f"/issues/{issue_id}?msg=Comment+added#timeline", status_code=303)
+    return RedirectResponse(f"/issues/{issue_id}?msg=" + flash(request, "Comment added") + "#timeline", status_code=303)
 
 
 @router.post("/issues/{issue_id}/verify", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
@@ -307,16 +319,16 @@ async def issue_verify(request: Request, issue_id: int, back: str = Form(""), db
 def issue_template(request: Request, issue_id: int, template_id: str = Form(""), db: Session = Depends(get_db)):
     issue = _get(db, issue_id)
     if proof.live_verify_job(db, issue) is not None:   # complete_verify matches findings on the template id
-        return _redirect(f"/issues/{issue.id}", err="Wait for the running verification to finish before changing the template.")
+        return _redirect(f"/issues/{issue.id}", err=tr(request, "Wait for the running verification to finish before changing the template."))
     tid = template_id.strip()
     row = db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == tid).limit(1)) if tid else None
     if row is None:
-        return _detail(request, db, issue, status_code=400, error="Pick a template that exists in the template index.")
+        return _detail(request, db, issue, status_code=400, error=tr(request, "Pick a template that exists in the template index."))
     issue.template_id = tid
     iss._event(db, issue, "verify", _actor(request, db), body=f"Linked verification template {tid}.")
     audit(db, request, "issue.template", target=_label(issue), template_id=tid)
     db.commit()
-    return _redirect(f"/issues/{issue.id}", msg="Template linked. Press Verify now to run it.")
+    return _redirect(f"/issues/{issue.id}", msg=tr(request, "Template linked. Press Verify now to run it."))
 
 
 @router.post("/issues/{issue_id}/template/save-run",
@@ -327,9 +339,9 @@ async def issue_template_save_run(request: Request, issue_id: int, yaml: str = F
     from .templates import validate_and_check
     issue = _get(db, issue_id)
     if proof.live_verify_job(db, issue) is not None:   # complete_verify matches findings on the template id
-        return _redirect(f"/issues/{issue.id}", err="Wait for the running verification to finish before changing the template.")
+        return _redirect(f"/issues/{issue.id}", err=tr(request, "Wait for the running verification to finish before changing the template."))
     if issue.template_id:
-        return _redirect(f"/issues/{issue.id}", err="This issue already has a verification template. Press Verify now to run it.")
+        return _redirect(f"/issues/{issue.id}", err=tr(request, "This issue already has a verification template. Press Verify now to run it."))
     def failed(message: str):
         draft = {"yaml": yaml, "ok": False, "message": message, "notes": "", "provider": "", "model": ""}
         return _detail(request, db, issue, status_code=400, verify_draft=draft)
@@ -338,9 +350,9 @@ async def issue_template_save_run(request: Request, issue_id: int, yaml: str = F
         if not ok:
             raise ValueError(line or "nuclei -validate failed")
     except ValueError as e:
-        return failed(f"Validation failed: {e}")
+        return failed(tr(request, "Validation failed: {error}", error=tr(request, e)))
     if db.scalar(select(TemplateIndex).where(TemplateIndex.template_id == info.template_id, TemplateIndex.source != "custom")):
-        return failed(f"Template id '{info.template_id}' already exists in the library; change the id.")
+        return failed(tr(request, "Template id '{id}' already exists in the library; change the id.", id=info.template_id))
     path = save_custom_template(settings, yaml)
     index_single(db, path, "custom")
     issue.template_id = info.template_id
@@ -374,18 +386,18 @@ def settings_reverify(request: Request, enabled: bool = Form(False), delay_minut
         set_reverify_settings(db, enabled, int(delay_minutes) if delay_minutes.strip().lstrip("-").isdigit() else -1)
     except ValueError as e:
         db.rollback()
-        return _settings(request, db, 400, str(e))
+        return _settings(request, db, 400, tr(request, e))
     db.commit()
     audit(db, request, "settings.updated", target="re-verify", enabled=enabled, delay_minutes=delay_minutes)
-    return RedirectResponse("/settings?msg=Re-verify+settings+saved#reverify", status_code=303)
+    return RedirectResponse("/settings?msg=" + flash(request, "Re-verify settings saved") + "#reverify", status_code=303)
 
 
 @router.post("/settings/intel/refresh", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
 async def settings_intel_refresh(request: Request, db: Session = Depends(get_db)):
     if rk.start_refresh(request.app) is None:
-        return _redirect("/settings#intel", msg="A threat intel refresh is already running.")
+        return _redirect("/settings#intel", msg=tr(request, "A threat intel refresh is already running."))
     audit(db, request, "intel.refresh_started", target="threat intel")
-    return _redirect("/settings#intel", msg="Threat intel refresh started. Reload this page in a minute for the result.")
+    return _redirect("/settings#intel", msg=tr(request, "Threat intel refresh started. Reload this page in a minute for the result."))
 
 
 @router.post("/settings/notifications", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
@@ -398,11 +410,11 @@ def settings_notifications(request: Request, base_url: str = Form(""), smtp_host
         set_smtp(db, request.app.state.secretbox, smtp_host, smtp_port, smtp_security, smtp_username, smtp_from, smtp_password)
     except ValueError as e:
         db.rollback()
-        return _settings(request, db, 400, str(e))
+        return _settings(request, db, 400, tr(request, e))
     db.commit()
     audit(db, request, "settings.updated", target="notifications", base_url=base_url.strip(), smtp_host=smtp_host.strip(),
           smtp_password_changed=bool(smtp_password))
-    return RedirectResponse("/settings?msg=Notification+settings+saved#notifications", status_code=303)
+    return RedirectResponse("/settings?msg=" + flash(request, "Notification settings saved") + "#notifications", status_code=303)
 
 
 @router.post("/settings/discovery-keys", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
@@ -417,11 +429,11 @@ async def settings_discovery_keys(request: Request, db: Session = Depends(get_db
         changed, removed = dsc.set_source_keys(db, request.app.state.secretbox, updates, remove)
     except ValueError as e:
         db.rollback()
-        return _settings(request, db, 400, str(e))
+        return _settings(request, db, 400, tr(request, e))
     db.commit()
     audit(db, request, "settings.discovery_keys", target="discovery sources", set=",".join(changed),
           removed=",".join(removed))
-    return RedirectResponse("/settings?msg=Discovery+source+keys+saved#discovery-sources", status_code=303)
+    return RedirectResponse("/settings?msg=" + flash(request, "Discovery source keys saved") + "#discovery-sources", status_code=303)
 
 
 COMMON_TIMEZONES = ("Asia/Bangkok", "UTC", "Asia/Singapore", "Asia/Tokyo", "Asia/Kolkata", "Europe/London",
@@ -441,10 +453,10 @@ def settings_timezone(request: Request, timezone: str = Form(""), db: Session = 
         set_timezone(db, timezone)
     except ValueError as e:
         db.rollback()
-        return _settings(request, db, 400, str(e), tz=timezone)
+        return _settings(request, db, 400, tr(request, e), tz=timezone)
     db.commit()
     audit(db, request, "settings.updated", target="timezone", timezone=f"{old} -> {timezone.strip()}")
-    return RedirectResponse("/settings?msg=Timezone+saved;+schedules+recalculated", status_code=303)
+    return RedirectResponse("/settings?msg=" + flash(request, "Timezone saved; schedules recalculated"), status_code=303)
 
 
 @router.post("/settings", dependencies=[Depends(require("settings.manage")), Depends(verify_csrf)])
@@ -456,8 +468,8 @@ def settings_save(request: Request, critical: str = Form(""), high: str = Form("
         sla = iss.set_sla(db, values)
     except ValueError as e:
         db.rollback()
-        return _settings(request, db, 400, str(e), sla={**old, **values})
+        return _settings(request, db, 400, tr(request, e), sla={**old, **values})
     db.commit()
     audit(db, request, "settings.updated", target="SLA days",
           **{k: f"{old[k]} -> {sla[k]}" for k in sla if old[k] != sla[k]})
-    return RedirectResponse("/settings?msg=SLA+saved;+due+dates+recalculated", status_code=303)
+    return RedirectResponse("/settings?msg=" + flash(request, "SLA saved; due dates recalculated"), status_code=303)

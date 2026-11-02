@@ -13,6 +13,7 @@ from ..audit import audit
 from ..authz import require
 from ..db import Scope, SurfaceChange
 from ..deps import get_db, verify_csrf
+from ..i18n import tr
 from ..render import render
 
 router = APIRouter()
@@ -76,7 +77,7 @@ def changes_ack_all(request: Request, kind: str = Form(""), scope: str = Form(""
                                      scope_id=f["scope"], days=f["days"], job_id=f["job"])
     db.commit()
     audit(db, request, "surface.ack", target=f"{n} change(s)", count=n, **_params(f))
-    return _back(f, f"Acknowledged {n} change(s)")
+    return _back(f, tr(request, "Acknowledged {n} change(s)", n=n))
 
 
 @router.post("/changes/{cid}/ack", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
@@ -88,4 +89,4 @@ def changes_ack(request: Request, cid: int, kind: str = Form(""), scope: str = F
     n = surface.acknowledge([c], getattr(request.state.user, "username", ""))
     db.commit()
     audit(db, request, "surface.ack", target=f"change #{c.id} {c.kind} on {c.address}", count=n, change_id=c.id)
-    return _back(filters(kind, scope, days, job, state), "Change acknowledged", _int(page) or 1)
+    return _back(filters(kind, scope, days, job, state), tr(request, "Change acknowledged"), _int(page) or 1)

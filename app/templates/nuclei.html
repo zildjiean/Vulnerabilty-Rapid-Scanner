@@ -1,104 +1,104 @@
 {% extends "base.html" %}
-{% set page_title = "Nuclei scan" %}
-{% set page_subtitle = "Check URLs or host:port targets for known vulnerabilities. Pick a preset, or open Advanced options to choose templates yourself." %}
-{% block page_actions %}<a class="btn" href="/templates"><svg class="icon"><use href="#i-file"/></svg>Manage templates</a>{% endblock %}
+{% set page_title = t("Nuclei scan") %}
+{% set page_subtitle = t("Check URLs or host:port targets for known vulnerabilities. Pick a preset, or open Advanced options to choose templates yourself.") %}
+{% block page_actions %}<a class="btn" href="/templates"><svg class="icon"><use href="#i-file"/></svg>{{ t("Manage templates") }}</a>{% endblock %}
 {% block content %}
 {% with perm="scan.run", what="start scans" %}{% include "_readonly.html" %}{% endwith %}
 <form method="post" action="/nuclei/scan" id="nuclei-form" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card mb">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Targets and preset</h2><a class="btn sm ghost" href="/inventory">Pick from inventory</a></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>{{ t("Targets and preset") }}</h2><a class="btn sm ghost" href="/inventory">{{ t("Pick from inventory") }}</a></div>
     <div class="card-body grid grid-2">
       <div class="stack">
-        <div class="field"><label for="targets">Target list</label>
+        <div class="field"><label for="targets">{{ t("Target list") }}</label>
           <textarea id="targets" name="targets" rows="9" required placeholder="http://192.168.1.10:8080&#10;https://web01.lab&#10;192.168.1.12:3306" aria-describedby="targets-hint">{{ form.targets }}</textarea>
-          <span class="hint" id="targets-hint">One per line: full URL or host:port. Bare hosts are probed for https:// and http:// automatically; the job log shows "Targets loaded" and "Found N URL from httpx" so you can confirm the target answered.</span></div>
+          <span class="hint" id="targets-hint">{{ t('One per line: full URL or host:port. Bare hosts are probed for https:// and http:// automatically; the job log shows "Targets loaded" and "Found N URL from httpx" so you can confirm the target answered.') }}</span></div>
       </div>
       <fieldset>
-        <legend>What to check</legend>
+        <legend>{{ t("What to check") }}</legend>
         <div class="choice-grid choice-stack">
           {% for key, p in presets.items() %}
-          <label class="choice"><input type="radio" name="preset" value="{{ key }}" {{ 'checked' if form.preset == key }}{% if key == 'custom' %} data-opens-advanced="nuclei-advanced"{% endif %}><div><b>{{ p.label }}</b><span>{{ p.help }}</span></div></label>
+          <label class="choice"><input type="radio" name="preset" value="{{ key }}" {{ 'checked' if form.preset == key }}{% if key == 'custom' %} data-opens-advanced="nuclei-advanced"{% endif %}><div><b>{{ t(p.label) }}</b><span>{{ t(p.help) }}</span></div></label>
           {% endfor %}
         </div>
       </fieldset>
     </div>
   </div>
   <details class="advanced mb" id="nuclei-advanced"{{ ' open' if advanced_open }}>
-    <summary><svg class="icon"><use href="#i-sliders"/></svg><span><b>Advanced options</b><span class="hint">Templates, filters and speed. Used only with the Custom preset; changing anything here selects Custom.</span></span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></summary>
+    <summary><svg class="icon"><use href="#i-sliders"/></svg><span><b>{{ t("Advanced options") }}</b><span class="hint">{{ t("Templates, filters and speed. Used only with the Custom preset; changing anything here selects Custom.") }}</span></span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></summary>
     <div class="grid grid-2 advanced-body" data-advanced-for="preset">
     <div class="card">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Speed and reliability</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Speed and reliability") }}</h2></div>
       <div class="card-body stack">
         <fieldset>
-          <legend>Scan profile</legend>
+          <legend>{{ t("Scan profile") }}</legend>
           <div class="choice-grid">
             {% for key, pr in profiles.items() %}
-            <label class="choice"><input type="radio" name="profile" value="{{ key }}" data-rate="{{ pr.rate_limit }}" data-timeout="{{ pr.timeout }}" {{ 'checked' if form.profile == key }}><div><b>{{ pr.label }}</b><span>{{ pr.help }}</span></div></label>
+            <label class="choice"><input type="radio" name="profile" value="{{ key }}" data-rate="{{ pr.rate_limit }}" data-timeout="{{ pr.timeout }}" {{ 'checked' if form.profile == key }}><div><b>{{ t(pr.label) }}</b><span>{{ t(pr.help) }}</span></div></label>
             {% endfor %}
           </div>
         </fieldset>
         <div class="row">
-          <div class="field w-md"><label for="rate_limit">Rate limit (req/s)</label><input id="rate_limit" type="number" name="rate_limit" value="{{ form.rate_limit }}" min="1" max="1000" inputmode="numeric"></div>
-          <div class="field w-md"><label for="timeout">Timeout (s)</label><input id="timeout" type="number" name="timeout" value="{{ form.timeout }}" min="1" max="120" inputmode="numeric"></div>
+          <div class="field w-md"><label for="rate_limit">{{ t("Rate limit (req/s)") }}</label><input id="rate_limit" type="number" name="rate_limit" value="{{ form.rate_limit }}" min="1" max="1000" inputmode="numeric"></div>
+          <div class="field w-md"><label for="timeout">{{ t("Timeout (s)") }}</label><input id="timeout" type="number" name="timeout" value="{{ form.timeout }}" min="1" max="120" inputmode="numeric"></div>
         </div>
-        <label class="check"><input type="checkbox" name="no_mhe" value="true" {{ 'checked' if form.no_mhe }}> Never drop unresponsive hosts (<code>-no-mhe</code>) — keep testing even after repeated timeouts</label>
-        <p class="muted small" style="margin:0">If nuclei drops a target as unresponsive, the job finishes as <b>Done with warnings</b> and the Findings page flags the result as incomplete.</p>
+        <label class="check"><input type="checkbox" name="no_mhe" value="true" {{ 'checked' if form.no_mhe }}> {{ t("Never drop unresponsive hosts") }} (<code>-no-mhe</code>) — {{ t("keep testing even after repeated timeouts") }}</label>
+        <p class="muted small" style="margin:0">{{ t("If nuclei drops a target as unresponsive, the job finishes as") }} <b>{{ t("Done with warnings") }}</b> {{ t("and the Findings page flags the result as incomplete.") }}</p>
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-file"/></svg>Templates</h2><span class="chip" id="tpl-selected-chip">Selected <b id="tpl-count" class="num">0</b></span></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-file"/></svg>{{ t("Templates") }}</h2><span class="chip" id="tpl-selected-chip">{{ t("Selected") }} <b id="tpl-count" class="num">0</b></span></div>
       <div class="card-body stack">
         <fieldset>
-          <legend>Template selection</legend>
+          <legend>{{ t("Template selection") }}</legend>
           <div class="choice-grid">
-            <label class="choice"><input type="radio" name="mode" value="selected" {{ 'checked' if form.mode == 'selected' }}><div><b>Pick templates</b><span>Search and select one or many.</span></div></label>
-            <label class="choice"><input type="radio" name="mode" value="groups" {{ 'checked' if form.mode == 'groups' }}><div><b>Template groups</b><span>Whole directories, e.g. http/cves/2026.</span></div></label>
-            <label class="choice"><input type="radio" name="mode" value="all" {{ 'checked' if form.mode == 'all' }}><div><b>All templates</b><span>Every official + custom template.</span></div></label>
+            <label class="choice"><input type="radio" name="mode" value="selected" {{ 'checked' if form.mode == 'selected' }}><div><b>{{ t("Pick templates") }}</b><span>{{ t("Search and select one or many.") }}</span></div></label>
+            <label class="choice"><input type="radio" name="mode" value="groups" {{ 'checked' if form.mode == 'groups' }}><div><b>{{ t("Template groups") }}</b><span>{{ t("Whole directories, e.g. http/cves/2026.") }}</span></div></label>
+            <label class="choice"><input type="radio" name="mode" value="all" {{ 'checked' if form.mode == 'all' }}><div><b>{{ t("All templates") }}</b><span>{{ t("Every official + custom template.") }}</span></div></label>
           </div>
         </fieldset>
 
         <div data-mode-panel="selected" class="stack">
-          <div class="field"><label for="tpl-q">Search templates</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="tpl-q" placeholder="e.g. CVE-2026-109619, php, apache, rce" autocomplete="off" aria-describedby="tpl-hint"></div><span class="hint" id="tpl-hint">Click a result to add it. Pick a single template or build a multi-template set.</span></div>
+          <div class="field"><label for="tpl-q">{{ t("Search templates") }}</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="tpl-q" placeholder="{{ t('e.g. CVE-2026-109619, php, apache, rce') }}" autocomplete="off" aria-describedby="tpl-hint"></div><span class="hint" id="tpl-hint">{{ t("Click a result to add it. Pick a single template or build a multi-template set.") }}</span></div>
           <div class="row">
-            <div class="field" style="flex:1"><label for="tpl-sev">Severity</label><select id="tpl-sev"><option value="">Any severity</option>{% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select></div>
-            <div class="field" style="flex:1"><label for="tpl-src">Source</label><select id="tpl-src"><option value="">Official + custom</option><option value="official">Official</option><option value="custom">Custom (0-day)</option></select></div>
+            <div class="field" style="flex:1"><label for="tpl-sev">{{ t("Severity") }}</label><select id="tpl-sev"><option value="">{{ t("Any severity") }}</option>{% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select></div>
+            <div class="field" style="flex:1"><label for="tpl-src">{{ t("Source") }}</label><select id="tpl-src"><option value="">{{ t("Official + custom") }}</option><option value="official">{{ t("Official") }}</option><option value="custom">{{ t("Custom (0-day)") }}</option></select></div>
           </div>
           <div id="tpl-results" class="tpl-results" aria-live="polite"></div>
           <div>
-            <h3 style="margin:4px 0 8px">Selected templates</h3>
+            <h3 style="margin:4px 0 8px">{{ t("Selected templates") }}</h3>
             <ul id="tpl-selected" class="tpl-selected">
-              {% for t in form.selected %}
-              <li data-path="{{ t.path }}"><input type="hidden" name="template_paths" value="{{ t.path }}"><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span><b>{{ t.template_id }}</b><span class="n">{{ t.name }}</span><button type="button" class="ghost sm icon-btn rm" aria-label="Remove {{ t.template_id }}"><svg class="icon sm"><use href="#i-x"/></svg></button></li>
+              {% for tp in form.selected %}
+              <li data-path="{{ tp.path }}"><input type="hidden" name="template_paths" value="{{ tp.path }}"><span class="badge sev-{{ tp.severity }}">{{ tp.severity }}</span><b>{{ tp.template_id }}</b><span class="n">{{ tp.name }}</span><button type="button" class="ghost sm icon-btn rm" aria-label="{{ t('Remove {name}', name=tp.template_id) }}"><svg class="icon sm"><use href="#i-x"/></svg></button></li>
               {% endfor %}
             </ul>
-            <div class="tpl-empty">No templates selected. Search above and click a result.</div>
+            <div class="tpl-empty">{{ t("No templates selected. Search above and click a result.") }}</div>
           </div>
         </div>
 
         <div data-mode-panel="groups" class="stack" hidden>
-          <div class="field"><label for="group-filter">Filter groups</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="group-filter" placeholder="cves, 2026, technologies, network …" autocomplete="off"></div></div>
-          <div class="group-list" id="group-list" role="group" aria-label="Template groups">
+          <div class="field"><label for="group-filter">{{ t("Filter groups") }}</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="group-filter" placeholder="{{ t('cves, 2026, technologies, network …') }}" autocomplete="off"></div></div>
+          <div class="group-list" id="group-list" role="group" aria-label="{{ t('Template groups') }}">
             {% for g in groups %}
             <label class="group-item depth-{{ g.depth }}" data-key="{{ g.key }}">
               <input type="checkbox" name="groups" value="{{ g.key }}" {{ 'checked' if g.key in form.groups }}>
-              <span class="mono">{{ g.label }}</span>
+              <span class="mono">{{ t(g.label) if g.key == 'custom' else g.label }}</span>
               <span class="chip num">{{ g.count }}</span>
             </label>
             {% else %}
-            <div class="empty"><b>No groups yet</b>Run "Update nuclei templates" on the Updates page, then re-index.</div>
+            <div class="empty"><b>{{ t("No groups yet") }}</b>{{ t('Run "Update nuclei templates" on the Updates page, then re-index.') }}</div>
             {% endfor %}
           </div>
-          <span class="hint"><span id="group-count" class="num">0</span> group(s) selected. Parent directories include everything below them.</span>
+          <span class="hint"><span id="group-count" class="num">0</span> {{ t("group(s) selected. Parent directories include everything below them.") }}</span>
         </div>
 
         <div data-mode-panel="all" hidden>
-          <div class="alert info" style="margin:0"><svg class="icon"><use href="#i-info"/></svg><div>Runs the complete official template set plus your custom templates. Narrow it down with the tag and severity filters below; a full run against many targets can take a long time.</div></div>
+          <div class="alert info" style="margin:0"><svg class="icon"><use href="#i-info"/></svg><div>{{ t("Runs the complete official template set plus your custom templates. Narrow it down with the tag and severity filters below; a full run against many targets can take a long time.") }}</div></div>
         </div>
 
         <fieldset>
-          <legend>Filters (optional, apply to every mode)</legend>
-          <div class="field"><label for="tags">Tags</label><input id="tags" name="tags" value="{{ form.tags }}" placeholder="cve, rce, php" class="mono" aria-describedby="tags-hint"><span class="hint" id="tags-hint">Comma-separated nuclei tags (<code>-tags</code>). Only templates carrying at least one tag run.</span></div>
+          <legend>{{ t("Filters (optional, apply to every mode)") }}</legend>
+          <div class="field"><label for="tags">{{ t("Tags") }}</label><input id="tags" name="tags" value="{{ form.tags }}" placeholder="cve, rce, php" class="mono" aria-describedby="tags-hint"><span class="hint" id="tags-hint">{{ t("Comma-separated nuclei tags") }} (<code>-tags</code>){{ t(". Only templates carrying at least one tag run.") }}</span></div>
           <div class="row" style="gap:6px 14px">
             {% for s in severities if s != 'unknown' %}<label class="check" style="min-height:32px"><input type="checkbox" name="severities" value="{{ s }}" {{ 'checked' if s in form.severities }}> <span class="badge sev-{{ s }}">{{ s }}</span></label>{% endfor %}
           </div>
@@ -108,12 +108,12 @@
     </div>
   </details>
   <div class="row between center mb">
-    <span class="text-2 small">The job runs in the background. Findings are stored per job and in the global findings list.</span>
-    <button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start nuclei scan</button>
+    <span class="text-2 small">{{ t("The job runs in the background. Findings are stored per job and in the global findings list.") }}</span>
+    <button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>{{ t("Start nuclei scan") }}</button>
   </div>
 </form>
 <div class="card">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent nuclei jobs</h2><a class="btn sm ghost" href="/jobs">All jobs</a></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Recent nuclei jobs") }}</h2><a class="btn sm ghost" href="/jobs">{{ t("All jobs") }}</a></div>
   <div class="card-body tight">{% include "_jobs_table.html" %}</div>
 </div>
 {% endblock %}

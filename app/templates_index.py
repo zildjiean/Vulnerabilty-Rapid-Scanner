@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .config import Settings
 from .db import TemplateIndex, utcnow
+from .i18n import Msg
 from .render import SEVERITY_ORDER, normalize_severity
 
 try:
@@ -157,18 +158,18 @@ def count_templates(db: Session) -> dict:
 
 def validate_template_yaml(text: str) -> TemplateInfo:
     if len(text.encode("utf-8", "replace")) > MAX_TEMPLATE_BYTES:
-        raise ValueError("Template is larger than 10 MB.")
+        raise ValueError(Msg("Template is larger than 10 MB."))
     try:
         doc = yaml.load(text, Loader=_Loader)
     except yaml.YAMLError as e:
-        raise ValueError(f"Not valid YAML: {e}") from e
+        raise ValueError(Msg("Not valid YAML: {error}", error=str(e))) from e
     info = _info_from_doc(doc, "", "custom")
     if info is None:
-        raise ValueError("Not a nuclei template: needs a top-level 'id' and an 'info' mapping.")
+        raise ValueError(Msg("Not a nuclei template: needs a top-level 'id' and an 'info' mapping."))
     if not info.name:
-        raise ValueError("Template 'info.name' is required.")
+        raise ValueError(Msg("Template 'info.name' is required."))
     if not _TEMPLATE_ID_RE.match(info.template_id):
-        raise ValueError("Template 'id' may only contain letters, digits, '.', '_' and '-'.")
+        raise ValueError(Msg("Template 'id' may only contain letters, digits, '.', '_' and '-'."))
     return info
 
 
@@ -195,23 +196,23 @@ def http_fetch(url: str) -> tuple[int, str]:
             for chunk in r.iter_bytes():
                 size += len(chunk)
                 if size > MAX_TEMPLATE_BYTES:
-                    raise ValueError("Download exceeds 10 MB.")
+                    raise ValueError(Msg("Download exceeds 10 MB."))
                 chunks.append(chunk)
             return r.status_code, b"".join(chunks).decode("utf-8", "replace")
 
 
 def fetch_template_from_url(url: str, fetch: Callable[[str], tuple[int, str]] | None = None) -> str:
     if not (url.startswith("http://") or url.startswith("https://")):
-        raise ValueError("URL must start with http:// or https://")
+        raise ValueError(Msg("URL must start with http:// or https://"))
     fetch = fetch or http_fetch
     try:
         status, text = fetch(url)
     except (httpx.HTTPError, OSError) as e:
-        raise ValueError(f"Download failed: {e}") from e
+        raise ValueError(Msg("Download failed: {error}", error=str(e))) from e
     if status != 200:
-        raise ValueError(f"Download failed with HTTP {status}.")
+        raise ValueError(Msg("Download failed with HTTP {status}.", status=status))
     if len(text.encode("utf-8", "replace")) > MAX_TEMPLATE_BYTES:
-        raise ValueError("Download exceeds 10 MB.")
+        raise ValueError(Msg("Download exceeds 10 MB."))
     return text
 
 

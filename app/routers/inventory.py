@@ -10,6 +10,7 @@ from ..audit import audit
 from ..authz import require
 from ..deps import get_db, verify_csrf
 from ..inventory_groups import DEFAULT_GROUP, GROUP_LABELS, group_rows, normalize_group_mode
+from ..i18n import flash, tr
 from ..render import render
 
 router = APIRouter()
@@ -72,7 +73,7 @@ def inventory(request: Request, q: str = "", product: str = "", port: str = "", 
 @router.post("/inventory/to-nuclei", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
 def to_nuclei(request: Request, service_ids: list[int] = Form(default=[]), db: Session = Depends(get_db)):
     if not service_ids:
-        return _inventory_error(request, db, "Select at least one service to scan.")
+        return _inventory_error(request, db, tr(request, "Select at least one service to scan."))
     rows = db.execute(select(Service, Host).join(Host, Host.id == Service.host_id).where(Service.id.in_(service_ids))
                       .order_by(Host.address, Service.port)).all()
     targets = "\n".join(service_to_target(host.address, svc) for svc, host in rows)
@@ -107,11 +108,12 @@ def delete_services(db: Session, service_ids: list[int]) -> tuple[int, int]:
 @router.post("/inventory/delete", dependencies=[Depends(require("inventory.manage")), Depends(verify_csrf)])
 def inventory_delete(request: Request, service_ids: list[int] = Form(default=[]), db: Session = Depends(get_db)):
     if not service_ids:
-        return _inventory_error(request, db, "Select at least one service to delete.")
+        return _inventory_error(request, db, tr(request, "Select at least one service to delete."))
     n_services, n_hosts = delete_services(db, service_ids)
     audit(db, request, "inventory.deleted", target=f"{n_services} service(s)", services=n_services, hosts=n_hosts)
-    msg = f"Deleted {n_services} service(s)" + (f" and {n_hosts} host(s) with no remaining services" if n_hosts else "")
-    return RedirectResponse(f"/inventory?msg={msg.replace(' ', '+')}", status_code=303)
+    msg = (flash(request, "Deleted {n} service(s) and {h} host(s) with no remaining services", n=n_services, h=n_hosts)
+           if n_hosts else flash(request, "Deleted {n} service(s)", n=n_services))
+    return RedirectResponse(f"/inventory?msg={msg}", status_code=303)
 
 
 @router.post("/inventory/clear", dependencies=[Depends(require("inventory.manage")), Depends(verify_csrf)])
@@ -121,4 +123,4 @@ def inventory_clear(request: Request, db: Session = Depends(get_db)):
         db.delete(h)
     db.commit()
     audit(db, request, "inventory.cleared", target=f"{len(hosts)} host(s)", hosts=len(hosts))
-    return RedirectResponse(f"/inventory?msg=Removed+{len(hosts)}+host(s)+from+the+inventory", status_code=303)
+    return RedirectResponse("/inventory?msg=" + flash(request, "Removed {n} host(s) from the inventory", n=len(hosts)), status_code=303)

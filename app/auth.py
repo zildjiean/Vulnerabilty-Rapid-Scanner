@@ -13,6 +13,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from .db import User
+from .i18n import Msg
 
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "changeme"
@@ -21,7 +22,7 @@ SESSION_COOKIE = "zdrs_session"
 SESSION_MAX_AGE = 12 * 3600
 PUBLIC_PATHS = {"/login", "/healthz"}
 PUBLIC_PREFIXES = ("/static/",)
-CHANGE_PASSWORD_ALLOWED = {"/change-password", "/logout"}
+CHANGE_PASSWORD_ALLOWED = {"/change-password", "/logout", "/profile/language"}
 
 
 def hash_password(password: str) -> str:
@@ -37,11 +38,11 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def validate_new_password(new: str, confirm: str, current: str) -> str | None:
     if len(new) < MIN_PASSWORD_LEN:
-        return f"New password must be at least {MIN_PASSWORD_LEN} characters."
+        return Msg("New password must be at least {n} characters.", n=MIN_PASSWORD_LEN)
     if new != confirm:
-        return "Passwords do not match."
+        return Msg("Passwords do not match.")
     if new == current:
-        return "New password must differ from the current one."
+        return Msg("New password must differ from the current one.")
     return None
 
 

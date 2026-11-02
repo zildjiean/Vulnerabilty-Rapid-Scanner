@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from .db import Job
+from .i18n import Msg
 
 PRESETS = {
     "recommended": {"label": "Recommended",
@@ -30,7 +31,7 @@ def preset_args(key: str) -> dict:
     """{severities, tags, profile} for a launchable preset. Raises ValueError for an unknown key or ``custom``."""
     p = PRESETS.get(key)
     if not p or key == "custom":
-        raise ValueError("Invalid preset.")
+        raise ValueError(Msg("Invalid preset."))
     return {"severities": list(p["severities"]), "tags": list(p["tags"]), "profile": p["profile"]}
 
 

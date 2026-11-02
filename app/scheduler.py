@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from .audit import audit
 from .db import AppSetting, Campaign, Job, Schedule, Scope, utcnow
+from .i18n import Msg
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def set_timezone(db: Session, name: str, now: datetime | None = None) -> None:
     try:
         tz = ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError):
-        raise ValueError(f"Unknown timezone {name!r}. Use an IANA name such as Asia/Bangkok or UTC.")
+        raise ValueError(Msg("Unknown timezone {name}. Use an IANA name such as Asia/Bangkok or UTC.", name=repr(name)))
     row = db.get(AppSetting, TZ_KEY) or AppSetting(key=TZ_KEY)
     row.value = name
     db.add(row)
@@ -86,17 +87,17 @@ def to_local(dt: datetime | None, tz: ZoneInfo) -> datetime | None:
 def validate_schedule(kind: str, scope_id: int | None, frequency: str, interval_hours: int, time_of_day: str,
                       weekday: int) -> str | None:
     if kind not in KINDS:
-        return "Unknown schedule type."
+        return Msg("Unknown schedule type.")
     if kind in ("nmap", "nuclei") and not scope_id:
-        return "Choose the scope to scan."
+        return Msg("Choose the scope to scan.")
     if frequency not in FREQUENCIES:
-        return "Unknown frequency."
+        return Msg("Unknown frequency.")
     if frequency == "interval" and not 1 <= interval_hours <= 168:
-        return "Interval must be between 1 and 168 hours."
+        return Msg("Interval must be between 1 and 168 hours.")
     if frequency in ("daily", "weekly") and not _TIME_RE.match(time_of_day or ""):
-        return "Time must be HH:MM (24-hour)."
+        return Msg("Time must be HH:MM (24-hour).")
     if frequency == "weekly" and not 0 <= weekday <= 6:
-        return "Unknown weekday."
+        return Msg("Unknown weekday.")
     return None
 
 

@@ -4,12 +4,12 @@
 <figure class="chart" id="{{ id }}">
   <figcaption><b>{{ c.title }}</b><span class="small text-2">{{ c.subtitle }}</span></figcaption>
   {% if c.legend %}<div class="legend chart-legend" aria-hidden="true">{% for cls, label in c.legend %}<span><i class="{{ cls }}"></i>{{ label }}</span>{% endfor %}</div>{% endif %}
-  {% if g.empty %}<p class="chart-empty small text-2">No data in this period</p>
+  {% if g.empty %}<p class="chart-empty small text-2">{{ t("No data in this period") }}</p>
   {% else %}
   <svg class="chart-svg" viewBox="0 0 {{ g.w }} {{ g.h }}" role="group" aria-roledescription="chart" aria-labelledby="{{ id }}-t {{ id }}-d" focusable="false">
-    <title id="{{ id }}-t">{{ c.title }}</title><desc id="{{ id }}-d">{{ c.desc }} Use the arrow keys to move between periods.</desc>
-    <g class="chart-grid" aria-hidden="true">{% for t in g.ticks %}<line x1="{{ g.left }}" x2="{{ g.right }}" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}</g>
-    <g class="chart-axis" aria-hidden="true">{% for t in g.ticks %}<text x="{{ g.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ t.label }}</text>{% endfor %}
+    <title id="{{ id }}-t">{{ c.title }}</title><desc id="{{ id }}-d">{{ c.desc }} {{ t("Use the arrow keys to move between periods.") }}</desc>
+    <g class="chart-grid" aria-hidden="true">{% for tk in g.ticks %}<line x1="{{ g.left }}" x2="{{ g.right }}" y1="{{ tk.y }}" y2="{{ tk.y }}"/>{% endfor %}</g>
+    <g class="chart-axis" aria-hidden="true">{% for tk in g.ticks %}<text x="{{ g.left - 6 }}" y="{{ tk.y + 4 }}" text-anchor="end">{{ tk.label }}</text>{% endfor %}
       {% for x in g.xlabels %}<text x="{{ x.x }}" y="{{ x.y }}" text-anchor="middle">{{ x.label }}</text>{% endfor %}</g>
     <g class="chart-hits">{% for h in g.hits %}<rect class="chart-hit" role="img" tabindex="{{ h.tabindex }}" x="{{ h.x }}" y="{{ h.y }}" width="{{ h.w }}" height="{{ h.h }}" aria-label="{{ h.label }}" data-tip="{{ h.tip }}"/>{% endfor %}</g>
     <g class="chart-marks" aria-hidden="true">
@@ -26,7 +26,7 @@
     <line class="chart-baseline" aria-hidden="true" x1="{{ g.left }}" x2="{{ g.right }}" y1="{{ g.bottom }}" y2="{{ g.bottom }}"/>
   </svg>
   {% endif %}
-  <details class="chart-data"><summary>Show data</summary>
+  <details class="chart-data"><summary>{{ t("Show data") }}</summary>
     <div class="table-wrap"><table class="data">
       <caption class="sr-only">{{ c.title }}</caption>
       <thead><tr>{% for h in c.head %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>

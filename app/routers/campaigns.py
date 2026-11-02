@@ -17,6 +17,7 @@ from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..intel import enrich, http_get_json, normalize_cve
 from ..risk import intel_for
 from ..issues import CLOSED, ISSUE_SEVERITIES
+from ..i18n import Msg, flash, tr
 from ..render import render
 from ..scanners.nuclei_runner import DEFAULT_PROFILE, PROFILES, profile_flags, validate_template_paths
 from ..validation import parse_nuclei_targets
@@ -101,7 +102,7 @@ async def campaign_create(request: Request, cve_id: str = Form(""), name: str = 
                                       product_pattern=product_pattern, version_constraint=version_constraint,
                                       attach_templates=attach_templates, fetch_intel=fetch_intel)
     except ValueError as e:
-        return _new_form(request, 400, str(e), form)
+        return _new_form(request, 400, tr(request, e), form)
     return RedirectResponse(f"/campaigns/{c.id}", status_code=303)
 
 
@@ -134,15 +135,15 @@ def campaign_detail(request: Request, cid: int, db: Session = Depends(get_db)):
 def start_verify(request: Request, db: Session, settings, runner, c: Campaign, profile: str, extra_targets: str) -> Job:
     """Validate and launch a campaign verification job. Raises ValueError with a user-facing message."""
     if c.status in ("draft", "dismissed"):
-        raise ValueError("Activate this draft campaign before verifying it.")
+        raise ValueError(Msg("Activate this draft campaign before verifying it."))
     if not c.templates:
-        raise ValueError("Attach at least one nuclei template before verifying.")
+        raise ValueError(Msg("Attach at least one nuclei template before verifying."))
     paths = validate_template_paths(settings, [t.path for t in c.templates])
     targets = camp.verify_targets(db, c)
     extra = parse_nuclei_targets(extra_targets) if extra_targets.strip() else []
     targets += [t for t in extra if t not in targets]
     if not targets:
-        raise ValueError("No exposed assets to verify. Add a version rule, run an nmap scan, or type extra targets.")
+        raise ValueError(Msg("No exposed assets to verify. Add a version rule, run an nmap scan, or type extra targets."))
     flags = profile_flags(profile, False)
     prof = PROFILES[profile]
     params = {"targets": targets, "template_ids": [t.template_id for t in c.templates], "mode": "selected",
@@ -161,7 +162,7 @@ async def campaign_verify(request: Request, cid: int, profile: str = Form(DEFAUL
     try:
         job = start_verify(request, db, settings, runner, c, profile, extra_targets)
     except ValueError as e:
-        return _detail(request, db, c, status_code=400, error=str(e))
+        return _detail(request, db, c, status_code=400, error=tr(request, e))
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 
@@ -171,10 +172,10 @@ async def campaign_verify_issues(request: Request, cid: int, db: Session = Depen
     from .issues import _redirect, bulk_verify
     c = _get(db, cid)
     if c.status != "active":
-        return _redirect(f"/campaigns/{cid}", err="Only an active campaign can verify its issues.")
+        return _redirect(f"/campaigns/{cid}", err=tr(request, "Only an active campaign can verify its issues."))
     issues = _proof_candidates(camp.campaign_issues(db, c))
     if not issues:
-        return _redirect(f"/campaigns/{cid}", err="This campaign has no open issues with a verification template.")
+        return _redirect(f"/campaigns/{cid}", err=tr(request, "This campaign has no open issues with a verification template."))
     return bulk_verify(request, db, issues, f"/campaigns/{cid}", "campaign.verify_issues", c.name, campaign_id=c.id)
 
 
@@ -186,11 +187,11 @@ def campaign_rule_add(request: Request, cid: int, product_pattern: str = Form(""
         rule = camp.add_rule(db, c, product_pattern, version_constraint)
     except ValueError as e:
         db.rollback()
-        return _detail(request, db, _get(db, cid), status_code=400, error=f"Version rule: {e}")
+        return _detail(request, db, _get(db, cid), status_code=400, error=tr(request, "Version rule: {err}", err=tr(request, e)))
     db.commit()
     audit(db, request, "campaign.rule_added", target=c.name, campaign_id=c.id, rule_id=rule.id,
           product=rule.product_pattern, constraint=rule.version_constraint)
-    return RedirectResponse(f"/campaigns/{cid}?msg=Rule+added+and+evaluated", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + flash(request, "Rule added and evaluated"), status_code=303)
 
 
 @router.post("/campaigns/{cid}/rules/{rid}/delete", dependencies=MANAGE)
@@ -200,7 +201,7 @@ def campaign_rule_remove(request: Request, cid: int, rid: int, db: Session = Dep
     db.commit()
     if rule:
         audit(db, request, "campaign.rule_removed", target=c.name, campaign_id=c.id, rule_id=rid)
-    return RedirectResponse(f"/campaigns/{cid}?msg=Rule+removed", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + flash(request, "Rule removed"), status_code=303)
 
 
 @router.post("/campaigns/{cid}/templates", dependencies=MANAGE)
@@ -209,11 +210,11 @@ def campaign_template_add(request: Request, cid: int, path: str = Form(""), db: 
     try:
         ct = camp.attach_template(db, c, path)
     except ValueError as e:
-        return _detail(request, db, c, status_code=400, error=str(e))
+        return _detail(request, db, c, status_code=400, error=tr(request, e))
     db.commit()
     if ct:
         audit(db, request, "campaign.template_added", target=c.name, campaign_id=c.id, template=ct.template_id)
-    return RedirectResponse(f"/campaigns/{cid}?msg=Template+attached", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + flash(request, "Template attached"), status_code=303)
 
 
 @router.post("/campaigns/{cid}/templates/{tid}/delete", dependencies=MANAGE)
@@ -225,14 +226,14 @@ def campaign_template_remove(request: Request, cid: int, tid: int, db: Session =
         db.delete(ct)
         db.commit()
         audit(db, request, "campaign.template_removed", target=c.name, campaign_id=c.id, template=name)
-    return RedirectResponse(f"/campaigns/{cid}?msg=Template+removed", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + flash(request, "Template removed"), status_code=303)
 
 
 @router.post("/campaigns/{cid}/status", dependencies=MANAGE)
 def campaign_toggle_status(request: Request, cid: int, db: Session = Depends(get_db)):
     c = _get(db, cid)
     if c.status == "draft":
-        return RedirectResponse(f"/campaigns/{cid}?err=Activate+or+dismiss+this+draft+first", status_code=303)
+        return RedirectResponse(f"/campaigns/{cid}?err=" + flash(request, "Activate or dismiss this draft first"), status_code=303)
     if c.status == "dismissed":
         return campaign_reopen(request, cid, db)
     if c.status == "active":
@@ -241,7 +242,8 @@ def campaign_toggle_status(request: Request, cid: int, db: Session = Depends(get
         c.status, c.closed_at, action = "active", None, "campaign.reopened"
     db.commit()
     audit(db, request, action, target=c.name, campaign_id=c.id)
-    return RedirectResponse(f"/campaigns/{cid}?msg=Campaign+{c.status}", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + (flash(request, "Campaign closed") if c.status == "closed"
+                                                    else flash(request, "Campaign active")), status_code=303)
 
 
 @router.post("/campaigns/{cid}/activate", dependencies=MANAGE)
@@ -254,13 +256,13 @@ def campaign_activate(request: Request, cid: int, db: Session = Depends(get_db))
         unversioned = open_unversioned_issues(db, c)
     except ValueError as e:
         db.rollback()
-        return RedirectResponse(f"/campaigns/{cid}?err={quote_plus(str(e))}", status_code=303)
+        return RedirectResponse(f"/campaigns/{cid}?err={quote_plus(tr(request, e))}", status_code=303)
     from ..notifications import campaign_message, notify
     notify(db, "campaign.created", message=campaign_message(db, c), severity=c.severity)
     db.commit()
     audit(db, request, "campaign.activated", target=c.name, campaign_id=c.id, cve=c.cve_id, rules=enabled,
           version_unknown_issues=unversioned)
-    return RedirectResponse(f"/campaigns/{cid}?msg=Campaign+activated:+rules+enabled+and+evaluated", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + flash(request, "Campaign activated: rules enabled and evaluated"), status_code=303)
 
 
 @router.post("/campaigns/{cid}/dismiss", dependencies=MANAGE)
@@ -270,10 +272,10 @@ def campaign_dismiss(request: Request, cid: int, db: Session = Depends(get_db)):
         camp.dismiss_campaign(db, c)
     except ValueError as e:
         db.rollback()
-        return RedirectResponse(f"/campaigns/{cid}?err={quote_plus(str(e))}", status_code=303)
+        return RedirectResponse(f"/campaigns/{cid}?err={quote_plus(tr(request, e))}", status_code=303)
     db.commit()
     audit(db, request, "campaign.dismissed", target=c.name, campaign_id=c.id, cve=c.cve_id)
-    return RedirectResponse(f"/campaigns/{cid}?msg=Draft+dismissed", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + flash(request, "Draft dismissed"), status_code=303)
 
 
 @router.post("/campaigns/{cid}/reopen", dependencies=MANAGE)
@@ -281,22 +283,22 @@ def campaign_reopen(request: Request, cid: int, db: Session = Depends(get_db)):
     """Dismissed -> draft (closed -> active stays on /status)."""
     c = _get(db, cid)
     if c.status != "dismissed":
-        return RedirectResponse(f"/campaigns/{cid}?err=Only+a+dismissed+draft+can+be+reopened+here", status_code=303)
+        return RedirectResponse(f"/campaigns/{cid}?err=" + flash(request, "Only a dismissed draft can be reopened here"), status_code=303)
     c.status = "draft"
     db.commit()
     audit(db, request, "campaign.reopened", target=c.name, campaign_id=c.id, to="draft")
-    return RedirectResponse(f"/campaigns/{cid}?msg=Draft+reopened", status_code=303)
+    return RedirectResponse(f"/campaigns/{cid}?msg=" + flash(request, "Draft reopened"), status_code=303)
 
 
 @router.post("/campaigns/{cid}/refresh", dependencies=MANAGE)
 async def campaign_refresh(request: Request, cid: int, db: Session = Depends(get_db)):
     c = _get(db, cid)
     if not c.cve_id:
-        return _detail(request, db, c, status_code=400, error="This campaign has no CVE id to look up.")
+        return _detail(request, db, c, status_code=400, error=tr(request, "This campaign has no CVE id to look up."))
     info, errors = await load_intel(request, c.cve_id, refresh=True)
     camp.apply_intel(c, info, errors)
     db.commit()
     audit(db, request, "campaign.enriched", target=c.name, campaign_id=c.id, kev=c.kev, cvss=c.cvss_score,
           errors=len(errors))
-    msg = "Intel+refreshed" if not errors else "Intel+refreshed+with+errors"
+    msg = flash(request, "Intel refreshed") if not errors else flash(request, "Intel refreshed with errors")
     return RedirectResponse(f"/campaigns/{cid}?msg={msg}", status_code=303)

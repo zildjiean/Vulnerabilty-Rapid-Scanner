@@ -1,50 +1,50 @@
 {% extends "base.html" %}
-{% set page_title = "New campaign" %}
-{% set page_subtitle = "Start the response to a new vulnerability. Everything except a name or CVE is optional and can be added later." %}
-{% block page_actions %}<a class="btn ghost" href="/campaigns">Cancel</a>{% endblock %}
+{% set page_title = t("New campaign") %}
+{% set page_subtitle = t("Start the response to a new vulnerability. Everything except a name or CVE is optional and can be added later.") %}
+{% block page_actions %}<a class="btn ghost" href="/campaigns">{{ t("Cancel") }}</a>{% endblock %}
 {% block content %}
 {% from "_ai.html" import ai_badge %}
 {% if ai_draft %}
 <div class="alert {{ 'warn' if ai_draft.warning else 'info' }}" role="status"><svg class="icon"><use href="#i-spark"/></svg><div>
-  <b>AI draft filled the form below ({{ ai_draft.provider }} · {{ ai_draft.model }}, confidence {{ ai_draft.confidence or 'n/a' }}).</b> Review every field before creating the campaign.
-  {% if ai_draft.warning %}<div><b>Check the suggested rule:</b> {{ ai_draft.warning }}</div>{% endif %}
+  <b>{{ t("AI draft filled the form below ({provider} · {model}, confidence {confidence}).", provider=ai_draft.provider, model=ai_draft.model, confidence=ai_draft.confidence or t('n/a')) }}</b> {{ t("Review every field before creating the campaign.") }}
+  {% if ai_draft.warning %}<div><b>{{ t("Check the suggested rule:") }}</b> {{ ai_draft.warning }}</div>{% endif %}
   {% if ai_draft.notes %}<div class="small" style="margin-top:4px">{{ ai_draft.notes }}</div>{% endif %}
-  {% if ai_draft.terms %}<div class="small" style="margin-top:4px">Template search: {% for t in ai_draft.terms %}<a href="/templates?q={{ t|urlencode }}">{{ t }}</a>{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}
+  {% if ai_draft.terms %}<div class="small" style="margin-top:4px">{{ t("Template search:") }} {% for term in ai_draft.terms %}<a href="/templates?q={{ term|urlencode }}">{{ term }}</a>{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}
 </div></div>
 {% endif %}
 {% if ai_ready %}
 <form method="post" action="/ai/campaign-draft" class="card mb" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="card-head"><h2>{{ ai_badge() }} Draft from an advisory</h2></div>
+  <div class="card-head"><h2>{{ ai_badge() }} {{ t("Draft from an advisory") }}</h2></div>
   <div class="card-body stack">
     <div class="row">
-      <div class="field w-md"><label for="ai-cve">CVE id</label><input id="ai-cve" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-12345"></div>
-      <div class="field" style="flex:1"><label for="ai-advisory">Advisory text, vendor bulletin or notes</label><textarea id="ai-advisory" name="advisory" rows="3" placeholder="Paste the advisory. With only a CVE id, the NVD description is used."></textarea></div>
+      <div class="field w-md"><label for="ai-cve">{{ t("CVE id") }}</label><input id="ai-cve" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-12345"></div>
+      <div class="field" style="flex:1"><label for="ai-advisory">{{ t("Advisory text, vendor bulletin or notes") }}</label><textarea id="ai-advisory" name="advisory" rows="3" placeholder="{{ t('Paste the advisory. With only a CVE id, the NVD description is used.') }}"></textarea></div>
     </div>
-    <div><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>Draft campaign with AI</button></div>
+    <div><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>{{ t("Draft campaign with AI") }}</button></div>
   </div>
 </form>
 {% endif %}
 <form method="post" action="/campaigns" class="grid grid-2" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>Vulnerability</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>{{ t("Vulnerability") }}</h2></div>
     <div class="card-body stack">
-      <div class="field"><label for="cve_id">CVE id</label><input id="cve_id" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-12345" autocomplete="off" pattern="[Cc][Vv][Ee]-\d{4}-\d{4,7}" aria-describedby="cve-hint"><span class="hint" id="cve-hint">Used to pull NVD details and CISA KEV status, and to find matching nuclei templates.</span></div>
-      <div class="field"><label for="name">Name</label><input id="name" name="name" value="{{ form.name }}" placeholder="Defaults to the CVE id (and the KEV name when listed)"></div>
-      <div class="field"><label for="severity">Severity</label><select id="severity" name="severity"><option value="auto" {{ 'selected' if form.severity == 'auto' }}>Auto (from CVSS, else high)</option>{% for s in severities %}<option value="{{ s }}" {{ 'selected' if form.severity == s }}>{{ s }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="description">Notes</label><textarea id="description" name="description" rows="3" placeholder="Leave empty to use the NVD description">{{ form.description }}</textarea></div>
-      <label class="check"><input type="checkbox" name="fetch_intel" value="true" {{ 'checked' if form.fetch_intel }}> Fetch NVD and CISA KEV intel</label>
+      <div class="field"><label for="cve_id">{{ t("CVE id") }}</label><input id="cve_id" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-12345" autocomplete="off" pattern="[Cc][Vv][Ee]-\d{4}-\d{4,7}" aria-describedby="cve-hint"><span class="hint" id="cve-hint">{{ t("Used to pull NVD details and CISA KEV status, and to find matching nuclei templates.") }}</span></div>
+      <div class="field"><label for="name">{{ t("Name") }}</label><input id="name" name="name" value="{{ form.name }}" placeholder="{{ t('Defaults to the CVE id (and the KEV name when listed)') }}"></div>
+      <div class="field"><label for="severity">{{ t("Severity") }}</label><select id="severity" name="severity"><option value="auto" {{ 'selected' if form.severity == 'auto' }}>{{ t("Auto (from CVSS, else high)") }}</option>{% for s in severities %}<option value="{{ s }}" {{ 'selected' if form.severity == s }}>{{ s }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="description">{{ t("Notes") }}</label><textarea id="description" name="description" rows="3" placeholder="{{ t('Leave empty to use the NVD description') }}">{{ form.description }}</textarea></div>
+      <label class="check"><input type="checkbox" name="fetch_intel" value="true" {{ 'checked' if form.fetch_intel }}> {{ t("Fetch NVD and CISA KEV intel") }}</label>
     </div>
   </div>
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>Detection</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>{{ t("Detection") }}</h2></div>
     <div class="card-body stack">
-      <p class="text-2 small">A version rule matches the inventory immediately and opens <b>suspected</b> issues without sending traffic. Nuclei templates confirm them during <b>Verify</b>.</p>
-      <div class="field"><label for="product_pattern">Product pattern (regex)</label><input id="product_pattern" name="product_pattern" value="{{ form.product_pattern }}" placeholder="apache|httpd"></div>
-      <div class="field"><label for="version_constraint">Vulnerable versions</label><input id="version_constraint" name="version_constraint" value="{{ form.version_constraint }}" placeholder=">= 2.4.49, < 2.4.51"><span class="hint">Comparators &lt; &lt;= &gt; &gt;= == != separated by commas.</span></div>
-      <label class="check"><input type="checkbox" name="attach_templates" value="true" {{ 'checked' if form.attach_templates }}> Attach every indexed nuclei template that references this CVE</label>
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>Create campaign</button></div>
+      <p class="text-2 small">{{ t("A version rule matches the inventory immediately and opens") }} <b>{{ t("suspected") }}</b> {{ t("issues without sending traffic. Nuclei templates confirm them during") }} <b>{{ t("Verify") }}</b>.</p>
+      <div class="field"><label for="product_pattern">{{ t("Product pattern (regex)") }}</label><input id="product_pattern" name="product_pattern" value="{{ form.product_pattern }}" placeholder="apache|httpd"></div>
+      <div class="field"><label for="version_constraint">{{ t("Vulnerable versions") }}</label><input id="version_constraint" name="version_constraint" value="{{ form.version_constraint }}" placeholder=">= 2.4.49, < 2.4.51"><span class="hint">{{ t("Comparators < <= > >= == != separated by commas.") }}</span></div>
+      <label class="check"><input type="checkbox" name="attach_templates" value="true" {{ 'checked' if form.attach_templates }}> {{ t("Attach every indexed nuclei template that references this CVE") }}</label>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-play"/></svg>{{ t("Create campaign") }}</button></div>
     </div>
   </div>
 </form>

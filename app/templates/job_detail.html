@@ -1,66 +1,66 @@
 {% extends "base.html" %}
-{% set page_title = "Job #" ~ job.id ~ " · " ~ job.kind %}
+{% set page_title = t("Job #{id}", id=job.id) ~ " · " ~ job.kind %}
 {% block page_actions %}
 {% if job.status in ('queued', 'running') and can('scan.run') %}
-<form method="post" action="/jobs/{{ job.id }}/cancel" data-confirm="Cancel job #{{ job.id }}?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit"><svg class="icon"><use href="#i-stop"/></svg>Cancel job</button></form>
+<form method="post" action="/jobs/{{ job.id }}/cancel" data-confirm="{{ t('Cancel job #{id}?', id=job.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger" type="submit"><svg class="icon"><use href="#i-stop"/></svg>{{ t("Cancel job") }}</button></form>
 {% endif %}
-{% if job.kind == 'nmap' and job.status == 'done' %}<a class="btn primary" href="/inventory"><svg class="icon"><use href="#i-server"/></svg>View inventory</a>{% endif %}
-{% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn primary" href="/findings?job={{ job.id }}"><svg class="icon"><use href="#i-alert"/></svg>View findings</a>{% endif %}
-{% if job.kind == 'discovery' and params.get('result', {}).get('probe_job') %}<a class="btn" href="/jobs/{{ params.result.probe_job }}"><svg class="icon"><use href="#i-globe"/></svg>Web probe job #{{ params.result.probe_job }}</a>{% endif %}
-{% if job.kind == 'discovery_probe' and params.get('parent_job') %}<a class="btn" href="/jobs/{{ params.parent_job }}"><svg class="icon"><use href="#i-globe"/></svg>Discovery job #{{ params.parent_job }}</a>{% endif %}
-{% if quick and quick.get('step') == 1 and quick.get('nuclei_job') %}<a class="btn" href="/jobs/{{ quick.nuclei_job }}"><svg class="icon"><use href="#i-bug"/></svg>Step 2: nuclei job #{{ quick.nuclei_job }}</a>{% endif %}
-{% if quick and quick.get('step') == 2 and quick.get('parent_job') %}<a class="btn" href="/jobs/{{ quick.parent_job }}"><svg class="icon"><use href="#i-radar"/></svg>Step 1: nmap job #{{ quick.parent_job }}</a>{% endif %}
-{% if job.kind in ('discovery', 'discovery_probe') and job.status == 'done' %}<a class="btn primary" href="/discovery"><svg class="icon"><use href="#i-globe"/></svg>View discovered assets</a>{% endif %}
+{% if job.kind == 'nmap' and job.status == 'done' %}<a class="btn primary" href="/inventory"><svg class="icon"><use href="#i-server"/></svg>{{ t("View inventory") }}</a>{% endif %}
+{% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn primary" href="/findings?job={{ job.id }}"><svg class="icon"><use href="#i-alert"/></svg>{{ t("View findings") }}</a>{% endif %}
+{% if job.kind == 'discovery' and params.get('result', {}).get('probe_job') %}<a class="btn" href="/jobs/{{ params.result.probe_job }}"><svg class="icon"><use href="#i-globe"/></svg>{{ t("Web probe job #{id}", id=params.result.probe_job) }}</a>{% endif %}
+{% if job.kind == 'discovery_probe' and params.get('parent_job') %}<a class="btn" href="/jobs/{{ params.parent_job }}"><svg class="icon"><use href="#i-globe"/></svg>{{ t("Discovery job #{id}", id=params.parent_job) }}</a>{% endif %}
+{% if quick and quick.get('step') == 1 and quick.get('nuclei_job') %}<a class="btn" href="/jobs/{{ quick.nuclei_job }}"><svg class="icon"><use href="#i-bug"/></svg>{{ t("Step 2: nuclei job #{id}", id=quick.nuclei_job) }}</a>{% endif %}
+{% if quick and quick.get('step') == 2 and quick.get('parent_job') %}<a class="btn" href="/jobs/{{ quick.parent_job }}"><svg class="icon"><use href="#i-radar"/></svg>{{ t("Step 1: nmap job #{id}", id=quick.parent_job) }}</a>{% endif %}
+{% if job.kind in ('discovery', 'discovery_probe') and job.status == 'done' %}<a class="btn primary" href="/discovery"><svg class="icon"><use href="#i-globe"/></svg>{{ t("View discovered assets") }}</a>{% endif %}
 {% endblock %}
 {% block content %}
 {% from "_ai.html" import ai_meta, ai_badge %}
 {% if ai_diagnosis or (ai_ready and (job.status == 'failed' or job_warnings(job))) %}
 <div class="card mb" id="ai">
-  <div class="card-head"><h2>{{ ai_badge() }} Diagnosis</h2>
-    {% if ai_ready and (job.status == 'failed' or job_warnings(job)) %}<form method="post" action="/ai/jobs/{{ job.id }}/diagnose" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>Diagnose with AI</button></form>{% endif %}</div>
+  <div class="card-head"><h2>{{ ai_badge() }} {{ t("Diagnosis") }}</h2>
+    {% if ai_ready and (job.status == 'failed' or job_warnings(job)) %}<form method="post" action="/ai/jobs/{{ job.id }}/diagnose" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>{{ t("Diagnose with AI") }}</button></form>{% endif %}</div>
   {% if ai_diagnosis %}<div class="card-body md">{{ ai_diagnosis.content|mdlite }}{{ ai_meta(ai_diagnosis) }}</div>{% endif %}
 </div>
 {% endif %}
 {% set warnings = job_warnings(job) %}
 {% if job.status == 'done' and warnings %}
-<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>Done with warnings — coverage is incomplete.</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% if job.kind == 'nuclei' %}<p class="small" style="margin:8px 0 0">Re-run with the <a href="/nuclei">Gentle profile</a>, a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.</p>{% endif %}</div></div>
+<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div><b>{{ t("Done with warnings — coverage is incomplete.") }}</b><ul style="margin:6px 0 0;padding-left:18px">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% if job.kind == 'nuclei' %}<p class="small" style="margin:8px 0 0">{{ t("Re-run with the") }} <a href="/nuclei">{{ t("Gentle profile") }}</a>{{ t(', a lower rate limit or "Never drop unresponsive hosts", and ask for the scanner IP to be allow-listed on any WAF.') }}</p>{% endif %}</div></div>
 {% endif %}
 <div class="card mb">
   <div class="card-body">
     <dl class="meta" style="margin:0">
-      <div><dt>Status</dt><dd>{% if job.status == 'done' and warnings %}<span id="job-status" class="status st-warning">Done with warnings</span>{% else %}<span id="job-status" class="status st-{{ job.status }}">{{ job.status }}</span>{% endif %}</dd></div>
-      <div><dt>Kind</dt><dd><span class="chip">{{ job.kind }}</span>{% if quick %} <span class="badge quick-badge">Quick scan · step {{ 2 if quick.get('step') == 2 else 1 }} of 2</span>{% endif %}</dd></div>
-      <div><dt>Created</dt><dd class="num">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd></div>
-      <div><dt>Started</dt><dd class="num">{{ job.started_at.strftime('%H:%M:%S') if job.started_at else '—' }}</dd></div>
-      <div><dt>Finished</dt><dd class="num">{{ job.finished_at.strftime('%H:%M:%S') if job.finished_at else '—' }}</dd></div>
-      <div><dt>Duration</dt><dd class="num">{{ job.duration ~ 's' if job.duration is not none else '—' }}</dd></div>
-      <div><dt>Exit code</dt><dd class="num">{{ job.exit_code if job.exit_code is not none else '—' }}</dd></div>
+      <div><dt>{{ t("Status") }}</dt><dd>{% if job.status == 'done' and warnings %}<span id="job-status" class="status st-warning">{{ t("Done with warnings") }}</span>{% else %}<span id="job-status" class="status st-{{ job.status }}">{{ t(job.status) }}</span>{% endif %}</dd></div>
+      <div><dt>{{ t("Kind") }}</dt><dd><span class="chip">{{ job.kind }}</span>{% if quick %} <span class="badge quick-badge">{{ t("Quick scan · step {n} of 2", n=2 if quick.get('step') == 2 else 1) }}</span>{% endif %}</dd></div>
+      <div><dt>{{ t("Created") }}</dt><dd class="num">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd></div>
+      <div><dt>{{ t("Started") }}</dt><dd class="num">{{ job.started_at.strftime('%H:%M:%S') if job.started_at else '—' }}</dd></div>
+      <div><dt>{{ t("Finished") }}</dt><dd class="num">{{ job.finished_at.strftime('%H:%M:%S') if job.finished_at else '—' }}</dd></div>
+      <div><dt>{{ t("Duration") }}</dt><dd class="num">{{ job.duration ~ 's' if job.duration is not none else '—' }}</dd></div>
+      <div><dt>{{ t("Exit code") }}</dt><dd class="num">{{ job.exit_code if job.exit_code is not none else '—' }}</dd></div>
     </dl>
     {% if summary %}<p class="text-2 small" style="margin:14px 0 0">{{ summary }}</p>{% endif %}
-    {% if quick %}<p class="small" style="margin:10px 0 0">{% if quick.get('step') == 2 %}Step 2 of a quick scan: checks the services found by <a href="/jobs/{{ quick.parent_job }}">nmap job #{{ quick.parent_job }}</a>.{% elif quick.get('nuclei_job') %}Step 1 of a quick scan. The vulnerability check runs as <a href="/jobs/{{ quick.nuclei_job }}">nuclei job #{{ quick.nuclei_job }}</a>{% if job.status == 'cancelled' %} (cancelling this step does not stop it: open it to cancel){% endif %}.{% elif quick.get('nuclei') == 'skipped' %}Step 1 of a quick scan. No open services were found on the targets, so there was nothing to check for vulnerabilities.{% elif quick.get('nuclei') == 'cancelled' %}Step 1 of a quick scan, cancelled before the vulnerability check started.{% elif quick.get('nuclei') == 'error' %}Step 1 of a quick scan. The vulnerability check could not start; see the warnings above.{% elif job.status in ('queued', 'running') %}Step 1 of a quick scan. The vulnerability check starts on its own when this step finishes.{% else %}Step 1 of a quick scan. The vulnerability check was not started.{% endif %}</p>{% endif %}
+    {% if quick %}<p class="small" style="margin:10px 0 0">{% if quick.get('step') == 2 %}{{ t("Step 2 of a quick scan: checks the services found by") }} <a href="/jobs/{{ quick.parent_job }}">{{ t("nmap job #{id}", id=quick.parent_job) }}</a>.{% elif quick.get('nuclei_job') %}{{ t("Step 1 of a quick scan. The vulnerability check runs as") }} <a href="/jobs/{{ quick.nuclei_job }}">{{ t("nuclei job #{id}", id=quick.nuclei_job) }}</a>{% if job.status == 'cancelled' %} {{ t("(cancelling this step does not stop it: open it to cancel)") }}{% endif %}.{% elif quick.get('nuclei') == 'skipped' %}{{ t("Step 1 of a quick scan. No open services were found on the targets, so there was nothing to check for vulnerabilities.") }}{% elif quick.get('nuclei') == 'cancelled' %}{{ t("Step 1 of a quick scan, cancelled before the vulnerability check started.") }}{% elif quick.get('nuclei') == 'error' %}{{ t("Step 1 of a quick scan. The vulnerability check could not start; see the warnings above.") }}{% elif job.status in ('queued', 'running') %}{{ t("Step 1 of a quick scan. The vulnerability check starts on its own when this step finishes.") }}{% else %}{{ t("Step 1 of a quick scan. The vulnerability check was not started.") }}{% endif %}</p>{% endif %}
     <div class="mono small text-2" style="margin-top:10px;word-break:break-all"><span class="muted">$</span> {{ job.command }}</div>
   </div>
 </div>
 {% if changes is not none %}
 {% from "_surface_macros.html" import kind_badge, port_cell, before_after %}
 <div class="card mb" id="surface-changes">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Changes from this scan <span class="chip num">{{ changes.total }}</span></h2><a class="btn sm ghost" href="/changes?job={{ job.id }}&amp;state=all">All changes<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Changes from this scan") }} <span class="chip num">{{ changes.total }}</span></h2><a class="btn sm ghost" href="/changes?job={{ job.id }}&amp;state=all">{{ t("All changes") }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
   {% if changes.total %}
-  <div class="card-body" style="padding-bottom:0"><div class="row center" style="gap:6px;flex-wrap:wrap">{% for k, n in changes.counts.items() if n %}<span class="badge neutral num">{{ changes.labels[k] }}: {{ n }}</span>{% endfor %}</div></div>
+  <div class="card-body" style="padding-bottom:0"><div class="row center" style="gap:6px;flex-wrap:wrap">{% for k, n in changes.counts.items() if n %}<span class="badge neutral num">{{ t(changes.labels[k]) }}: {{ n }}</span>{% endfor %}</div></div>
   <div class="table-wrap"><table class="data">
-    <thead><tr><th>Change</th><th>Asset</th><th>Port</th><th>Before → after</th><th>State</th></tr></thead>
+    <thead><tr><th>{{ t("Change") }}</th><th>{{ t("Asset") }}</th><th>{{ t("Port") }}</th><th>{{ t("Before → after") }}</th><th>{{ t("State") }}</th></tr></thead>
     <tbody>{% for c in changes.rows %}
-    <tr><td>{{ kind_badge(c, changes.labels) }}</td><td class="cell-mono">{{ c.address }}{% if c.hostname and c.hostname != c.address %} <span class="small text-2">{{ c.hostname }}</span>{% endif %}</td><td>{{ port_cell(c) }}</td><td style="max-width:420px;overflow-wrap:anywhere">{{ before_after(c) }}</td><td class="small text-2">{{ 'Acknowledged' if c.acknowledged_at else 'Open' }}</td></tr>
+    <tr><td>{{ kind_badge(c, changes.labels) }}</td><td class="cell-mono">{{ c.address }}{% if c.hostname and c.hostname != c.address %} <span class="small text-2">{{ c.hostname }}</span>{% endif %}</td><td>{{ port_cell(c) }}</td><td style="max-width:420px;overflow-wrap:anywhere">{{ before_after(c) }}</td><td class="small text-2">{{ t('Acknowledged') if c.acknowledged_at else t('Open') }}</td></tr>
     {% endfor %}</tbody>
   </table></div>
-  {% if changes.total > changes.rows|length %}<div class="card-body small text-2">Showing {{ changes.rows|length }} of {{ changes.total }}.</div>{% endif %}
+  {% if changes.total > changes.rows|length %}<div class="card-body small text-2">{{ t("Showing {n} of {total}.", n=changes.rows|length, total=changes.total) }}</div>{% endif %}
   {% else %}
-  <div class="card-body small text-2">{{ 'No changes against the inventory.' if job.status == 'done' else 'Changes appear when the scan has finished.' }}</div>
+  <div class="card-body small text-2">{{ t('No changes against the inventory.') if job.status == 'done' else t('Changes appear when the scan has finished.') }}</div>
   {% endif %}
 </div>
 {% endif %}
 <div class="card">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-terminal"/></svg>Log</h2>{% if live or job.status in ('queued','running') %}<span class="status st-running">live</span>{% endif %}</div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-terminal"/></svg>{{ t("Log") }}</h2>{% if live or job.status in ('queued','running') %}<span class="status st-running">{{ t("live") }}</span>{% endif %}</div>
   <div class="card-body">
     <pre class="log" id="joblog" data-job-id="{{ job.id }}" data-live="{{ 'yes' if live or job.status in ('queued','running') else 'no' }}" aria-live="polite">{{ log }}</pre>
   </div>

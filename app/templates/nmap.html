@@ -1,52 +1,52 @@
 {% extends "base.html" %}
-{% set page_title = "Nmap scan" %}
-{% set page_subtitle = "Discover hosts and fingerprint services with version detection. Results are parsed into the inventory when the job completes." %}
+{% set page_title = t("Nmap scan") %}
+{% set page_subtitle = t("Discover hosts and fingerprint services with version detection. Results are parsed into the inventory when the job completes.") %}
 {% block content %}
 {% with perm="scan.run", what="start scans" %}{% include "_readonly.html" %}{% endwith %}
 <div class="grid grid-2">
   <form method="post" action="/nmap/scan" class="card" data-loading>
-    <div class="card-head"><h2><svg class="icon"><use href="#i-radar"/></svg>Scan configuration</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-radar"/></svg>{{ t("Scan configuration") }}</h2></div>
     <div class="card-body stack">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <div class="field">
-        <label for="targets">Targets</label>
+        <label for="targets">{{ t("Targets") }}</label>
         <textarea id="targets" name="targets" rows="6" required placeholder="192.168.1.0/24&#10;scanme.nmap.org&#10;10.0.0.1-50" aria-describedby="targets-hint">{{ form.targets }}</textarea>
-        <span class="hint" id="targets-hint">One per line: IP address, CIDR, nmap range or hostname.</span>
+        <span class="hint" id="targets-hint">{{ t("One per line: IP address, CIDR, nmap range or hostname.") }}</span>
       </div>
       <fieldset>
-        <legend>Port range</legend>
+        <legend>{{ t("Port range") }}</legend>
         <div class="choice-grid">
-          <label class="choice"><input type="radio" name="port_mode" value="top" {{ 'checked' if form.port_mode == 'top' }}><div><b>Well-known</b><span>Top 1000 ports. Fast, good default.</span></div></label>
-          <label class="choice"><input type="radio" name="port_mode" value="all" {{ 'checked' if form.port_mode == 'all' }}><div><b>All ports</b><span>1-65535. Thorough, slower.</span></div></label>
-          <label class="choice"><input type="radio" name="port_mode" value="custom" {{ 'checked' if form.port_mode == 'custom' }}><div><b>Custom</b><span>Your own list or ranges.</span></div></label>
+          <label class="choice"><input type="radio" name="port_mode" value="top" {{ 'checked' if form.port_mode == 'top' }}><div><b>{{ t("Well-known") }}</b><span>{{ t("Top 1000 ports. Fast, good default.") }}</span></div></label>
+          <label class="choice"><input type="radio" name="port_mode" value="all" {{ 'checked' if form.port_mode == 'all' }}><div><b>{{ t("All ports") }}</b><span>{{ t("1-65535. Thorough, slower.") }}</span></div></label>
+          <label class="choice"><input type="radio" name="port_mode" value="custom" {{ 'checked' if form.port_mode == 'custom' }}><div><b>{{ t("Custom") }}</b><span>{{ t("Your own list or ranges.") }}</span></div></label>
         </div>
-        <div class="field" style="margin-top:10px"><label for="custom_ports">Custom ports</label><input id="custom_ports" name="custom_ports" placeholder="22,80,443,8000-9000" value="{{ form.custom_ports }}" class="mono"></div>
+        <div class="field" style="margin-top:10px"><label for="custom_ports">{{ t("Custom ports") }}</label><input id="custom_ports" name="custom_ports" placeholder="22,80,443,8000-9000" value="{{ form.custom_ports }}" class="mono"></div>
       </fieldset>
       <details class="advanced" id="nmap-advanced"{{ ' open' if advanced_open }}>
-        <summary><svg class="icon"><use href="#i-sliders"/></svg><span><b>Advanced options</b><span class="hint">Scan type, timing and host discovery. The defaults suit most networks.</span></span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></summary>
+        <summary><svg class="icon"><use href="#i-sliders"/></svg><span><b>{{ t("Advanced options") }}</b><span class="hint">{{ t("Scan type, timing and host discovery. The defaults suit most networks.") }}</span></span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></summary>
         <div class="advanced-body stack">
         <div class="row">
-          <div class="field" style="flex:1"><label for="scan_type">Scan type</label>
+          <div class="field" style="flex:1"><label for="scan_type">{{ t("Scan type") }}</label>
             <select id="scan_type" name="scan_type">
-              <option value="syn" {{ 'selected' if form.scan_type == 'syn' }}>SYN (-sS) · fast, needs NET_RAW</option>
-              <option value="connect" {{ 'selected' if form.scan_type == 'connect' }}>Connect (-sT) · no privileges</option>
+              <option value="syn" {{ 'selected' if form.scan_type == 'syn' }}>SYN (-sS) · {{ t("fast, needs NET_RAW") }}</option>
+              <option value="connect" {{ 'selected' if form.scan_type == 'connect' }}>Connect (-sT) · {{ t("no privileges") }}</option>
             </select></div>
-          <div class="field" style="flex:1"><label for="timing">Timing</label>
+          <div class="field" style="flex:1"><label for="timing">{{ t("Timing") }}</label>
             <select id="timing" name="timing">
-              <option value="T2" {{ 'selected' if form.timing == 'T2' }}>T2 · polite</option>
-              <option value="T3" {{ 'selected' if form.timing == 'T3' }}>T3 · normal</option>
-              <option value="T4" {{ 'selected' if form.timing == 'T4' }}>T4 · aggressive</option>
+              <option value="T2" {{ 'selected' if form.timing == 'T2' }}>T2 · {{ t("polite") }}</option>
+              <option value="T3" {{ 'selected' if form.timing == 'T3' }}>T3 · {{ t("normal") }}</option>
+              <option value="T4" {{ 'selected' if form.timing == 'T4' }}>T4 · {{ t("aggressive") }}</option>
             </select></div>
         </div>
-        <label class="check"><input type="checkbox" name="skip_ping" value="true" {{ 'checked' if form.skip_ping }}> Skip host discovery (-Pn) — treat every target as up</label>
+        <label class="check"><input type="checkbox" name="skip_ping" value="true" {{ 'checked' if form.skip_ping }}> {{ t("Skip host discovery (-Pn) — treat every target as up") }}</label>
         </div>
       </details>
-      <p class="muted small">Service and version detection (<code>-sV</code>) is always enabled.</p>
-      <div><button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start nmap scan</button></div>
+      <p class="muted small">{{ t("Service and version detection") }} (<code>-sV</code>) {{ t("is always enabled.") }}</p>
+      <div><button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>{{ t("Start nmap scan") }}</button></div>
     </div>
   </form>
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent nmap jobs</h2><a class="btn sm ghost" href="/jobs">All jobs</a></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Recent nmap jobs") }}</h2><a class="btn sm ghost" href="/jobs">{{ t("All jobs") }}</a></div>
     <div class="card-body tight">{% include "_jobs_table.html" %}</div>
   </div>
 </div>

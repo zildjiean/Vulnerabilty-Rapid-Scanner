@@ -1,45 +1,50 @@
 {% extends "base.html" %}
-{% set section = "Account" %}
-{% set page_title = "Profile" %}
-{% set page_subtitle = "Your details, what your role allows and your recent activity." %}
-{% block page_actions %}<a class="btn" href="/change-password"><svg class="icon"><use href="#i-key"/></svg>Change password</a>{% endblock %}
+{% set section = t("Account") %}
+{% set page_title = t("Profile") %}
+{% set page_subtitle = t("Your details, what your role allows and your recent activity.") %}
+{% block page_actions %}<a class="btn" href="/change-password"><svg class="icon"><use href="#i-key"/></svg>{{ t("Change password") }}</a>{% endblock %}
 {% block content %}
 <div class="grid grid-2 mb">
   <form method="post" action="/profile" class="card" data-loading>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Your details</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>{{ t("Your details") }}</h2></div>
     <div class="card-body stack">
-      <div class="field"><label for="username">Username</label><input id="username" value="{{ user.username }}" disabled></div>
-      <div class="field"><label for="display_name">Display name</label><input id="display_name" name="display_name" value="{{ user.display_name }}" autocomplete="name"></div>
-      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="{{ user.email }}" autocomplete="email"><span class="hint">Used for notifications in a later release.</span></div>
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Save</button></div>
+      <div class="field"><label for="username">{{ t("Username") }}</label><input id="username" value="{{ user.username }}" disabled></div>
+      <div class="field"><label for="display_name">{{ t("Display name") }}</label><input id="display_name" name="display_name" value="{{ user.display_name }}" autocomplete="name"></div>
+      <div class="field"><label for="email">{{ t("Email") }}</label><input id="email" name="email" type="email" value="{{ user.email }}" autocomplete="email"><span class="hint">{{ t("Used for notifications in a later release.") }}</span></div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>{{ t("Save") }}</button></div>
     </div>
   </form>
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-shield"/></svg>Role: <span class="badge role-{{ user.role }}">{{ role_labels.get(user.role, user.role) }}</span></h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-shield"/></svg>{{ t("Role") }}: <span class="badge role-{{ user.role }}">{{ t(role_labels.get(user.role, user.role)) }}</span></h2></div>
     <div class="card-body stack">
-      <p class="text-2">{{ role_description }}</p>
-      <ul class="perm-list">{% for p, label in perms %}<li><svg class="icon sm"><use href="#i-check"/></svg><span>{{ label }}</span></li>{% endfor %}</ul>
-      {% if user.onboarding_dismissed_at %}<form method="post" action="/onboarding/reset" class="row center"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-flag"/></svg>Show Get started again</button><span class="small text-2">Brings the checklist back to the Dashboard.</span></form>{% endif %}
+      <p class="text-2">{{ t(role_description) }}</p>
+      <ul class="perm-list">{% for p, label in perms %}<li><svg class="icon sm"><use href="#i-check"/></svg><span>{{ t(label) }}</span></li>{% endfor %}</ul>
+      {% if user.onboarding_dismissed_at %}<form method="post" action="/onboarding/reset" class="row center"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-flag"/></svg>{{ t("Show Get started again") }}</button><span class="small text-2">{{ t("Brings the checklist back to the Dashboard.") }}</span></form>{% endif %}
       <form method="post" action="/profile/menus" class="stack" id="menus" style="gap:8px">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <label class="check"><input type="checkbox" name="show_all_menus" value="1" aria-describedby="menus-hint" {{ 'checked' if user.show_all_menus }}> Show all menu items</label>
-        <span class="hint" id="menus-hint">The sidebar normally lists what your role works with. Turn this on to list every page you may open.</span>
-        <div><button type="submit" class="sm"><svg class="icon sm"><use href="#i-check"/></svg>Save menu preference</button></div>
+        <label class="check"><input type="checkbox" name="show_all_menus" value="1" aria-describedby="menus-hint" {{ 'checked' if user.show_all_menus }}> {{ t("Show all menu items") }}</label>
+        <span class="hint" id="menus-hint">{{ t("The sidebar normally lists what your role works with. Turn this on to list every page you may open.") }}</span>
+        <div><button type="submit" class="sm"><svg class="icon sm"><use href="#i-check"/></svg>{{ t("Save menu preference") }}</button></div>
       </form>
-      <dl class="kv"><dt>Last sign-in</dt><dd class="num">{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') if user.last_login_at else 'now' }}</dd><dt>Member since</dt><dd class="num">{{ user.created_at.strftime('%Y-%m-%d') }}</dd></dl>
+      <form method="post" action="/profile/language" class="stack" id="language" style="gap:8px">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="/profile#language">
+        <div class="field"><label for="language-select">{{ t("Language") }}</label><select id="language-select" name="language" aria-describedby="language-hint">{% for code, name in (('en', 'English'), ('th', 'ไทย')) %}<option value="{{ code }}" lang="{{ code }}"{{ ' selected' if lang == code }}>{{ name }}</option>{% endfor %}</select><span class="hint" id="language-hint">{{ t("Language of menus, buttons and messages. Scan results, CVE details and exports stay as they are.") }}</span></div>
+        <div><button type="submit" class="sm"><svg class="icon sm"><use href="#i-check"/></svg>{{ t("Save language") }}</button></div>
+      </form>
+      <dl class="kv"><dt>{{ t("Last sign-in") }}</dt><dd class="num">{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') if user.last_login_at else t('now') }}</dd><dt>{{ t("Member since") }}</dt><dd class="num">{{ user.created_at.strftime('%Y-%m-%d') }}</dd></dl>
     </div>
   </div>
 </div>
 <div class="card">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-scroll"/></svg>Your recent activity</h2></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-scroll"/></svg>{{ t("Your recent activity") }}</h2></div>
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th>When</th><th>Action</th><th>Target</th><th>IP</th></tr></thead>
+    <thead><tr><th>{{ t("When") }}</th><th>{{ t("Action") }}</th><th>{{ t("Target") }}</th><th>IP</th></tr></thead>
     <tbody>
     {% for a in activity %}
     <tr><td class="small text-2 num">{{ a.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td><td><code>{{ a.action }}</code></td><td>{{ a.target }}</td><td class="cell-mono small muted">{{ a.ip }}</td></tr>
-    {% else %}<tr data-empty="1"><td colspan="4"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>No activity yet</b></div></td></tr>{% endfor %}
+    {% else %}<tr data-empty="1"><td colspan="4"><div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><b>{{ t("No activity yet") }}</b></div></td></tr>{% endfor %}
     </tbody>
   </table>
   </div>

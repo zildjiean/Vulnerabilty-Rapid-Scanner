@@ -10,6 +10,7 @@ from ..authz import PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_PERMISSIONS
 from ..db import AuditLog, User, utcnow
 from ..audit import audit
 from ..deps import get_db, get_settings, verify_csrf
+from ..i18n import flash, safe_back, tr
 from ..render import render
 
 router = APIRouter()
@@ -32,13 +33,13 @@ def login(request: Request, username: str = Form(""), password: str = Form(""),
     limiter = request.app.state.login_limiter
     ip = _client_ip(request)
     if not limiter.allowed(ip):
-        return render(request, "login.html", status_code=429, error="Too many failed attempts. Try again in a minute.")
+        return render(request, "login.html", status_code=429, error=tr(request, "Too many failed attempts. Try again in a minute."))
     user = db.scalar(select(User).where(User.username == username.strip()))
     if user is None or not verify_password(password, user.password_hash) or not user.is_active:
         limiter.record_failure(ip)
         reason = "unknown user" if user is None else ("inactive user" if not user.is_active and verify_password(password, user.password_hash) else "bad password")
         audit(db, request, "auth.login_failed", user=user, username=username.strip()[:64], reason=reason)
-        return render(request, "login.html", status_code=401, error="Invalid username or password.")
+        return render(request, "login.html", status_code=401, error=tr(request, "Invalid username or password."))
     limiter.reset(ip)
     user.last_login_at = utcnow()
     db.commit()
@@ -66,15 +67,15 @@ def change_password(request: Request, current_password: str = Form(""), new_pass
                     confirm_password: str = Form(""), db: Session = Depends(get_db), settings=Depends(get_settings)):
     user = db.get(User, request.state.user.id)
     if not verify_password(current_password, user.password_hash):
-        return render(request, "change_password.html", status_code=400, error="Current password is incorrect.")
+        return render(request, "change_password.html", status_code=400, error=tr(request, "Current password is incorrect."))
     err = validate_new_password(new_password, confirm_password, current_password)
     if err:
-        return render(request, "change_password.html", status_code=400, error=err)
+        return render(request, "change_password.html", status_code=400, error=tr(request, err))
     user.password_hash = hash_password(new_password)
     user.must_change_password = False
     db.commit()
     audit(db, request, "auth.password_changed", user=user)
-    response = RedirectResponse("/?msg=Password+updated", status_code=303)
+    response = RedirectResponse("/?msg=" + flash(request, "Password updated"), status_code=303)
     set_session_cookie(response, request.app.state.sessions.encode(user.id, user.session_version), secure=settings.https)
     return response
 
@@ -97,14 +98,14 @@ def profile_update(request: Request, display_name: str = Form(""), email: str = 
     from .users import _clean_profile
     display_name, email, err = _clean_profile(display_name, email)
     if err:
-        return _profile(request, db, status_code=400, error=err)
+        return _profile(request, db, status_code=400, error=tr(request, err))
     me = db.get(User, request.state.user.id)
     changes = {k: f"{getattr(me, k)} -> {v}" for k, v in (("display_name", display_name), ("email", email)) if getattr(me, k) != v}
     me.display_name, me.email = display_name, email
     db.commit()
     if changes:
         audit(db, request, "profile.updated", target=me.username, user=me, **changes)
-    return RedirectResponse("/profile?msg=Profile+saved", status_code=303)
+    return RedirectResponse("/profile?msg=" + flash(request, "Profile saved"), status_code=303)
 
 
 @router.post("/profile/menus", dependencies=[Depends(verify_csrf)])
@@ -116,4 +117,17 @@ def profile_menus(request: Request, show_all_menus: str = Form(""), db: Session 
         me.show_all_menus = new
         db.commit()
         audit(db, request, "profile.menus", target=me.username, user=me, show_all_menus=new)
-    return RedirectResponse("/profile?msg=Menu+preference+saved#menus", status_code=303)
+    return RedirectResponse("/profile?msg=" + flash(request, "Menu preference saved") + "#menus", status_code=303)
+
+
+@router.post("/profile/language", dependencies=[Depends(verify_csrf)])
+def profile_language(request: Request, language: str = Form(""), next: str = Form("/"), db: Session = Depends(get_db)):
+    """The signed-in user's interface language (also allowed during a forced password change)."""
+    from ..i18n import LANGS
+    me = db.get(User, request.state.user.id)
+    if language in LANGS and me.language != language:
+        old = me.language
+        me.language = language
+        db.commit()
+        audit(db, request, "profile.language", target=me.username, user=me, language=f"{old} -> {language}")
+    return RedirectResponse(safe_back(next), status_code=303)

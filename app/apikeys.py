@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from .authz import ROLES
 from .db import ApiKey, User, utcnow
+from .i18n import Msg
 
 KEY_PREFIX = "zdrs_"
 PREFIX_LEN = 12
@@ -37,11 +38,11 @@ def allowed_roles(owner_role: str) -> list[str]:
 def create_key(db: Session, owner: User, name: str, role: str, expires: str) -> tuple[ApiKey, str]:
     name = name.strip()
     if not name or len(name) > 64:
-        raise ValueError("Give the key a name (max 64 characters).")
+        raise ValueError(Msg("Give the key a name (max 64 characters)."))
     if role not in allowed_roles(owner.role):
-        raise ValueError(f"A key's role cannot exceed yours ({owner.role}).")
+        raise ValueError(Msg("A key's role cannot exceed yours ({role}).", role=owner.role))
     if expires not in EXPIRY_CHOICES:
-        raise ValueError("Unknown expiry.")
+        raise ValueError(Msg("Unknown expiry."))
     raw, prefix, digest = generate()
     key = ApiKey(name=name, prefix=prefix, key_hash=digest, user_id=owner.id, role=role,
                  expires_at=None if expires == "never" else utcnow() + timedelta(days=int(expires)))

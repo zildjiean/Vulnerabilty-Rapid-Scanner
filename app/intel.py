@@ -11,6 +11,8 @@ from typing import Any, Callable
 
 import httpx
 
+from .i18n import Msg
+
 NVD_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 KEV_MAX_AGE = 24 * 3600
@@ -59,7 +61,7 @@ def http_get_json(url: str, params: dict | None = None, timeout: float = 15) -> 
 def normalize_cve(value: str) -> str:
     cve = (value or "").strip().upper()
     if not CVE_RE.match(cve):
-        raise ValueError("CVE id must look like CVE-2026-12345.")
+        raise ValueError(Msg("CVE id must look like CVE-2026-12345."))
     return cve
 
 

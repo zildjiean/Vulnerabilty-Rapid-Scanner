@@ -1,103 +1,103 @@
 {% extends "base.html" %}
-{% set page_title = "Nuclei templates" %}
-{% set page_subtitle = "Official nuclei-templates plus your own custom templates for vulnerabilities that have no public check yet." %}
+{% set page_title = t("Nuclei templates") %}
+{% set page_subtitle = t("Official nuclei-templates plus your own custom templates for vulnerabilities that have no public check yet.") %}
 {% block page_actions %}
-{% if can('templates.manage') %}<form method="post" action="/templates/reindex"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" {{ 'disabled' if indexing }}><svg class="icon"><use href="#i-refresh"/></svg>Re-index</button></form>{% endif %}
+{% if can('templates.manage') %}<form method="post" action="/templates/reindex"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" {{ 'disabled' if indexing }}><svg class="icon"><use href="#i-refresh"/></svg>{{ t("Re-index") }}</button></form>{% endif %}
 {% endblock %}
 {% block content %}
 {% from "_ai.html" import ai_badge %}
 {% if draft %}
 <form method="post" action="/templates/save-text" class="card mb" id="ai-draft" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="card-head"><h2>{{ ai_badge() }} Template draft{% if draft.template_id %} <span class="cell-mono small">{{ draft.template_id }}</span>{% endif %}</h2>
+  <div class="card-head"><h2>{{ ai_badge() }} {{ t("Template draft") }}{% if draft.template_id %} <span class="cell-mono small">{{ draft.template_id }}</span>{% endif %}</h2>
     <span class="status {{ 'st-done' if draft.ok else 'st-failed' }}">{{ draft.message }}</span></div>
   <div class="card-body stack">
     {% if draft.notes %}<p class="small text-2">{{ draft.notes }}</p>{% endif %}
-    <div class="field"><label for="draft-yaml">Review and edit before saving{% if draft.provider %} (drafted by {{ draft.provider }} · {{ draft.model }}){% endif %}</label>
+    <div class="field"><label for="draft-yaml">{{ t("Review and edit before saving") }}{% if draft.provider %} {{ t("(drafted by {provider} · {model})", provider=draft.provider, model=draft.model) }}{% endif %}</label>
       <textarea id="draft-yaml" name="yaml" rows="18" class="code-input" spellcheck="false">{{ draft.yaml }}</textarea></div>
-    <div class="row"><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Validate &amp; save as custom template</button><a class="btn ghost" href="/templates">Discard</a></div>
+    <div class="row"><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>{{ t("Validate & save as custom template") }}</button><a class="btn ghost" href="/templates">{{ t("Discard") }}</a></div>
   </div>
 </form>
 {% endif %}
 {% if ai_ready and can('templates.manage') %}
 <form method="post" action="/ai/template-draft" class="card mb" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="card-head"><h2>{{ ai_badge() }} Draft a detection template</h2><span class="small text-2">detection only · validated with nuclei before you can save</span></div>
+  <div class="card-head"><h2>{{ ai_badge() }} {{ t("Draft a detection template") }}</h2><span class="small text-2">{{ t("detection only · validated with nuclei before you can save") }}</span></div>
   <div class="card-body stack">
     <div class="row">
-      <div class="field w-md"><label for="t-cve">CVE id</label><input id="t-cve" name="cve_id" value="{{ draft_cve or (draft.cve_id if draft else '') }}" placeholder="CVE-2026-12345"></div>
-      <div class="field" style="flex:1"><label for="t-hints">Target hints</label><input id="t-hints" name="hints" placeholder="e.g. version shown in /api/version, header Server: Example/1.2"></div>
+      <div class="field w-md"><label for="t-cve">{{ t("CVE id") }}</label><input id="t-cve" name="cve_id" value="{{ draft_cve or (draft.cve_id if draft else '') }}" placeholder="CVE-2026-12345"></div>
+      <div class="field" style="flex:1"><label for="t-hints">{{ t("Target hints") }}</label><input id="t-hints" name="hints" placeholder="{{ t('e.g. version shown in /api/version, header Server: Example/1.2') }}"></div>
     </div>
-    <div class="field"><label for="t-advisory">Advisory / PoC description</label><textarea id="t-advisory" name="advisory" rows="3">{{ draft.advisory if draft else '' }}</textarea></div>
-    <div><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>Draft template with AI</button></div>
+    <div class="field"><label for="t-advisory">{{ t("Advisory / PoC description") }}</label><textarea id="t-advisory" name="advisory" rows="3">{{ draft.advisory if draft else '' }}</textarea></div>
+    <div><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>{{ t("Draft template with AI") }}</button></div>
   </div>
 </form>
 {% endif %}
 <div class="grid grid-3 mb">
-  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-file"/></svg></div><div><div class="kpi-label">Official</div><div class="kpi-value num">{{ counts.official }}</div><div class="kpi-sub">templates indexed</div></div></div>
-  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Custom (0-day)</div><div class="kpi-value num">{{ counts.custom }}</div><div class="kpi-sub">uploaded or pulled</div></div></div>
-  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">Last indexed</div><div class="kpi-value" style="font-size:18px">{{ counts.last_indexed.strftime('%Y-%m-%d %H:%M') if counts.last_indexed else 'never' }}</div><div class="kpi-sub">{% if indexing %}<span class="status st-running">indexing</span>{% else %}index is current{% endif %}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-file"/></svg></div><div><div class="kpi-label">{{ t("Official") }}</div><div class="kpi-value num">{{ counts.official }}</div><div class="kpi-sub">{{ t("templates indexed") }}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">{{ t("Custom (0-day)") }}</div><div class="kpi-value num">{{ counts.custom }}</div><div class="kpi-sub">{{ t("uploaded or pulled") }}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">{{ t("Last indexed") }}</div><div class="kpi-value" style="font-size:18px">{{ counts.last_indexed.strftime('%Y-%m-%d %H:%M') if counts.last_indexed else t('never') }}</div><div class="kpi-sub">{% if indexing %}<span class="status st-running">{{ t("indexing") }}</span>{% else %}{{ t("index is current") }}{% endif %}</div></div></div>
 </div>
 {% if not templates_dir_exists %}
-<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>Official templates directory <code>{{ templates_dir }}</code> does not exist yet. Go to <a href="/updates">Updates</a> and run "Update nuclei templates".</div></div>
+<div class="alert warn" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>{{ t("Official templates directory") }} <code>{{ templates_dir }}</code> {{ t("does not exist yet. Go to") }} <a href="/updates">{{ t("Updates") }}</a> {{ t("and run") }} "{{ t("Update nuclei templates") }}".</div></div>
 {% endif %}
 {% if can('templates.manage') %}
 <div class="grid grid-2 mb">
   <form method="post" action="/templates/upload" enctype="multipart/form-data" class="card" data-loading>
-    <div class="card-head"><h2><svg class="icon"><use href="#i-upload"/></svg>Upload custom templates</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-upload"/></svg>{{ t("Upload custom templates") }}</h2></div>
     <div class="card-body stack">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="field"><label for="files">YAML files</label><input id="files" type="file" name="files" accept=".yaml,.yml" multiple required aria-describedby="upload-hint"><span class="hint" id="upload-hint">Validated for structure and with <code>nuclei -validate</code>, then stored as <code>custom-templates/&lt;id&gt;.yaml</code>. Same id overwrites.</span></div>
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-upload"/></svg>Upload &amp; validate</button></div>
+      <div class="field"><label for="files">{{ t("YAML files") }}</label><input id="files" type="file" name="files" accept=".yaml,.yml" multiple required aria-describedby="upload-hint"><span class="hint" id="upload-hint">{{ t("Validated for structure and with") }} <code>nuclei -validate</code>{{ t(", then stored as") }} <code>custom-templates/&lt;id&gt;.yaml</code>. {{ t("Same id overwrites.") }}</span></div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-upload"/></svg>{{ t("Upload & validate") }}</button></div>
     </div>
   </form>
   <form method="post" action="/templates/pull" class="card" data-loading>
-    <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>Pull template from URL</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>{{ t("Pull template from URL") }}</h2></div>
     <div class="card-body stack">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="field"><label for="url">Raw YAML URL</label><input id="url" name="url" type="url" placeholder="https://raw.githubusercontent.com/.../CVE-2026-xxxxx.yaml" required aria-describedby="url-hint"><span class="hint" id="url-hint">http(s) only, max 10 MB. Ideal for a freshly published CVE template from GitHub or a Gist.</span></div>
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-download"/></svg>Pull &amp; validate</button></div>
+      <div class="field"><label for="url">{{ t("Raw YAML URL") }}</label><input id="url" name="url" type="url" placeholder="https://raw.githubusercontent.com/.../CVE-2026-xxxxx.yaml" required aria-describedby="url-hint"><span class="hint" id="url-hint">{{ t("http(s) only, max 10 MB. Ideal for a freshly published CVE template from GitHub or a Gist.") }}</span></div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-download"/></svg>{{ t("Pull & validate") }}</button></div>
     </div>
   </form>
 </div>
 {% else %}{% with perm="templates.manage", what="upload, pull or delete templates" %}{% include "_readonly.html" %}{% endwith %}{% endif %}
 <div class="card mb">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Custom templates <span class="chip num">{{ custom|length }}</span></h2></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>{{ t("Custom templates") }} <span class="chip num">{{ custom|length }}</span></h2></div>
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th data-sort="text">ID</th><th>Name</th><th data-sort="text">Severity</th><th>Tags</th><th>CVE</th><th></th></tr></thead>
+    <thead><tr><th data-sort="text">ID</th><th>{{ t("Name") }}</th><th data-sort="text">{{ t("Severity") }}</th><th>{{ t("Tags") }}</th><th>CVE</th><th></th></tr></thead>
     <tbody>
-    {% for t in custom %}
+    {% for tp in custom %}
     <tr>
-      <td class="cell-mono">{{ t.template_id }}</td><td>{{ t.name }}</td>
-      <td><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span></td>
-      <td class="small text-2">{{ t.tags }}</td><td class="cell-mono small">{{ t.cve_ids }}</td>
-      <td class="actions">{% if can('templates.manage') %}<form method="post" action="/templates/delete" data-confirm="Delete custom template {{ t.template_id }}? This cannot be undone."><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="path" value="{{ t.path }}"><button class="link danger" type="submit"><svg class="icon sm"><use href="#i-trash"/></svg>Delete</button></form>{% endif %}</td>
+      <td class="cell-mono">{{ tp.template_id }}</td><td>{{ tp.name }}</td>
+      <td><span class="badge sev-{{ tp.severity }}">{{ tp.severity }}</span></td>
+      <td class="small text-2">{{ tp.tags }}</td><td class="cell-mono small">{{ tp.cve_ids }}</td>
+      <td class="actions">{% if can('templates.manage') %}<form method="post" action="/templates/delete" data-confirm="{{ t('Delete custom template {id}? This cannot be undone.', id=tp.template_id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="path" value="{{ tp.path }}"><button class="link danger" type="submit"><svg class="icon sm"><use href="#i-trash"/></svg>{{ t("Delete") }}</button></form>{% endif %}</td>
     </tr>
-    {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-file"/></svg><b>No custom templates yet</b>Upload a YAML file or pull one from a URL.</div></td></tr>{% endfor %}
+    {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-file"/></svg><b>{{ t("No custom templates yet") }}</b>{{ t("Upload a YAML file or pull one from a URL.") }}</div></td></tr>{% endfor %}
     </tbody>
   </table>
   </div>
 </div>
 <div class="card">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-search"/></svg>Search the index</h2></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-search"/></svg>{{ t("Search the index") }}</h2></div>
   <form method="get" action="/templates" class="card-body row" style="align-items:flex-end;border-bottom:1px solid var(--border)">
-    <div class="field" style="flex:2;min-width:240px"><label for="q">Query</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="q" name="q" value="{{ q }}" placeholder="CVE-2026-109619, php, apache …"></div></div>
-    <div class="field w-md"><label for="severity">Severity</label><select id="severity" name="severity"><option value="">Any</option>{% for s in severities %}<option value="{{ s }}" {{ 'selected' if s == severity }}>{{ s }}</option>{% endfor %}</select></div>
-    <button type="submit"><svg class="icon"><use href="#i-search"/></svg>Search</button>
+    <div class="field" style="flex:2;min-width:240px"><label for="q">{{ t("Query") }}</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="q" name="q" value="{{ q }}" placeholder="CVE-2026-109619, php, apache …"></div></div>
+    <div class="field w-md"><label for="severity">{{ t("Severity") }}</label><select id="severity" name="severity"><option value="">{{ t("Any") }}</option>{% for s in severities %}<option value="{{ s }}" {{ 'selected' if s == severity }}>{{ s }}</option>{% endfor %}</select></div>
+    <button type="submit"><svg class="icon"><use href="#i-search"/></svg>{{ t("Search") }}</button>
   </form>
   {% if q %}
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th data-sort="text">ID</th><th>Name</th><th data-sort="text">Severity</th><th>Tags</th><th>Source</th><th>Path</th></tr></thead>
+    <thead><tr><th data-sort="text">ID</th><th>{{ t("Name") }}</th><th data-sort="text">{{ t("Severity") }}</th><th>{{ t("Tags") }}</th><th>{{ t("Source") }}</th><th>{{ t("Path") }}</th></tr></thead>
     <tbody>
-    {% for t in results %}
-    <tr><td class="cell-mono">{{ t.template_id }}</td><td>{{ t.name }}</td><td><span class="badge sev-{{ t.severity }}">{{ t.severity }}</span></td><td class="small text-2">{{ t.tags }}</td><td><span class="chip">{{ t.source }}</span></td><td class="cell-mono small muted"><span class="truncate" title="{{ t.path }}">{{ t.path }}</span></td></tr>
-    {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>No templates match "{{ q }}"</b>Try a tag, a product name or a CVE id.</div></td></tr>{% endfor %}
+    {% for tp in results %}
+    <tr><td class="cell-mono">{{ tp.template_id }}</td><td>{{ tp.name }}</td><td><span class="badge sev-{{ tp.severity }}">{{ tp.severity }}</span></td><td class="small text-2">{{ tp.tags }}</td><td><span class="chip">{{ tp.source }}</span></td><td class="cell-mono small muted"><span class="truncate" title="{{ tp.path }}">{{ tp.path }}</span></td></tr>
+    {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>{{ t("No templates match") }} "{{ q }}"</b>{{ t("Try a tag, a product name or a CVE id.") }}</div></td></tr>{% endfor %}
     </tbody>
   </table>
   </div>
-  <div class="card-body muted small">Showing up to 100 results. Use the <a href="/nuclei">Nuclei</a> page to pick templates for a scan.</div>
+  <div class="card-body muted small">{{ t("Showing up to 100 results. Use the") }} <a href="/nuclei">{{ t("Nuclei") }}</a> {{ t("page to pick templates for a scan.") }}</div>
   {% endif %}
 </div>
 {% endblock %}

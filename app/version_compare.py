@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import re
 
+from .i18n import Msg
+
 _VERSION_TOKEN_RE = re.compile(r"\d+(?:[.\-_]?[A-Za-z0-9]+)*")
 _SEGMENT_RE = re.compile(r"\d+|[A-Za-z]+")
 _PRERELEASE = {"rc", "alpha", "beta", "a", "b", "dev", "pre", "snapshot", "nightly"}
@@ -64,10 +66,10 @@ def parse_constraint(expr: str) -> list[tuple[str, str]]:
             continue
         m = _CLAUSE_RE.match(part)
         if not m:
-            raise ValueError(f"Invalid version clause {part!r}. Use <, <=, >, >=, ==, != followed by a version.")
+            raise ValueError(Msg("Invalid version clause {clause}. Use <, <=, >, >=, ==, != followed by a version.", clause=repr(part)))
         clauses.append((m.group(1), m.group(2)))
     if not clauses:
-        raise ValueError("Version constraint is empty.")
+        raise ValueError(Msg("Version constraint is empty."))
     return clauses
 
 

@@ -1,57 +1,57 @@
 {% extends "base.html" %}
 {% from "_ai_provider_fields.html" import provider_fields %}
-{% set section = "Administration" %}
-{% set page_title = "AI assistant" %}
-{% set page_subtitle = "Bring your own LLM. The assistant drafts and explains; people decide. Keys are encrypted; with redaction on, IPs and host names leave the scanner as HOST-n tokens." %}
+{% set section = t("System") %}
+{% set page_title = t("AI assistant") %}
+{% set page_subtitle = t("Bring your own LLM. The assistant drafts and explains; people decide. Keys are encrypted; with redaction on, IPs and host names leave the scanner as HOST-n tokens.") %}
 {% block content %}
 <div class="grid grid-issue mb">
   <div class="card">
     <div class="table-wrap"><table class="data">
-      <thead><tr><th>Provider</th><th>Model</th><th>Redaction</th><th>Last test</th><th></th></tr></thead>
+      <thead><tr><th>{{ t("Provider") }}</th><th>{{ t("Model") }}</th><th>{{ t("Redaction") }}</th><th>{{ t("Last test") }}</th><th></th></tr></thead>
       <tbody>
       {% for p in providers %}{% set c = config_of(p) %}
       <tr id="p{{ p.id }}" style="{{ '' if p.enabled else 'opacity:.6' }}">
-        <td><a class="issue-title" href="/ai/providers/{{ p.id }}">{{ p.name }}</a> {% if p.is_default %}<span class="badge sev-info">default</span>{% endif %}{% if not p.enabled %} <span class="badge neutral">disabled</span>{% endif %}<div class="small text-2">{{ kinds[p.kind] }}</div></td>
+        <td><a class="issue-title" href="/ai/providers/{{ p.id }}">{{ p.name }}</a> {% if p.is_default %}<span class="badge sev-info">{{ t("default") }}</span>{% endif %}{% if not p.enabled %} <span class="badge neutral">{{ t("disabled") }}</span>{% endif %}<div class="small text-2">{{ t(kinds[p.kind]) }}</div></td>
         <td class="cell-mono small">{{ c.model }}{% if c.base_url %}<div class="text-2">{{ c.base_url }}</div>{% endif %}</td>
-        <td>{% if p.redact %}<span class="status st-done">on</span>{% else %}<span class="status st-warning">off</span>{% endif %}</td>
-        <td class="small">{% if p.last_test_at %}<span class="status {{ 'st-done' if p.last_test_ok else 'st-failed' }}">{{ 'ok' if p.last_test_ok else 'failed' }}</span><div class="text-2">{{ p.last_test_message }}</div>{% else %}<span class="muted">never</span>{% endif %}</td>
+        <td>{% if p.redact %}<span class="status st-done">{{ t("On") }}</span>{% else %}<span class="status st-warning">{{ t("Off") }}</span>{% endif %}</td>
+        <td class="small">{% if p.last_test_at %}<span class="status {{ 'st-done' if p.last_test_ok else 'st-failed' }}">{{ t('ok') if p.last_test_ok else t('failed') }}</span><div class="text-2">{{ p.last_test_message }}</div>{% else %}<span class="muted">{{ t('never') }}</span>{% endif %}</td>
         <td class="actions">
-          <a class="btn ghost sm" href="/ai/providers/{{ p.id }}"><svg class="icon sm"><use href="#i-edit"/></svg>Edit</a>
-          <form method="post" action="/ai/providers/{{ p.id }}/test" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-play"/></svg>Test</button></form>
-          {% if not p.is_default %}<form method="post" action="/ai/providers/{{ p.id }}/default"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit">Make default</button></form>{% endif %}
-          <form method="post" action="/ai/providers/{{ p.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit">{{ 'Disable' if p.enabled else 'Enable' }}</button></form>
-          <form method="post" action="/ai/providers/{{ p.id }}/delete" data-confirm="Delete provider '{{ p.name }}' and its key?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="Delete provider"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>
+          <a class="btn ghost sm" href="/ai/providers/{{ p.id }}"><svg class="icon sm"><use href="#i-edit"/></svg>{{ t("Edit") }}</a>
+          <form method="post" action="/ai/providers/{{ p.id }}/test" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-play"/></svg>{{ t("Test") }}</button></form>
+          {% if not p.is_default %}<form method="post" action="/ai/providers/{{ p.id }}/default"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit">{{ t("Make default") }}</button></form>{% endif %}
+          <form method="post" action="/ai/providers/{{ p.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit">{{ t('Disable') if p.enabled else t('Enable') }}</button></form>
+          <form method="post" action="/ai/providers/{{ p.id }}/delete" data-confirm="{{ t("Delete provider '{name}' and its key?", name=p.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" aria-label="{{ t('Delete provider') }}"><svg class="icon sm"><use href="#i-trash"/></svg></button></form>
         </td>
       </tr>
-      {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-key"/></svg><b>No AI provider yet</b>Add one on the right to enable drafting, explanations, triage, search and summaries.</div></td></tr>{% endfor %}
+      {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-key"/></svg><b>{{ t("No AI provider yet") }}</b>{{ t("Add one on the right to enable drafting, explanations, triage, search and summaries.") }}</div></td></tr>{% endfor %}
       </tbody>
     </table></div>
   </div>
   <form method="post" action="/ai/providers" class="card schedule-form" data-disable-hidden data-loading>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>Add provider</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>{{ t("Add provider") }}</h2></div>
     <div class="card-body stack">
       {{ provider_fields(form, kinds, default_models, gemini_base) }}
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-plus"/></svg>Add provider</button></div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-plus"/></svg>{{ t("Add provider") }}</button></div>
     </div>
   </form>
 </div>
 <div class="grid grid-2">
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Usage, last 30 days</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Usage, last 30 days") }}</h2></div>
     <div class="table-wrap"><table class="data">
-      <thead><tr><th>Provider</th><th>Feature</th><th>Calls</th><th>Input tokens</th><th>Output tokens</th><th>Errors</th></tr></thead>
+      <thead><tr><th>{{ t("Provider") }}</th><th>{{ t("Feature") }}</th><th>{{ t("Calls") }}</th><th>{{ t("Input tokens") }}</th><th>{{ t("Output tokens") }}</th><th>{{ t("Errors") }}</th></tr></thead>
       <tbody>{% for prov, feat, n, tin, tout, errs in summary %}<tr><td class="small">{{ prov }}</td><td><code>{{ feat }}</code></td><td class="num">{{ n }}</td><td class="num">{{ '{:,}'.format(tin or 0) }}</td><td class="num">{{ '{:,}'.format(tout or 0) }}</td><td class="num {{ 'text-danger' if errs }}">{{ errs or 0 }}</td></tr>
-      {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>No AI calls yet</b></div></td></tr>{% endfor %}</tbody>
+      {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>{{ t("No AI calls yet") }}</b></div></td></tr>{% endfor %}</tbody>
     </table></div>
-    {% if by_user %}<div class="card-body small text-2">By user: {% for u, n, t in by_user %}<b>{{ u }}</b> {{ n }} call(s), {{ '{:,}'.format(t or 0) }} tokens{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
+    {% if by_user %}<div class="card-body small text-2">{{ t('By user:') }} {% for u, n, tok in by_user %}<b>{{ u }}</b> {{ t('{n} call(s), {tokens} tokens', n=n, tokens='{:,}'.format(tok or 0)) }}{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
   </div>
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-scroll"/></svg>Recent calls</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-scroll"/></svg>{{ t("Recent calls") }}</h2></div>
     <div class="table-wrap"><table class="data">
-      <thead><tr><th>When</th><th>User</th><th>Feature</th><th>Model</th><th>Tokens</th><th>Result</th></tr></thead>
-      <tbody>{% for u in recent %}<tr><td class="small text-2 num">{{ u.created_at.strftime('%m-%d %H:%M') }}</td><td class="small">{{ u.username }}</td><td><code>{{ u.feature }}</code></td><td class="small cell-mono">{{ u.model }}</td><td class="num small">{{ u.input_tokens }} / {{ u.output_tokens }}</td><td class="small">{% if u.ok %}<span class="status st-done">ok</span> {{ (u.duration_ms / 1000)|round(1) }}s{% else %}<span class="status st-failed">error</span><div class="text-danger">{{ u.error }}</div>{% endif %}</td></tr>
-      {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>No calls</b></div></td></tr>{% endfor %}</tbody>
+      <thead><tr><th>{{ t("When") }}</th><th>{{ t("User") }}</th><th>{{ t("Feature") }}</th><th>{{ t("Model") }}</th><th>{{ t("Tokens") }}</th><th>{{ t("Result") }}</th></tr></thead>
+      <tbody>{% for u in recent %}<tr><td class="small text-2 num">{{ u.created_at.strftime('%m-%d %H:%M') }}</td><td class="small">{{ u.username }}</td><td><code>{{ u.feature }}</code></td><td class="small cell-mono">{{ u.model }}</td><td class="num small">{{ u.input_tokens }} / {{ u.output_tokens }}</td><td class="small">{% if u.ok %}<span class="status st-done">{{ t("ok") }}</span> {{ (u.duration_ms / 1000)|round(1) }}s{% else %}<span class="status st-failed">{{ t("error") }}</span><div class="text-danger">{{ u.error }}</div>{% endif %}</td></tr>
+      {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>{{ t("No calls") }}</b></div></td></tr>{% endfor %}</tbody>
     </table></div>
   </div>
 </div>

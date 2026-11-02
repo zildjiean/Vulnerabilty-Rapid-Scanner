@@ -11,6 +11,7 @@ from ..authz import require
 from ..db import Host, Issue, Schedule, Scope, Service, User
 from ..deps import get_db, verify_csrf
 from ..issues import ACTIVE
+from ..i18n import Msg, flash, tr
 from ..render import render
 from ..scopes import CRITICALITIES, Matcher, _split, rescope_issues, validate_scope_fields
 from .issues import assignable_users
@@ -47,7 +48,7 @@ def scopes_page(request: Request, db: Session = Depends(get_db)):
 
 def _form(request: Request, db: Session, scope: Scope | None, form: dict, status_code: int = 200, error=None):
     tpl = "scope_detail.html" if scope else "scope_new.html"
-    ctx = dict(active="scopes", scope=scope, form=form, error=error, users=assignable_users(db),
+    ctx = dict(active="scopes", scope=scope, form=form, error=tr(request, error) if error else error, users=assignable_users(db),
                criticalities=CRITICALITIES)
     if scope:
         ctx.update(hosts=scope_hosts(db, scope),
@@ -68,9 +69,9 @@ def _validate(db: Session, form: dict, current: Scope | None) -> str | None:
         return err
     clash = db.scalar(select(Scope).where(func.lower(Scope.name) == form["name"].lower()))
     if clash is not None and (current is None or clash.id != current.id):
-        return f"A scope named '{form['name']}' already exists."
+        return Msg("A scope named '{name}' already exists.", name=form["name"])
     if form["owner_id"] and (not form["owner_id"].isdigit() or db.get(User, int(form["owner_id"])) not in assignable_users(db)):
-        return "The owner must be an active admin or analyst."
+        return Msg("The owner must be an active admin or analyst.")
     return None
 
 
@@ -101,7 +102,7 @@ def scope_create(request: Request, name: str = Form(""), description: str = Form
     db.commit()
     audit(db, request, "scope.created", target=scope.name, scope_id=scope.id, criticality=scope.criticality,
           targets=scope.targets[:200], issues_rescoped=n)
-    return RedirectResponse(f"/scopes/{scope.id}?msg=Scope+created", status_code=303)
+    return RedirectResponse(f"/scopes/{scope.id}?msg=" + flash(request, "Scope created"), status_code=303)
 
 
 @router.get("/scopes/{sid}")
@@ -127,7 +128,7 @@ def scope_update(request: Request, sid: int, name: str = Form(""), description: 
     db.commit()
     audit(db, request, "scope.updated", target=scope.name, scope_id=scope.id, criticality=scope.criticality,
           targets=scope.targets[:200], issues_rescoped=n)
-    return RedirectResponse(f"/scopes/{sid}?msg=Scope+saved", status_code=303)
+    return RedirectResponse(f"/scopes/{sid}?msg=" + flash(request, "Scope saved"), status_code=303)
 
 
 @router.post("/scopes/{sid}/delete", dependencies=MANAGE)
@@ -141,4 +142,4 @@ def scope_delete(request: Request, sid: int, db: Session = Depends(get_db)):
     rescope_issues(db)
     db.commit()
     audit(db, request, "scope.deleted", target=name, scope_id=sid)
-    return RedirectResponse(f"/scopes?msg=Deleted+{name.replace(' ', '+')}", status_code=303)
+    return RedirectResponse("/scopes?msg=" + flash(request, "Deleted {name}", name=name), status_code=303)

@@ -1,29 +1,29 @@
 {% extends "base.html" %}
 {% from "_campaign_macros.html" import kev_badge, progress_bar, campaign_status %}
-{% set page_title = "Campaigns" %}
-{% set page_subtitle = "One campaign per new vulnerability: threat intel, version rules and nuclei templates, with live exposure and remediation progress." %}
-{% block page_actions %}{% if can('campaigns.manage') %}<a class="btn primary" href="/campaigns/new"><svg class="icon"><use href="#i-plus"/></svg>New campaign</a>{% endif %}{% endblock %}
+{% set page_title = t("Campaigns") %}
+{% set page_subtitle = t("One campaign per new vulnerability: threat intel, version rules and nuclei templates, with live exposure and remediation progress.") %}
+{% block page_actions %}{% if can('campaigns.manage') %}<a class="btn primary" href="/campaigns/new"><svg class="icon"><use href="#i-plus"/></svg>{{ t("New campaign") }}</a>{% endif %}{% endblock %}
 {% block content %}
-<div class="tabs mb" role="tablist">{% for k, label in [('active','Active'),('draft','Draft'),('closed','Closed'),('all','All')] %}<a role="tab" href="/campaigns?view={{ k }}" class="tab {{ 'active' if view == k }}" {% if view == k %}aria-selected="true"{% endif %}>{{ label }}{% if k == 'draft' and drafts %} <span class="chip num" data-drafts="{{ drafts }}" aria-label="{{ drafts }} waiting for review">{{ drafts }}</span>{% endif %}</a>{% endfor %}</div>
-{% if view == 'draft' %}<p class="small text-2 mb">Drafts are prepared by the <a href="/watch">0-day watch</a> when a new CVE matches the inventory. Their rules stay disabled until someone activates the campaign.</p>{% endif %}
+<div class="tabs mb" role="tablist">{% for k, label in [('active',t('Active')),('draft',t('Draft')),('closed',t('Closed')),('all',t('All'))] %}<a role="tab" href="/campaigns?view={{ k }}" class="tab {{ 'active' if view == k }}" {% if view == k %}aria-selected="true"{% endif %}>{{ label }}{% if k == 'draft' and drafts %} <span class="chip num" data-drafts="{{ drafts }}" aria-label="{{ t('{n} waiting for review', n=drafts) }}">{{ drafts }}</span>{% endif %}</a>{% endfor %}</div>
+{% if view == 'draft' %}<p class="small text-2 mb">{{ t("Drafts are prepared by the") }} <a href="/watch">{{ t("0-day watch") }}</a> {{ t("when a new CVE matches the inventory. Their rules stay disabled until someone activates the campaign.") }}</p>{% endif %}
 <div class="card">
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th data-sort="text">Campaign</th><th data-sort="num">CVSS</th><th data-sort="num">Exposed assets</th><th data-sort="num">Confirmed</th><th data-sort="num">Open</th><th>Remediation</th><th data-sort="text">Status</th><th data-sort="text">Created</th></tr></thead>
+    <thead><tr><th data-sort="text">{{ t("Campaign") }}</th><th data-sort="num">CVSS</th><th data-sort="num">{{ t("Exposed assets") }}</th><th data-sort="num">{{ t("Confirmed") }}</th><th data-sort="num">{{ t("Open") }}</th><th>{{ t("Remediation") }}</th><th data-sort="text">{{ t("Status") }}</th><th data-sort="text">{{ t("Created") }}</th></tr></thead>
     <tbody>
     {% for c, p in rows %}
     <tr>
       <td><a class="issue-title" href="/campaigns/{{ c.id }}">{{ c.name }}</a><div class="row center small" style="gap:6px;margin-top:2px">{% if c.cve_id and c.cve_id != c.name %}<span class="cell-mono text-2">{{ c.cve_id }}</span>{% endif %}<span class="badge sev-{{ c.severity }}">{{ c.severity }}</span>{{ kev_badge(c) }}</div></td>
       <td class="num" data-value="{{ c.cvss_score or 0 }}">{{ c.cvss_score if c.cvss_score is not none else '—' }}</td>
       <td class="num" data-value="{{ p.total }}">{{ p.total }}</td>
-      <td class="num" data-value="{{ p.scan_confirmed }}" title="Confirmed or verified by a scan">{{ p.scan_confirmed }}</td>
+      <td class="num" data-value="{{ p.scan_confirmed }}" title="{{ t('Confirmed or verified by a scan') }}">{{ p.scan_confirmed }}</td>
       <td class="num" data-value="{{ p.open }}">{{ p.open }}</td>
-      <td style="min-width:160px">{{ progress_bar(p) }}<div class="small text-2 num">{{ p.remediated_pct }}% remediated</div></td>
+      <td style="min-width:160px">{{ progress_bar(p) }}<div class="small text-2 num">{{ t("{pct}% remediated", pct=p.remediated_pct) }}</div></td>
       <td>{{ campaign_status(c) }}</td>
       <td class="small text-2 num">{{ c.created_at.strftime('%Y-%m-%d') }}<div>{{ c.created_by }}</div></td>
     </tr>
     {% else %}
-    <tr data-empty="1"><td colspan="8"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>No {{ view if view != 'all' else '' }} campaigns</b>{% if can('campaigns.manage') %}When a new CVE drops, <a href="/campaigns/new">start a campaign</a>: the scanner pulls NVD and CISA KEV intel, matches your inventory and verifies with nuclei.{% endif %}</div></td></tr>
+    <tr data-empty="1"><td colspan="8"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>{{ {'active': t('No active campaigns'), 'draft': t('No draft campaigns'), 'closed': t('No closed campaigns')}.get(view, t('No {view} campaigns', view='')) }}</b>{% if can('campaigns.manage') %}{{ t("When a new CVE drops,") }} <a href="/campaigns/new">{{ t("start a campaign") }}</a>{{ t(": the scanner pulls NVD and CISA KEV intel, matches your inventory and verifies with nuclei.") }}{% endif %}</div></td></tr>
     {% endfor %}
     </tbody>
   </table>

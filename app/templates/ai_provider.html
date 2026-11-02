@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% from "_ai_provider_fields.html" import provider_fields %}
-{% set section = "AI assistant" %}
+{% set section = t("AI assistant") %}
 {% set page_title = p.name %}
-{% set page_subtitle = kinds[p.kind] %}
-{% block page_actions %}<a class="btn ghost" href="/ai">Back</a>{% endblock %}
+{% set page_subtitle = t(kinds[p.kind]) %}
+{% block page_actions %}<a class="btn ghost" href="/ai">{{ t("Back") }}</a>{% endblock %}
 {% block content %}
 <form method="post" action="/ai/providers/{{ p.id }}" class="card schedule-form" data-disable-hidden style="max-width:720px" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="card-body stack">
-    <div class="small">Last test:
-      {% if p.last_test_at %}<span class="status {{ 'st-done' if p.last_test_ok else 'st-failed' }}">{{ 'ok' if p.last_test_ok else 'failed' }}</span> <span class="text-2">{{ p.last_test_message }}</span>{% else %}<span class="muted">never</span>{% endif %}
+    <div class="small">{{ t("Last test:") }}
+      {% if p.last_test_at %}<span class="status {{ 'st-done' if p.last_test_ok else 'st-failed' }}">{{ t('ok') if p.last_test_ok else t('failed') }}</span> <span class="text-2">{{ p.last_test_message }}</span>{% else %}<span class="muted">{{ t('never') }}</span>{% endif %}
     </div>
     {{ provider_fields(form, kinds, default_models, gemini_base, key_stored=key_stored) }}
     <div class="row">
-      <button class="primary" type="submit" name="action" value="test"><svg class="icon"><use href="#i-play"/></svg>Save &amp; test</button>
-      <button type="submit" name="action" value="save"><svg class="icon"><use href="#i-check"/></svg>Save</button>
+      <button class="primary" type="submit" name="action" value="test"><svg class="icon"><use href="#i-play"/></svg>{{ t("Save & test") }}</button>
+      <button type="submit" name="action" value="save"><svg class="icon"><use href="#i-check"/></svg>{{ t("Save") }}</button>
     </div>
   </div>
 </form>

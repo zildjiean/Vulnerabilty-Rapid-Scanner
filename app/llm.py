@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import anthropic
 import openai
 
+from .i18n import Msg
+
 PROVIDER_KINDS = {
     "anthropic": "Anthropic Claude",
     "openai": "OpenAI",
@@ -180,16 +182,16 @@ def complete(kind: str, config: dict, secret: dict, request: LLMRequest) -> LLMR
 
 def validate_provider(kind: str, config: dict, secret: dict) -> str | None:
     if kind not in PROVIDER_KINDS:
-        return "Unknown provider type."
+        return Msg("Unknown provider type.")
     if not (config.get("model") or (kind == "anthropic")):
-        return "Enter the model id (or the Azure deployment name)."
+        return Msg("Enter the model id (or the Azure deployment name).")
     if kind in ("anthropic", "openai", "azure_openai", "gemini") and not secret.get("api_key"):
-        return "Enter the API key."
+        return Msg("Enter the API key.")
     base = config.get("base_url", "")
     if kind == "azure_openai" and not base.startswith("https://"):
-        return "Enter the Azure OpenAI endpoint (https://<resource>.openai.azure.com)."
+        return Msg("Enter the Azure OpenAI endpoint (https://<resource>.openai.azure.com).")
     if kind == "openai_compatible" and not base.startswith(("http://", "https://")):
-        return "Enter the base URL of the OpenAI-compatible server, e.g. http://host.docker.internal:11434/v1 for Ollama."
+        return Msg("Enter the base URL of the OpenAI-compatible server, e.g. http://host.docker.internal:11434/v1 for Ollama.")
     if base and (" " in base or not base.startswith(("http://", "https://"))):
-        return "Base URL must start with http:// or https://."
+        return Msg("Base URL must start with http:// or https://.")
     return None
