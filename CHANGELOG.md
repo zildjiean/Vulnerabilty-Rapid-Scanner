@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-02
+
+### Changed
+- **Shorter sidebar with page tabs**: Issues | Raw findings, Campaigns | 0-day watch, Inventory | Changes |
+  Discovered, *New scan* (Quick | Nmap | Nuclei | Discovery), and *Templates & rules* (Templates | Version rules);
+  Scopes and Schedules move to a new *Automation* group. The main section goes from 15 to 10 items. Every page
+  and URL is unchanged; breadcrumbs follow the new grouping.
+- **Sidebar by role**: viewers see Dashboard, Issues, Campaigns, Inventory and Reports; New scan needs `scan.run`;
+  System items need their permission (Updates now needs `system.update`). **Profile → Show all menu items** shows
+  every page the user may open. Menus are a convenience only; every page still checks permissions.
+- **Issue page Next step**: one primary button for the current status (Triage, Start work, Mark fixed, Verify now,
+  Reopen), plus Assign to me and False positive…; the status form, owner, severity, tickets, AI and verification
+  template move under *More actions* (open automatically after an error or a new AI result). Read-only users see
+  tickets and AI results as before.
+- The closed lifecycle status is now displayed as **Resolved** (was "Fix verified"). The stored and API value is
+  still `verified`.
+
+### Fixed
+- Verify now is no longer offered while an automatic re-verification of the same issue is running.
+
 ## [1.9.0] - 2026-11-02
 
 ### Added
@@ -296,7 +316,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.6.0...v1.7.0

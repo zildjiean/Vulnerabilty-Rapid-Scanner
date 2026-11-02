@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.9.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.10.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -62,25 +62,21 @@ docker compose up -d --build
 
 ## 2. ภาพรวมเมนู
 
-| ส่วน | เมนู | ใช้ทำอะไร |
-|---|---|---|
-| ส่วนบน (ใช้ทุกวัน) | Dashboard | ภาพรวม: issue ที่เปิดอยู่, เกิน SLA, campaign ที่ active, กราฟแนวโน้ม, งานล่าสุด |
-| | Issues | รายการช่องโหว่ต่อ asset ที่ต้องจัดการ |
-| | Campaigns | ติดตาม CVE / 0-day แต่ละตัว |
-| | 0-day watch | ระบบเฝ้าดู CVE ใหม่จาก NVD / CISA KEV ทุกชั่วโมง แล้วสร้าง draft campaign ให้เมื่อกระทบ asset ของคุณ |
-| | Inventory | host, service, software, version ทั้งหมดที่เจอ |
-| | Changes | สิ่งที่เปลี่ยนไปจากการสแกน nmap แต่ละรอบ: host ใหม่, พอร์ตเปิด/ปิด, เวอร์ชันเปลี่ยน, host ไม่ตอบ |
-| | Reports | รายงานผู้บริหาร, รายงาน campaign / scope, export |
-| Scanning | Quick scan | ใส่เป้าหมายแล้วกดครั้งเดียว: หาพอร์ตและ service แล้วตรวจช่องโหว่ต่อให้อัตโนมัติ |
-| | Nmap scan, Nuclei scan | สั่งสแกนเองแบบกำหนดทุกอย่าง |
-| | Discovery | ค้นหา subdomain และเว็บที่เปิดสู่อินเทอร์เน็ตจาก root domain ขององค์กร |
-| | Findings | ผลดิบจาก nuclei ทุก job |
-| | Jobs | ประวัติงาน, log สด, ยกเลิกงาน |
-| | Schedules, Scopes | สแกนตามเวลา และแบ่งกลุ่ม asset |
-| Detection library | Templates | nuclei templates ทางการ + ของคุณเอง |
-| | Version rules | กฎจับเวอร์ชันที่มีช่องโหว่ |
-| System (พับไว้) | Updates, API, Users, Settings, Integrations, AI assistant, Audit log | ตั้งค่าและดูแลระบบ |
+| ส่วน | เมนู | แท็บในหน้า | ใช้ทำอะไร |
+|---|---|---|---|
+| ส่วนบน (ใช้ทุกวัน) | Dashboard | – | ภาพรวม: issue ที่เปิดอยู่, เกิน SLA, กราฟแนวโน้ม, Get started |
+| | Issues | Issues · Raw findings | ช่องโหว่ต่อ asset ที่ต้องจัดการ และผลดิบจาก nuclei |
+| | Campaigns | Campaigns · 0-day watch | ติดตาม CVE / 0-day แต่ละตัว และ CVE ใหม่ที่ระบบเฝ้าดูให้ |
+| | Inventory | Inventory · Changes · Discovered | host / service / เวอร์ชัน, สิ่งที่เปลี่ยนจากการสแกน และ subdomain ที่ค้นเจอ |
+| | Reports | – | รายงานผู้บริหาร, campaign, scope และ export |
+| Scanning | New scan | Quick · Nmap · Nuclei · Discovery | สั่งสแกน (Quick scan ง่ายที่สุด) |
+| | Jobs | – | ประวัติงาน, log สด, ยกเลิกงาน |
+| Automation | Scopes, Schedules | – | แบ่งกลุ่ม asset และสแกนตามเวลา |
+| Detection library | Templates & rules | Templates · Version rules | nuclei templates และกฎจับเวอร์ชันที่มีช่องโหว่ |
+| System (พับไว้) | Updates, API, Users, Settings, Integrations, AI assistant, Audit log | – | ตั้งค่าและดูแลระบบ |
 
+- ลิงก์เดิมทุกหน้ายังใช้ได้ (เช่น `/findings`, `/watch`, `/changes`) แค่ย้ายไปเป็นแท็บ
+- **เมนูตามบทบาท**: *Viewer* เห็นแค่ Dashboard, Issues, Campaigns, Inventory, Reports ส่วน *Analyst* ไม่เห็นเมนู System ที่ไม่มีสิทธิ์ อยากเห็นเมนูครบให้ไปที่ **Profile → Show all menu items**
 - คลิกชื่อกลุ่ม (Scanning, Detection library, System) เพื่อเปิดหรือปิด ระบบจำสถานะไว้
 - ปุ่ม **Collapse** ด้านล่างย่อเมนูเหลือแต่ไอคอน
 - ปุ่มพระอาทิตย์/พระจันทร์มุมขวาบนสลับธีมสว่าง/มืด
@@ -249,16 +245,30 @@ Issue คือ "ช่องโหว่ 1 ตัว บน asset 1 ตัว" 
 **วงจรสถานะ**
 
 ```
-New → Triaged → In progress → Fixed → Fix verified
+New → Triaged → In progress → Fixed → Resolved
                      ↘ False positive / Accepted risk (ต้องใส่เหตุผล)
 ```
+
+**Next step**: บนสุดของหน้า issue มีปุ่มหลักตามสถานะ กดครั้งเดียวจบ
+
+| สถานะ | ปุ่มหลัก | ปุ่มรอง |
+|---|---|---|
+| New | **Triage** | Assign to me, False positive… (ต้องใส่เหตุผล) |
+| Triaged | **Start work** | Assign to me |
+| In progress | **Mark fixed** (ระบบตรวจซ้ำให้อัตโนมัติ) | |
+| Fixed | **Verify now** (ถ้ามี template และไม่มีการตรวจซ้ำที่กำลังรัน) | |
+| Resolved / False positive / Accepted risk | **Reopen** | |
+
+ส่วนเปลี่ยนสถานะแบบเต็ม, owner, severity, ticket, AI และ verification template อยู่ใต้ **More actions** (พับไว้)
+
+![Next step บนหน้า issue](screenshots/next-step.png)
 
 **ทำงานกับ issue**
 1. กรองตาม view, status, severity, assignee, confidence หรือ *Overdue only*
 2. ติ๊กหลายแถวแล้ว **Assign** / **Set status** ทีเดียว
 3. เปิด issue เพื่อดูหลักฐาน (request/response), timeline, ใส่ comment, เปลี่ยน owner หรือ severity
 4. เมื่อแก้แล้วตั้งเป็น **Fixed** ระบบจะ **re-verify** อัตโนมัติด้วย template เดิม
-   - ไม่เจอแล้ว → **Fix verified** (ปิดงาน)
+   - ไม่เจอแล้ว → **Resolved** (ปิดงาน ก่อนเวอร์ชัน 1.10.0 ชื่อ *Fix verified*)
    - ยังเจอ → **Reopened**
    - สแกนไม่สมบูรณ์ → คงไว้ที่ Fixed พร้อมหมายเหตุ
 5. issue ที่ปิดแล้วจะเปิดใหม่เองถ้าสแกนเจออีก และ issue *suspected* จะปิดเองเมื่อสแกนพบเวอร์ชันที่แก้แล้ว
@@ -542,7 +552,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.9.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.10.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

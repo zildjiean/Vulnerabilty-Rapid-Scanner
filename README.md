@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-1.9.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.10.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -18,6 +18,11 @@ Everything runs in one container. No external services, no accounts, works offli
 
 - **Quick scan**: enter targets, press Start — nmap finds open services, then nuclei checks them with the
   *Recommended* preset (or *Thorough*: all ports + every check). Nothing to configure; also via `POST /api/v1/scans/quick`.
+- **Focused navigation**: related pages share tabs (Issues | Raw findings, Campaigns | 0-day watch, Inventory |
+  Changes | Discovered, New scan: Quick | Nmap | Nuclei | Discovery, Templates | Version rules); the sidebar shows
+  what each role uses (viewers: five items) with *Show all menu items* on the profile.
+- **Next step** on every issue: one primary button for the current status (Triage, Start work, Mark fixed,
+  Verify now, Reopen) plus Assign to me; the rest under *More actions*.
 - **Get started checklist** on the Dashboard: five steps (templates, first scan, triage, schedule, notifications)
   that tick themselves off.
 - **Nmap discovery** from the browser: top 1000 ports, all 65 535 ports or a custom range; SYN or connect scan; live log.
@@ -34,7 +39,7 @@ Everything runs in one container. No external services, no accounts, works offli
   groups (`http/cves/2026`, `network`, …) or all templates, plus tag and severity filters.
 - **Issues** that turn findings into work: one issue per vulnerability per asset, deduplicated across scans.
   Version-rule matches open *suspected* issues instantly; nuclei results open or confirm them. Lifecycle
-  New → Triaged → In progress → Fixed → Fix verified (or False positive / Accepted risk with a reason), owners,
+  New → Triaged → In progress → Fixed → Resolved (or False positive / Accepted risk with a reason), owners,
   SLA due dates (critical 3, high 7, medium 30, low 90 days by default), timeline and comments, bulk triage.
   Fixed issues reopen when seen again; suspected issues close themselves when a re-scan shows a patched version.
 - **Findings** view across jobs with severity ordering and search; every finding links to its issue.
@@ -99,6 +104,8 @@ Everything runs in one container. No external services, no accounts, works offli
 | ![Proof](docs/screenshots/proof.png) | ![Verification template](docs/screenshots/verify-template.png) |
 | **Quick scan** | **Get started checklist** |
 | ![Quick scan](docs/screenshots/quick-scan.png) | ![Get started](docs/screenshots/get-started.png) |
+| **Issue Next step** | |
+| ![Next step](docs/screenshots/next-step.png) | |
 | **Attack-surface changes** | **External asset discovery** |
 | ![Changes](docs/screenshots/changes.png) | ![Discovery](docs/screenshots/discovery.png) |
 
