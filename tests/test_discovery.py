@@ -443,9 +443,9 @@ def test_page_filters(auth):
     assert "www.example.com" in t and "api.example.com" not in t
 
 
-def test_sidebar_has_discovery_after_nuclei(auth):
-    r = auth.get("/")
-    assert r.text.index('href="/nuclei"') < r.text.index('href="/discovery"') < r.text.index('href="/findings"')
+def test_new_scan_tabs_have_discovery_after_nuclei(auth):
+    bar = auth.get("/nuclei").text.split('class="page-tabs"')[1]
+    assert bar.index('href="/nuclei"') < bar.index('href="/discovery"')
 
 
 def test_bulk_scan_prefill_redirects(auth):

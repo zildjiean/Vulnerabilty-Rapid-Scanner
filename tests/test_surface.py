@@ -417,9 +417,9 @@ def test_dashboard_card(auth):
     assert m and m.group(1) == "2"
 
 
-def test_sidebar_has_changes_after_inventory(auth):
-    r = auth.get("/")
-    assert r.text.index('href="/inventory"') < r.text.index('href="/changes"') < r.text.index('href="/reports"')
+def test_inventory_tabs_have_changes_after_inventory(auth):
+    bar = auth.get("/inventory").text.split('class="page-tabs"')[1]
+    assert bar.index('href="/inventory"') < bar.index('href="/changes"') < bar.index('href="/discovery#assets"')
 
 
 # ----------------------------------------------------------------- API

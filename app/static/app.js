@@ -42,6 +42,20 @@
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
   }
 
+  // ---------- Open a closed <details> (e.g. Issue "More actions") when the URL fragment points inside it ----------
+  const openHashTarget = () => {
+    let el = null;
+    try { el = location.hash.length > 1 ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null; } catch (e) {}
+    if (!el) return;
+    let opened = false;
+    for (let d = el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) { if (!d.open) { d.open = true; opened = true; } }
+    if (opened) el.scrollIntoView();
+    const field = el.querySelector("[autofocus]");
+    if (field) field.focus();
+  };
+  openHashTarget();
+  window.addEventListener("hashchange", openHashTarget);
+
   // ---------- Toasts ----------
   const toasts = $("#toasts");
   const toast = (text, kind = "ok") => {

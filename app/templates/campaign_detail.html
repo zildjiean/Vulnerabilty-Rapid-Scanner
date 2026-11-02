@@ -3,7 +3,6 @@
 {% from "_issue_macros.html" import status_badge, confidence_badge, due_cell, play_button %}
 {% set unreviewed = c.status in ('draft', 'dismissed') %}
 {% set playcol = can('scan.run') and not unreviewed %}
-{% set section = "Campaigns" %}
 {% set page_title = c.name %}
 {% set page_subtitle = (c.cve_id ~ " · ") if c.cve_id and c.cve_id != c.name else "" %}
 {% set manage = can('campaigns.manage') %}

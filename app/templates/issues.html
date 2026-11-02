@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% from "_issue_macros.html" import status_badge, confidence_badge, due_cell, play_button, risk_pill %}
-{% set section = "Detection" %}
 {% set page_title = "Issues" %}
-{% set page_subtitle = "One row per vulnerability per asset, deduplicated across scans and version rules. Triage, assign and drive each one to a verified fix." %}
+{% set page_subtitle = "One row per vulnerability per asset, deduplicated across scans and version rules. Triage, assign and drive each one to resolved." %}
 {% block page_actions %}{% set qs = f.items()|selectattr(1)|map('join', '=')|join('&') %}<a class="btn" href="/reports/issues.csv?{{ qs }}"><svg class="icon"><use href="#i-download"/></svg>CSV</a><a class="btn" href="/reports/issues.json?{{ qs }}"><svg class="icon"><use href="#i-download"/></svg>JSON</a>{% if can('settings.manage') %}<a class="btn ghost" href="/settings"><svg class="icon"><use href="#i-clock"/></svg>SLA settings</a>{% endif %}{% endblock %}
 {% block content %}
 <div class="grid grid-4 mb">

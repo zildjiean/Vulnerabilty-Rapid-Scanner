@@ -17,47 +17,19 @@
       <span class="logo"><svg class="icon"><use href="#i-shield"/></svg></span>
       <span class="name">0-Day Rapid Scanner<small>Enterprise exposure platform</small></span>
     </a>
-    {% macro item(href, key, icon, label) %}<a href="{{ href }}" class="{{ 'active' if active == key }}" {% if active == key %}aria-current="page"{% endif %} title="{{ label }}"><svg class="icon"><use href="#i-{{ icon }}"/></svg><span>{{ label }}</span></a>{% endmacro %}
-    {% macro group(key, label, keys, closed_by_default=False) %}
-      {% set has_active = active in keys %}
-      <div class="nav-group{{ ' closed' if closed_by_default and not has_active }}" data-nav-group="{{ key }}"{% if has_active %} data-has-active{% endif %}>
-        <button type="button" class="nav-group-label" aria-expanded="{{ 'false' if closed_by_default and not has_active else 'true' }}" aria-controls="nav-{{ key }}"><span>{{ label }}</span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></button>
-        <div class="nav-items" id="nav-{{ key }}">{{ caller() }}</div>
-      </div>
-    {% endmacro %}
+    {% macro item(i) %}{% set on = active in i.active %}<a href="{{ i.href }}" class="{{ 'active' if on }}" {% if on %}aria-current="page"{% endif %} title="{{ i.label }}"><svg class="icon"><use href="#i-{{ i.icon }}"/></svg><span>{{ i.label }}</span></a>{% endmacro %}
     <nav class="nav">
-      <div class="nav-group nav-core">
-        {{ item('/', 'dashboard', 'dashboard', 'Dashboard') }}
-        {{ item('/issues', 'issues', 'target', 'Issues') }}
-        {{ item('/campaigns', 'campaigns', 'flag', 'Campaigns') }}
-        {{ item('/watch', 'watch', 'radar', '0-day watch') }}
-        {{ item('/inventory', 'inventory', 'server', 'Inventory') }}
-        {{ item('/changes', 'changes', 'activity', 'Changes') }}
-        {{ item('/reports', 'reports', 'file', 'Reports') }}
+      {% for g in nav %}
+      {% if g.key == 'core' %}
+      <div class="nav-group nav-core">{% for i in g.items %}{{ item(i) }}{% endfor %}</div>
+      {% else %}
+      {% set has_active = active in g.keys %}{% set closed = g.closed_by_default and not has_active %}
+      <div class="nav-group{{ ' closed' if closed }}" data-nav-group="{{ g.key }}"{% if has_active %} data-has-active{% endif %}>
+        <button type="button" class="nav-group-label" aria-expanded="{{ 'false' if closed else 'true' }}" aria-controls="nav-{{ g.key }}"><span>{{ g.label }}</span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></button>
+        <div class="nav-items" id="nav-{{ g.key }}">{% for i in g.items %}{{ item(i) }}{% endfor %}</div>
       </div>
-      {% call group('scan', 'Scanning', ['quick', 'nmap', 'nuclei', 'discovery', 'findings', 'jobs', 'schedules', 'scopes']) %}
-        {{ item('/quick', 'quick', 'zap', 'Quick scan') }}
-        {{ item('/nmap', 'nmap', 'radar', 'Nmap scan') }}
-        {{ item('/nuclei', 'nuclei', 'bug', 'Nuclei scan') }}
-        {{ item('/discovery', 'discovery', 'globe', 'Discovery') }}
-        {{ item('/findings', 'findings', 'alert', 'Findings') }}
-        {{ item('/jobs', 'jobs', 'activity', 'Jobs') }}
-        {{ item('/schedules', 'schedules', 'clock', 'Schedules') }}
-        {{ item('/scopes', 'scopes', 'layers', 'Scopes') }}
-      {% endcall %}
-      {% call group('library', 'Detection library', ['templates', 'rules']) %}
-        {{ item('/templates', 'templates', 'book', 'Templates') }}
-        {{ item('/rules', 'rules', 'rule', 'Version rules') }}
-      {% endcall %}
-      {% call group('system', 'System', ['updates', 'api', 'users', 'settings', 'integrations', 'ai', 'audit'], closed_by_default=True) %}
-        {{ item('/updates', 'updates', 'refresh', 'Updates') }}
-        {{ item('/api-keys', 'api', 'key', 'API') }}
-        {% if can('users.manage') %}{{ item('/users', 'users', 'users', 'Users') }}{% endif %}
-        {% if can('settings.manage') %}{{ item('/settings', 'settings', 'sliders', 'Settings') }}{% endif %}
-        {% if can('integrations.manage') %}{{ item('/integrations', 'integrations', 'link', 'Integrations') }}{% endif %}
-        {% if can('ai.manage') %}{{ item('/ai', 'ai', 'spark', 'AI assistant') }}{% endif %}
-        {% if can('audit.view') %}{{ item('/audit', 'audit', 'scroll', 'Audit log') }}{% endif %}
-      {% endcall %}
+      {% endif %}
+      {% endfor %}
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="collapse-btn" id="collapse-btn" aria-label="Collapse sidebar"><svg class="icon"><use href="#i-chevrons-left"/></svg><span>Collapse</span></button>
@@ -83,6 +55,7 @@
       </div>
       {% endif %}
       {% endblock %}
+      {% if page_tabs %}{% from "_tabs.html" import page_tabs as render_tabs %}{{ render_tabs(page_tabs.tabs, page_tabs.current, page_tabs.label) }}{% endif %}
       {% if error %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div>{{ error }}</div></div>{% endif %}
       {% block content %}{% endblock %}
     </main>

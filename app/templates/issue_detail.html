@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 {% from "_issue_macros.html" import status_badge, confidence_badge, due_cell %}
 {% from "_ai.html" import ai_meta, ai_badge %}
-{% set section = "Issues" %}
 {% set page_title = issue.title or issue.vuln_id %}
 {% set page_subtitle = issue.vuln_id ~ " on " ~ issue.asset ~ ((" (" ~ issue.hostname ~ ")") if issue.hostname and issue.hostname != issue.address else "") %}
 {% set manage = can('issues.manage') %}
-{% block page_actions %}{% if can('scan.run') and issue.template_id and not issue.verify_job_id %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="btn primary" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>{% endif %}<a class="btn ghost" href="/reports/issues/{{ issue.id }}" title="Printable evidence report: risk, timeline and the full request/response"><svg class="icon"><use href="#i-file"/></svg>Print proof</a><a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
+{% block page_actions %}{% if can('scan.run') and issue.template_id and not issue.verify_job_id and not issue.reverify_job_id and not (manage and issue.status == 'fixed') %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="btn{{ '' if manage else ' primary' }}" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>{% endif %}<a class="btn ghost" href="/reports/issues/{{ issue.id }}" title="Printable evidence report: risk, timeline and the full request/response"><svg class="icon"><use href="#i-file"/></svg>Print proof</a><a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
 {% block content %}
 <div class="issue-head card mb"><div class="card-body row center" style="gap:10px">
   <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="Changed manually; scans no longer raise it">(manual)</span>{% endif %}
@@ -18,6 +17,33 @@
   <span class="spacer"></span>
   <span class="small text-2">Owner: <b>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else 'unassigned' }}</b></span>
 </div></div>
+{% if manage %}
+{% set ns = next_step %}
+{% macro status_form(a, cls='') -%}
+<form method="post" action="/issues/{{ issue.id }}/status" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="{{ a.status }}"><button type="submit"{% if cls %} class="{{ cls }}"{% endif %}><svg class="icon"><use href="#i-{{ 'refresh' if a.label == 'Reopen' else 'check' }}"/></svg>{{ a.label }}</button></form>
+{%- endmacro %}
+<section class="card next-step" id="next-step" aria-labelledby="next-step-title">
+  <div class="card-body next-step-body">
+    <div class="next-step-text">
+      <h2 id="next-step-title"><svg class="icon"><use href="#i-flag"/></svg>Next step</h2>
+      <p class="small text-2">{% if issue.status == 'new' %}Check the evidence below, then triage it, or mark it a false positive with a reason.
+        {% elif issue.status == 'triaged' %}Start work when someone picks up the fix.
+        {% elif issue.status == 'in_progress' %}Mark it fixed once the patch or configuration change is in place.
+        {% elif issue.status == 'fixed' %}{% if ns.primary %}Re-run {{ issue.template_id }} against {{ issue.asset }} to prove the fix.{% elif ns.why == 'running' %}A verification scan is running (job #{{ ns.job_id }}). <a href="/jobs/{{ ns.job_id }}">Open the job</a>{% elif ns.why == 'no_scan' %}Ask someone with scan rights to run Verify now.{% else %}The next scan of {{ issue.asset }} confirms the fix.{% endif %}
+        {% else %}Closed as {{ issue_status_labels.get(issue.status, issue.status) }}. Reopen it if the problem comes back.{% endif %}</p>
+    </div>
+    <div class="row center next-step-actions">
+      {% if ns.primary and ns.primary.kind == 'status' %}{{ status_form(ns.primary, 'primary') }}
+      {% elif ns.primary and ns.primary.kind == 'verify' %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="primary" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>
+      {% elif ns.note %}<span class="status st-queued">{{ ns.note }}</span>{% endif %}
+      {% for a in ns.secondary %}
+      {% if a.kind == 'assign' %}<form method="post" action="/issues/{{ issue.id }}/assign" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="assignee" value="{{ user.id }}"><button type="submit"><svg class="icon"><use href="#i-user"/></svg>Assign to me</button></form>
+      {% elif a.kind == 'reason' %}<a class="btn ghost" href="/issues/{{ issue.id }}?status={{ a.status }}#change-status">{{ a.label }}</a>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
 <div class="grid grid-issue">
   <div class="stack">
     <div class="card">
@@ -120,7 +146,42 @@
         {% if issue.cve_id and not risk.intel_updated %}<p class="small text-2">Intel for {{ issue.cve_id }} has not been fetched yet; it refreshes hourly{% if can('settings.manage') %} or from <a href="/settings#intel">Settings</a>{% endif %}.</p>{% endif %}
       </div>
     </div>
-    {% if not issue.template_id and can('scan.run') %}
+    {% if not manage %}<div class="alert info" role="note"><svg class="icon"><use href="#i-info"/></svg><div>Read-only: your <b>{{ role_labels.get(user.role, user.role) }}</b> role cannot triage issues.</div></div>{% endif %}
+    {% set show_verify = not issue.template_id and can('scan.run') %}
+    {% set show_ai = ai_ready or ai_explain or ai_triage %}
+    {% set show_tickets = tickets or (manage and ticket_channels) %}
+    {% set more_parts = (['status', 'owner', 'severity'] if manage else []) + (['tickets'] if show_tickets else []) + (['AI'] if show_ai else []) + (['verification template'] if show_verify else []) %}
+    {% set more_body %}
+    {% if manage %}
+    <form method="post" action="/issues/{{ issue.id }}/status" class="card" id="change-status" data-loading>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>Change status</h2></div>
+      <div class="card-body stack">
+        {% if transitions %}
+        <div class="field"><label for="status">Move to</label><select id="status" name="status">{% for t in transitions %}<option value="{{ t }}"{{ ' selected' if t == prefill_status }}>{{ issue_status_labels[t] }}{{ ' (reason required)' if t in needs_reason }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="comment">Comment</label><textarea id="comment" name="comment" rows="3" placeholder="Required for False positive and Accepted risk"{{ ' autofocus' if prefill_status in needs_reason }}></textarea></div>
+        <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Update status</button></div>
+        {% endif %}
+      </div>
+    </form>
+    <form method="post" action="/issues/{{ issue.id }}/assign" class="card">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Assignee</h2></div>
+      <div class="card-body row" style="align-items:flex-end">
+        <div class="field" style="flex:1"><label for="assignee">Owner</label><select id="assignee" name="assignee"><option value="">Unassigned</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if issue.assignee_id == u.id }}>{{ u.display_name or u.username }}{{ ' (you)' if u.id == user.id }}</option>{% endfor %}</select></div>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+    <form method="post" action="/issues/{{ issue.id }}/severity" class="card">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>Severity</h2></div>
+      <div class="card-body row" style="align-items:flex-end">
+        <div class="field" style="flex:1"><label for="severity">Severity</label><select id="severity" name="severity">{% for s in issue_severities %}<option value="{{ s }}" {{ 'selected' if issue.severity == s }}>{{ s }}</option>{% endfor %}</select><span class="hint">A manual change stops scans from raising it and recalculates the due date.</span></div>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+    {% endif %}
+    {% if show_verify %}
     <div class="card" id="verify">
       <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Verification template</h2></div>
       <div class="card-body stack">
@@ -150,7 +211,7 @@
       </div>
     </div>
     {% endif %}
-    {% if ai_ready or ai_explain or ai_triage %}
+    {% if show_ai %}
     <div class="card" id="ai">
       <div class="card-head"><h2>{{ ai_badge() }} AI assistant</h2></div>
       <div class="card-body stack">
@@ -176,7 +237,7 @@
       </div>
     </div>
     {% endif %}
-    {% if tickets or (manage and ticket_channels) %}
+    {% if show_tickets %}
     <div class="card">
       <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>Tickets</h2></div>
       <div class="card-body stack">
@@ -187,37 +248,13 @@
       </div>
     </div>
     {% endif %}
+    {% endset %}
     {% if manage %}
-    <form method="post" action="/issues/{{ issue.id }}/status" class="card" data-loading>
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>Change status</h2></div>
-      <div class="card-body stack">
-        {% if transitions %}
-        <div class="field"><label for="status">Move to</label><select id="status" name="status">{% for t in transitions %}<option value="{{ t }}">{{ issue_status_labels[t] }}{{ ' (reason required)' if t in needs_reason }}</option>{% endfor %}</select></div>
-        <div class="field"><label for="comment">Comment</label><textarea id="comment" name="comment" rows="3" placeholder="Required for False positive and Accepted risk"></textarea></div>
-        <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Update status</button></div>
-        {% endif %}
-      </div>
-    </form>
-    <form method="post" action="/issues/{{ issue.id }}/assign" class="card">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Assignee</h2></div>
-      <div class="card-body row" style="align-items:flex-end">
-        <div class="field" style="flex:1"><label for="assignee">Owner</label><select id="assignee" name="assignee"><option value="">Unassigned</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if issue.assignee_id == u.id }}>{{ u.display_name or u.username }}{{ ' (you)' if u.id == user.id }}</option>{% endfor %}</select></div>
-        <button type="submit">Save</button>
-      </div>
-    </form>
-    <form method="post" action="/issues/{{ issue.id }}/severity" class="card">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>Severity</h2></div>
-      <div class="card-body row" style="align-items:flex-end">
-        <div class="field" style="flex:1"><label for="severity">Severity</label><select id="severity" name="severity">{% for s in issue_severities %}<option value="{{ s }}" {{ 'selected' if issue.severity == s }}>{{ s }}</option>{% endfor %}</select><span class="hint">A manual change stops scans from raising it and recalculates the due date.</span></div>
-        <button type="submit">Save</button>
-      </div>
-    </form>
-    {% else %}
-    <div class="alert info" role="note"><svg class="icon"><use href="#i-info"/></svg><div>Read-only: your <b>{{ role_labels.get(user.role, user.role) }}</b> role cannot triage issues.</div></div>
-    {% endif %}
+    <details class="more-actions" id="more-actions"{{ ' open' if (error or prefill_status or verify_draft or verify_refusal or open_more) }}>
+      <summary><svg class="icon"><use href="#i-sliders"/></svg><span>More actions</span><span class="small text-2">{{ more_parts|join(', ') }}</span></summary>
+      <div class="stack more-actions-body">{{ more_body }}</div>
+    </details><!-- /more-actions -->
+    {% elif more_parts %}{{ more_body }}{% endif %}
   </div>
 </div>
 {% endblock %}

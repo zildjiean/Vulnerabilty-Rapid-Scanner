@@ -87,7 +87,7 @@ def test_verify_with_back_redirects_to_the_list_and_errors_go_to_err(env):
 def test_issue_without_template_is_sent_to_the_verify_card(env):
     iid = suspected_issue(env)
     r = env.post(f"/issues/{iid}/verify", data={"csrf": get_csrf(env, f"/issues/{iid}")}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/issues/{iid}#verify"
+    assert r.status_code == 303 and r.headers["location"] == f"/issues/{iid}?open=more#verify"
 
 
 def test_viewer_sees_no_button_and_cannot_verify(env):
@@ -166,9 +166,9 @@ def test_play_icons_in_list_and_campaign_only_for_scanners(env):
         jid = job.id
     page = env.get("/issues").text
     assert f'href="/jobs/{jid}"' in page and f'action="/issues/{ids[CVE]}/verify"' not in page
-    assert f'class="play-btn muted" href="/issues/{ids["exposed-panel"]}#verify"' not in page   # it has a template
+    assert f'class="play-btn muted" href="/issues/{ids["exposed-panel"]}?open=more#verify"' not in page   # it has a template
     sus = suspected_issue(env)
-    assert f'class="play-btn muted" href="/issues/{sus}#verify"' in env.get("/issues").text
+    assert f'class="play-btn muted" href="/issues/{sus}?open=more#verify"' in env.get("/issues").text
     with env.app.state.SessionLocal() as db:   # back to the idle state for the campaign checks below
         db.get(Issue, ids[CVE]).verify_job_id = None
         db.commit()

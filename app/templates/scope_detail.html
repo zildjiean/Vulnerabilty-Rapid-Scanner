@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_schedule_parts.html" import schedules_table, schedule_form with context %}
 {% from "_issue_macros.html" import status_badge, due_cell %}
-{% set section = "Scopes" %}
 {% set page_title = scope.name %}
 {% set page_subtitle = scope.description %}
 {% set manage = can('scopes.manage') %}

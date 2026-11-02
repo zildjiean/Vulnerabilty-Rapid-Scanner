@@ -17,7 +17,7 @@ from .render import SEVERITY_ORDER, normalize_severity
 
 STATUSES = ("new", "triaged", "in_progress", "fixed", "verified", "false_positive", "accepted_risk")
 STATUS_LABELS = {"new": "New", "triaged": "Triaged", "in_progress": "In progress", "fixed": "Fixed",
-                 "verified": "Fix verified", "false_positive": "False positive", "accepted_risk": "Accepted risk"}
+                 "verified": "Resolved", "false_positive": "False positive", "accepted_risk": "Accepted risk"}
 ACTIVE = ("new", "triaged", "in_progress", "fixed")       # fixed = awaiting verification
 OPEN_WORK = ("new", "triaged", "in_progress")              # still needs remediation; the SLA clock runs
 CLOSED = ("verified", "false_positive", "accepted_risk")
@@ -367,6 +367,43 @@ def backfill_verified(db: Session) -> int:
 # ----------------------------------------------------------------- user actions
 def allowed_transitions(status: str) -> list[str]:
     return list(TRANSITIONS.get(status, []))
+
+
+_NEXT = {   # status -> (primary label, target status); the closed statuses all reopen to triaged
+    "new": ("Triage", "triaged"), "triaged": ("Start work", "in_progress"), "in_progress": ("Mark fixed", "fixed"),
+    "verified": ("Reopen", "triaged"), "false_positive": ("Reopen", "triaged"), "accepted_risk": ("Reopen", "triaged"),
+}
+
+
+def next_actions(issue, user_id, can_scan: bool) -> dict:
+    """The issue page's Next step card: ``{"primary": action | None, "secondary": [action], "note": str, "why": str,
+    "job_id": int | None}``. For a fixed issue without a Verify now button, ``why`` says why: ``running`` (a verify or
+    re-verify scan, ``job_id``), ``no_template`` or ``no_scan`` (no scan.run).
+
+    An action is ``{"kind": "status" | "assign" | "verify" | "reason", "label", "status"?}``. Only transitions allowed
+    by TRANSITIONS are offered; the endpoints still validate every change."""
+    allowed = TRANSITIONS.get(issue.status, [])
+    primary, secondary, note, why, job_id = None, [], "", "", None
+    if issue.status == "fixed":
+        job_id = issue.verify_job_id or getattr(issue, "reverify_job_id", None)   # a manual or automatic re-scan
+        if job_id:
+            why = "running"
+        elif not issue.template_id:
+            why = "no_template"
+        elif not can_scan:
+            why = "no_scan"
+        else:
+            primary = {"kind": "verify", "label": "Verify now"}
+        if why:
+            note = "Waiting for re-verification"
+    elif issue.status in _NEXT and _NEXT[issue.status][1] in allowed:
+        label, target = _NEXT[issue.status]
+        primary = {"kind": "status", "label": label, "status": target}
+    if issue.status in ("new", "triaged") and issue.assignee_id != user_id:
+        secondary.append({"kind": "assign", "label": "Assign to me"})
+    if issue.status == "new" and "false_positive" in allowed:
+        secondary.append({"kind": "reason", "label": "False positive…", "status": "false_positive"})
+    return {"primary": primary, "secondary": secondary, "note": note, "why": why, "job_id": job_id}
 
 
 def change_status(db: Session, issue: Issue, new: str, actor, comment: str = "") -> None:

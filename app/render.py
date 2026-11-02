@@ -54,5 +54,11 @@ def render(request: Request, name: str, status_code: int = 200, **ctx):
     if ctx.get("error") is None:  # errors from a redirect (e.g. a failed AI call) arrive as ?err=
         ctx["error"] = request.query_params.get("err")
     ctx.setdefault("active", "")
+    from .navigation import nav_items, resolve_page, section_for
+    ctx.setdefault("nav", nav_items(user))
+    if user is not None and ctx["active"]:
+        ctx["active"], tabs = resolve_page(user, ctx["active"], request.url.path)
+        ctx.setdefault("page_tabs", tabs)
+    ctx.setdefault("section", section_for(ctx["active"]))   # breadcrumb; a template may still set its own
     ctx.setdefault("severities", SEVERITIES)
     return templates.TemplateResponse(request, name, ctx, status_code=status_code)
