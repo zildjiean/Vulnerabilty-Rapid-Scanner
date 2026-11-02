@@ -90,7 +90,7 @@ error or non-default values). Targets and port mode stay visible.
 | schedule | at least one schedule | /schedules | scopes.manage |
 | notify | at least one notification channel | /integrations | integrations.manage |
 
-Steps the user may not act on are shown as done-by-others or hidden: hidden. The Dashboard shows a **Get started**
+Steps the user may not act on are hidden. The Dashboard shows a **Get started**
 card above the KPIs when the user can act on at least one step, at least one of those is not done, and
 `users.onboarding_dismissed_at` is null. Card: progress "2 of 5 done", ordered list, each step with a check icon or
 a button to its page. **Dismiss** = `POST /onboarding/dismiss` (CSRF) sets `onboarding_dismissed_at`; the Profile
