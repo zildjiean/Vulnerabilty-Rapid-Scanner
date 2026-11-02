@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.10.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 2.0.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -40,7 +40,10 @@ docker compose up -d --build
 1. เปิด <http://localhost:8000>
 2. เข้าสู่ระบบด้วย **admin / changeme**
 3. ระบบบังคับให้ตั้งรหัสผ่านใหม่ (อย่างน้อย 12 ตัวอักษร) ก่อนใช้งานส่วนอื่น
-4. ครั้งแรกที่เปิด ระบบดาวน์โหลด nuclei-templates ทางการลง volume `/data` ดูความคืบหน้าได้ที่ **Scanning → Jobs**
+4. **เปลี่ยนเป็นภาษาไทย**: กดปุ่ม **TH** ที่แถบด้านบน (หรือ Profile → Language) ระบบจำภาษาไว้ให้แต่ละคน ผู้ใช้ใหม่เริ่มที่ภาษาอังกฤษ หน้า login ใช้ภาษาตามเบราว์เซอร์
+5. ครั้งแรกที่เปิด ระบบดาวน์โหลด nuclei-templates ทางการลง volume `/data` ดูความคืบหน้าได้ที่ **Scanning → Jobs**
+
+![หน้าจอภาษาไทย](screenshots/thai-ui.png)
 
 ข้อมูลทั้งหมด (ฐานข้อมูล, template, คีย์เข้ารหัส) อยู่ใน volume `/data` สำรองข้อมูลด้วยการสำรอง volume นี้
 
@@ -75,6 +78,7 @@ docker compose up -d --build
 | Detection library | Templates & rules | Templates · Version rules | nuclei templates และกฎจับเวอร์ชันที่มีช่องโหว่ |
 | System (พับไว้) | Updates, API, Users, Settings, Integrations, AI assistant, Audit log | – | ตั้งค่าและดูแลระบบ |
 
+- หน้าจอเป็นภาษาไทยหรืออังกฤษตามที่แต่ละคนเลือก ข้อมูลจากเครื่องสแกน (ชื่อ CVE, finding, log), API, ไฟล์ export, การแจ้งเตือน และ audit log เป็นภาษาอังกฤษเสมอ ชื่อเมนูในคู่มือนี้ใช้ชื่อภาษาอังกฤษ ถ้าใช้หน้าจอภาษาไทยให้ดูตำแหน่งเมนูเดียวกัน
 - ลิงก์เดิมทุกหน้ายังใช้ได้ (เช่น `/findings`, `/watch`, `/changes`) แค่ย้ายไปเป็นแท็บ
 - **เมนูตามบทบาท**: *Viewer* เห็นแค่ Dashboard, Issues, Campaigns, Inventory, Reports ส่วน *Analyst* ไม่เห็นเมนู System ที่ไม่มีสิทธิ์ อยากเห็นเมนูครบให้ไปที่ **Profile → Show all menu items**
 - คลิกชื่อกลุ่ม (Scanning, Detection library, System) เพื่อเปิดหรือปิด ระบบจำสถานะไว้
@@ -552,7 +556,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.10.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"2.0.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 
