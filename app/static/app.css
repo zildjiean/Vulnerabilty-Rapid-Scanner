@@ -609,3 +609,10 @@ html[lang=th] .topbar .crumbs span{white-space:nowrap;overflow:hidden;text-overf
 html[lang=th] table.data th{white-space:normal;line-height:1.4;letter-spacing:0}
 html[lang=th] .badge{line-height:20px}
 html[lang=th] .field label,html[lang=th] .hint,html[lang=th] .kv dt{line-height:1.5}
+/* Narrow top bar: the language switch shows only the other language, the breadcrumb only the page title */
+@media (max-width:520px){
+  .topbar .lang-switch button.on{display:none}
+  .topbar .crumbs{flex:1 1 auto;min-width:0}
+  .topbar .crumbs>span,.topbar .crumbs>svg{display:none}
+  .topbar .crumbs b{min-width:0}
+}

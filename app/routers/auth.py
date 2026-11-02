@@ -10,7 +10,7 @@ from ..authz import PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_PERMISSIONS
 from ..db import AuditLog, User, utcnow
 from ..audit import audit
 from ..deps import get_db, get_settings, verify_csrf
-from ..i18n import flash, tr
+from ..i18n import flash, safe_back, tr
 from ..render import render
 
 router = APIRouter()
@@ -120,20 +120,6 @@ def profile_menus(request: Request, show_all_menus: str = Form(""), db: Session 
     return RedirectResponse("/profile?msg=" + flash(request, "Menu preference saved") + "#menus", status_code=303)
 
 
-def _safe_back(path: str) -> str:
-    """A same-site relative path to return to (``/`` for anything else), without a stale ?msg= / ?err=."""
-    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-    path = (path or "").strip()
-    if not path.startswith("/") or path.startswith(("//", "/\\")) or any(c in path for c in "\\\r\n\t") \
-            or any(ord(c) < 32 for c in path):
-        return "/"
-    parts = urlsplit(path)
-    if parts.scheme or parts.netloc:
-        return "/"
-    query = urlencode([(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k not in ("msg", "err")])
-    return urlunsplit(("", "", parts.path or "/", query, parts.fragment))
-
-
 @router.post("/profile/language", dependencies=[Depends(verify_csrf)])
 def profile_language(request: Request, language: str = Form(""), next: str = Form("/"), db: Session = Depends(get_db)):
     """The signed-in user's interface language (also allowed during a forced password change)."""
@@ -144,4 +130,4 @@ def profile_language(request: Request, language: str = Form(""), next: str = For
         me.language = language
         db.commit()
         audit(db, request, "profile.language", target=me.username, user=me, language=f"{old} -> {language}")
-    return RedirectResponse(_safe_back(next), status_code=303)
+    return RedirectResponse(safe_back(next), status_code=303)

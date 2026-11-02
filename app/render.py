@@ -34,6 +34,7 @@ from .mdlite import render_markdown  # noqa: E402
 templates.env.filters["mdlite"] = render_markdown
 from . import i18n  # noqa: E402
 templates.env.globals["t"] = i18n.t
+templates.env.globals["tp"] = i18n.tp
 
 SEVERITIES = ["critical", "high", "medium", "low", "info", "unknown"]
 SEVERITY_ORDER = {s: i for i, s in enumerate(SEVERITIES)}
@@ -67,6 +68,7 @@ def render(request: Request, name: str, status_code: int = 200, **ctx):
     ctx.setdefault("section", i18n.translate(lang, section_for(ctx["active"])))
     ctx.setdefault("severities", SEVERITIES)
     ctx.setdefault("js_i18n", i18n.js_catalog(lang))
+    ctx.setdefault("lang_back", i18n.switch_back(request) if ctx.get("user") is not None else "/")
     token = i18n.use_lang(lang)
     try:  # the template is rendered here, so t() inside it (and its macros) sees this request's language
         return templates.TemplateResponse(request, name, ctx, status_code=status_code)

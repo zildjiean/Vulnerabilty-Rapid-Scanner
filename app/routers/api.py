@@ -365,7 +365,7 @@ def job_get(job_id: int, log: bool = False, db: Session = Depends(get_db)):
     j = db.get(Job, job_id)
     if j is None:
         raise HTTPException(404, "Job not found.")
-    out = {"id": j.id, "kind": j.kind, "status": j.status, "exit_code": j.exit_code, "summary": job_summary(j),
+    out = {"id": j.id, "kind": j.kind, "status": j.status, "exit_code": j.exit_code, "summary": job_summary(j, lang="en"),
            "warnings": job_warnings(j), "created_at": _ts(j.created_at), "started_at": _ts(j.started_at),
            "finished_at": _ts(j.finished_at), "campaign_id": j.campaign_id, "schedule_id": j.schedule_id}
     if j.kind == "nuclei":

@@ -411,10 +411,10 @@ def change_status(db: Session, issue: Issue, new: str, actor, comment: str = "")
     if new not in STATUSES:
         raise ValueError(Msg("Unknown status."))
     if new not in TRANSITIONS.get(issue.status, []):
-        raise ValueError(Msg("Cannot move an issue from {old} to {new}.", old=STATUS_LABELS[issue.status], new=STATUS_LABELS[new]))
+        raise ValueError(Msg("Cannot move an issue from {old} to {new}.", old=Msg(STATUS_LABELS[issue.status]), new=Msg(STATUS_LABELS[new])))
     comment = (comment or "").strip()
     if new in NEEDS_REASON and not comment:
-        raise ValueError(Msg("{status} needs a reason in the comment.", status=STATUS_LABELS[new]))
+        raise ValueError(Msg("{status} needs a reason in the comment.", status=Msg(STATUS_LABELS[new])))
     _set_status(db, issue, new, actor)
     if comment:
         _event(db, issue, "comment", actor, body=comment)

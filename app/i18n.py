@@ -17,20 +17,23 @@ from __future__ import annotations
 
 import contextvars
 import re
-from urllib.parse import quote_plus
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlsplit, urlunsplit
+
+from .i18n_th import CATALOG_TH
 
 LANGS = ("en", "th")
 LANG_NAMES = {"en": "English", "th": "ไทย"}
 DEFAULT_LANG = "en"
 
-# Thai lookups that found no catalog entry (the completeness tests clear and read it).
+# Thai lookups that found no catalog entry. Recorded only while RECORD_MISSING is on (the completeness tests turn it
+# on), so free text that reaches tr() in production (provider errors etc.) cannot grow it.
+RECORD_MISSING = False
 MISSING: set[str] = set()
 
 _current = contextvars.ContextVar("ui_lang", default=DEFAULT_LANG)
 
 
 def _catalog() -> dict[str, str]:
-    from .i18n_th import CATALOG_TH
     return CATALOG_TH
 
 
@@ -67,7 +70,7 @@ def translate(lang: str, text, /, **params) -> str:
         th = _catalog().get(src)
         if th:
             out = th
-        else:
+        elif RECORD_MISSING:
             MISSING.add(src)
     if not params:
         return out
@@ -134,9 +137,64 @@ def t(text, /, **params) -> str:
     return translate(_current.get(), text, **params)
 
 
+def translate_ctx(lang: str, context: str, text, /, **params) -> str:
+    """Like translate(), for an English word that needs different Thai in different places: the catalog key is
+    ``"context|text"`` (e.g. ``"issues|Active"``); English shows ``text``."""
+    if lang == "th":
+        th = _catalog().get(f"{context}|{text}")
+        if th:
+            try:
+                return th.format(**params) if params else th
+            except (KeyError, IndexError, ValueError, AttributeError):
+                pass
+        if RECORD_MISSING:
+            MISSING.add(f"{context}|{text}")
+    return translate("en", text, **params)
+
+
+def tp(context: str, text, /, **params) -> str:
+    """Jinja global: ``tp("issues", "Active")`` (see translate_ctx)."""
+    return translate_ctx(_current.get(), context, text, **params)
+
+
 def tr(request, text, /, **params) -> str:
     """``text`` in the request's language (flash messages, validation errors, other server-built UI text)."""
     return translate(request_lang(request), text, **params)
+
+
+def safe_back(path: str) -> str:
+    """A same-site relative path to return to (``/`` for anything else), without a stale ?msg= / ?err=."""
+    path = (path or "").strip()
+    if not path.startswith("/") or path.startswith(("//", "/\\")) or any(ord(c) < 32 or c == "\\" for c in path):
+        return "/"
+    parts = urlsplit(path)
+    if parts.scheme or parts.netloc:
+        return "/"
+    query = urlencode([(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k not in ("msg", "err")])
+    return urlunsplit(("", "", parts.path or "/", query, parts.fragment))
+
+
+def _gettable(request, path: str) -> bool:
+    from starlette.routing import Match
+    scope = {"type": "http", "method": "GET", "path": path, "root_path": ""}
+    return any(r.matches(scope)[0] == Match.FULL for r in getattr(request.app, "routes", ()) if hasattr(r, "matches"))
+
+
+def switch_back(request) -> str:
+    """Where the language switch returns to: this page for a GET; for a page rendered by a POST (a form error), the
+    same-site Referer, else the nearest parent path that answers GET."""
+    url = request.url
+    if request.method == "GET":
+        return safe_back(url.path + ("?" + url.query if url.query else ""))
+    ref = urlsplit(request.headers.get("referer", ""))
+    if ref.netloc and ref.netloc == url.netloc and ref.scheme in ("http", "https") and ref.path:
+        return safe_back(urlunsplit(("", "", ref.path, ref.query, "")))
+    path = url.path.rstrip("/")
+    while path:
+        if _gettable(request, path):
+            return safe_back(path)
+        path = path.rsplit("/", 1)[0]
+    return "/"
 
 
 # Characters kept literal in ?msg= / ?err= values (as the English URLs always had them).
@@ -279,4 +337,7 @@ def _dyn_system():
     out += [*EXPIRY_CHOICES.values(), *ACTION_GROUPS.values(), *KINDS.values(), *PROVIDER_KINDS.values(),
             *EVENTS.values(), *(label for f in FIELDS.values() for _n, label, _s in f)]
     out += ["sent", "pending", "failed"]   # delivery status shown through t()
+    from .discovery import PROVIDERS
+    out += [label for label, _fmt, _pair in PROVIDERS.values()]   # settings.html discovery source names
+    out += ["Custom (0-day) templates"]   # templates_index group label (nuclei.html)
     return out

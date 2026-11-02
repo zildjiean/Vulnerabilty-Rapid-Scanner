@@ -4,7 +4,7 @@
   // UI strings: base.html embeds the Thai values (id="i18n") for Thai users; English otherwise.
   let I18N = {};
   try { const el = document.getElementById("i18n"); if (el) I18N = JSON.parse(el.textContent) || {}; } catch (e) {}
-  const t = (s, p) => { let out = I18N[s] || s; if (p) out = out.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)); return out; };
+  const t = (s, p) => { let out = (Object.hasOwn(I18N, s) && I18N[s]) || s; if (p) out = out.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)); return out; };
   window.zdrsT = t;
   // job status words arrive from the event stream: t("queued") t("running") t("done") t("failed") t("cancelled")
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };

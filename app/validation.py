@@ -39,12 +39,12 @@ def _validate(items: list[str], pattern: re.Pattern[str], label: str) -> list[st
 
 def parse_nmap_targets(text: str) -> list[str]:
     """IPs, CIDRs, nmap ranges (10.0.0.1-20), hostnames, IPv6."""
-    return _validate(_split(text), _NMAP_TARGET_RE, "nmap target")
+    return _validate(_split(text), _NMAP_TARGET_RE, Msg("nmap target"))
 
 
 def parse_nuclei_targets(text: str) -> list[str]:
     """URLs (http/https) or host[:port] entries."""
-    items = _validate(_split(text), _NUCLEI_TARGET_RE, "nuclei target")
+    items = _validate(_split(text), _NUCLEI_TARGET_RE, Msg("nuclei target"))
     for t in items:
         if "://" in t and not (t.startswith("http://") or t.startswith("https://")):
             raise ValueError(Msg("Only http:// and https:// URLs are supported: {t!r}", t=t))
