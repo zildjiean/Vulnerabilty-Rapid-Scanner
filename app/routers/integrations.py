@@ -15,6 +15,7 @@ from ..audit import audit
 from ..authz import require
 from ..db import Delivery, Issue, IssueTicket, NotificationChannel, NotificationRule, Scope, utcnow
 from ..deps import get_db, verify_csrf
+from ..i18n import Msg, flash, tr
 from ..render import render
 
 router = APIRouter()
@@ -44,7 +45,7 @@ def _list(request: Request, db: Session, status_code: int = 200, error: str | No
     channels = list(db.scalars(select(NotificationChannel).order_by(NotificationChannel.name)))
     counts = {(cid, st): n for cid, st, n in db.execute(
         select(Delivery.channel_id, Delivery.status, func.count()).group_by(Delivery.channel_id, Delivery.status))}
-    return render(request, "integrations.html", status_code=status_code, active="integrations", error=error,
+    return render(request, "integrations.html", status_code=status_code, active="integrations", error=tr(request, error) if error else error,
                   channels=channels, counts=counts, form=form or {}, **_common(db))
 
 
@@ -58,7 +59,7 @@ def _get(db: Session, cid: int) -> NotificationChannel:
 def _detail(request: Request, db: Session, c: NotificationChannel, status_code: int = 200, error: str | None = None):
     deliveries = list(db.scalars(select(Delivery).where(Delivery.channel_id == c.id).order_by(Delivery.id.desc()).limit(25)))
     stored = request.app.state.secretbox.decrypt(c.secret)
-    return render(request, "integration_channel.html", status_code=status_code, active="integrations", error=error, c=c,
+    return render(request, "integration_channel.html", status_code=status_code, active="integrations", error=tr(request, error) if error else error, c=c,
                   config=json.loads(c.config or "{}"), stored={k: bool(v) for k, v in stored.items()},
                   deliveries=deliveries, **_common(db))
 
@@ -73,9 +74,9 @@ async def channel_create(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     kind, name = str(form.get("kind", "")), str(form.get("name", "")).strip()
     config, secret = _split_fields(kind, form)
-    err = "Give the channel a name." if not name else ch.validate_channel(kind, config, secret)
+    err = Msg("Give the channel a name.") if not name else ch.validate_channel(kind, config, secret)
     if not err and kind in ("slack", "teams") and not secret.get("webhook_url"):
-        err = "Paste the webhook URL."
+        err = Msg("Paste the webhook URL.")
     if err:
         return _list(request, db, 400, err, {"kind": kind, "name": name})
     c = NotificationChannel(name=name[:128], kind=kind, config=json.dumps(config),
@@ -83,7 +84,7 @@ async def channel_create(request: Request, db: Session = Depends(get_db)):
     db.add(c)
     db.commit()
     audit(db, request, "integration.channel_created", target=c.name, channel_id=c.id, kind=kind)
-    return RedirectResponse(f"/integrations/channels/{c.id}?msg=Channel+created.+Add+a+rule+and+send+a+test.", status_code=303)
+    return RedirectResponse(f"/integrations/channels/{c.id}?msg=" + flash(request, "Channel created. Add a rule and send a test."), status_code=303)
 
 
 @router.get("/integrations/channels/{cid}", dependencies=VIEW)
@@ -98,7 +99,7 @@ async def channel_update(request: Request, cid: int, db: Session = Depends(get_d
     name = str(form.get("name", "")).strip()
     config, secret_updates = _split_fields(c.kind, form)
     merged = request.app.state.secretbox.decrypt(request.app.state.secretbox.merge(c.secret, secret_updates))
-    err = "Give the channel a name." if not name else ch.validate_channel(c.kind, config, merged)
+    err = Msg("Give the channel a name.") if not name else ch.validate_channel(c.kind, config, merged)
     if err:
         return _detail(request, db, c, 400, err)
     c.name, c.config = name[:128], json.dumps(config)
@@ -106,7 +107,7 @@ async def channel_update(request: Request, cid: int, db: Session = Depends(get_d
     db.commit()
     audit(db, request, "integration.channel_updated", target=c.name, channel_id=c.id,
           secrets_changed=sorted(k for k, v in secret_updates.items() if v))
-    return RedirectResponse(f"/integrations/channels/{cid}?msg=Channel+saved", status_code=303)
+    return RedirectResponse(f"/integrations/channels/{cid}?msg=" + flash(request, "Channel saved"), status_code=303)
 
 
 @router.post("/integrations/channels/{cid}/toggle", dependencies=MANAGE)
@@ -115,7 +116,7 @@ def channel_toggle(request: Request, cid: int, db: Session = Depends(get_db)):
     c.enabled = not c.enabled
     db.commit()
     audit(db, request, "integration.channel_toggled", target=c.name, channel_id=c.id, enabled=c.enabled)
-    return RedirectResponse(f"/integrations/channels/{cid}?msg=Channel+{'enabled' if c.enabled else 'paused'}", status_code=303)
+    return RedirectResponse(f"/integrations/channels/{cid}?msg=" + flash(request, "Channel enabled" if c.enabled else "Channel paused"), status_code=303)
 
 
 @router.post("/integrations/channels/{cid}/delete", dependencies=MANAGE)
@@ -127,7 +128,7 @@ def channel_delete(request: Request, cid: int, db: Session = Depends(get_db)):
     db.delete(c)
     db.commit()
     audit(db, request, "integration.channel_deleted", target=name, channel_id=cid)
-    return RedirectResponse("/integrations?msg=Channel+deleted", status_code=303)
+    return RedirectResponse("/integrations?msg=" + flash(request, "Channel deleted"), status_code=303)
 
 
 @router.post("/integrations/channels/{cid}/test", dependencies=MANAGE)
@@ -145,7 +146,7 @@ async def channel_test(request: Request, cid: int, db: Session = Depends(get_db)
     c.last_test_at, c.last_test_ok, c.last_test_message = utcnow(), ok, message[:1000]
     db.commit()
     audit(db, request, "integration.channel_tested", target=c.name, channel_id=c.id, ok=ok)
-    return RedirectResponse(f"/integrations/channels/{cid}?msg=" + ("Test+succeeded" if ok else "Test+failed"), status_code=303)
+    return RedirectResponse(f"/integrations/channels/{cid}?msg=" + flash(request, "Test succeeded" if ok else "Test failed"), status_code=303)
 
 
 @router.post("/integrations/channels/{cid}/rules", dependencies=MANAGE)
@@ -156,11 +157,11 @@ def rule_create(request: Request, cid: int, events: list[str] = Form(default=[])
     chosen = [e for e in events if e in nt.EVENTS]
     err = None
     if not chosen:
-        err = "Pick at least one event."
+        err = Msg("Pick at least one event.")
     elif any(e not in allowed for e in chosen):
-        err = "Jira and GitLab channels open tickets: choose 'New issue' and / or 'Issue reopened'."
+        err = Msg("Jira and GitLab channels open tickets: choose 'New issue' and / or 'Issue reopened'.")
     elif min_severity not in RULE_SEVERITIES:
-        err = "Unknown severity."
+        err = Msg("Unknown severity.")
     scope = db.get(Scope, int(scope_id)) if scope_id.isdigit() else None
     if err:
         return _detail(request, db, c, 400, err)
@@ -170,7 +171,7 @@ def rule_create(request: Request, cid: int, events: list[str] = Form(default=[])
     db.commit()
     audit(db, request, "integration.rule_created", target=c.name, channel_id=c.id, rule_id=rule.id, events=",".join(chosen),
           min_severity=min_severity, scope=scope.name if scope else "")
-    return RedirectResponse(f"/integrations/channels/{cid}?msg=Rule+added", status_code=303)
+    return RedirectResponse(f"/integrations/channels/{cid}?msg=" + flash(request, "Rule added"), status_code=303)
 
 
 def _rule(db: Session, rid: int) -> NotificationRule:
@@ -196,7 +197,7 @@ def rule_delete(request: Request, rid: int, db: Session = Depends(get_db)):
     db.delete(r)
     db.commit()
     audit(db, request, "integration.rule_deleted", target=name, rule_id=rid)
-    return RedirectResponse(f"/integrations/channels/{cid}?msg=Rule+deleted", status_code=303)
+    return RedirectResponse(f"/integrations/channels/{cid}?msg=" + flash(request, "Rule deleted"), status_code=303)
 
 
 @router.get("/integrations/deliveries", dependencies=VIEW)
@@ -216,7 +217,7 @@ async def delivery_retry(request: Request, did: int, db: Session = Depends(get_d
     db.commit()
     ok = await nt.deliver(request.app, did)
     audit(db, request, "integration.delivery_retried", target=d.title[:200], delivery_id=did, ok=ok)
-    return RedirectResponse("/integrations/deliveries?msg=" + ("Delivered" if ok else "Still+failing"), status_code=303)
+    return RedirectResponse("/integrations/deliveries?msg=" + flash(request, "Delivered" if ok else "Still failing"), status_code=303)
 
 
 # ----------------------------------------------------------------- tickets from the issue page
@@ -234,5 +235,6 @@ async def issue_ticket_create(request: Request, iid: int, channel_id: str = Form
     ticket = db.scalar(select(IssueTicket).where(IssueTicket.issue_id == iid, IssueTicket.channel_id == c.id))
     audit(db, request, "issue.ticket_created", target=f"#{iid} {issue.vuln_id} on {issue.asset}", channel=c.name,
           ok=ok, ticket=ticket.key if ticket else "")
-    note = f"Ticket+{ticket.key}+linked" if ok and ticket else "Ticket+not+created:+see+Integrations+%E2%86%92+Delivery+log"
+    note = flash(request, "Ticket {key} linked", key=ticket.key) if ok and ticket \
+        else flash(request, "Ticket not created: see Integrations → Delivery log")
     return RedirectResponse(f"/issues/{iid}?msg={note}", status_code=303)

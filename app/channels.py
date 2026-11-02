@@ -17,6 +17,8 @@ from urllib.parse import quote
 
 import httpx
 
+from .i18n import Msg
+
 KINDS = {"webhook": "Webhook (JSON)", "slack": "Slack", "teams": "Microsoft Teams", "email": "Email",
          "jira": "Jira", "gitlab": "GitLab"}
 TICKET_KINDS = ("jira", "gitlab")
@@ -269,27 +271,27 @@ def _url_ok(u: str) -> bool:
 
 def validate_channel(kind: str, config: dict, secret: dict) -> str | None:
     if kind not in KINDS:
-        return "Unknown channel type."
+        return Msg("Unknown channel type.")
     if kind == "webhook" and not _url_ok(config.get("url", "")):
-        return "Webhook URL must start with http:// or https://."
+        return Msg("Webhook URL must start with http:// or https://.")
     if kind in ("slack", "teams") and secret.get("webhook_url") is not None and not _url_ok(secret.get("webhook_url", "")):
-        return "Webhook URL must start with https://."
+        return Msg("Webhook URL must start with https://.")
     if kind == "email":
         bad = [r for r in parse_recipients(config.get("recipients", "")) if not EMAIL_RE.match(r)]
         if bad:
-            return f"Not an email address: {bad[0]}"
+            return Msg("Not an email address: {addr}", addr=bad[0])
         if not parse_recipients(config.get("recipients", "")) and not config.get("to_assignee"):
-            return "Add at least one recipient email or tick 'also email the assignee'."
+            return Msg("Add at least one recipient email or tick 'also email the assignee'.")
     if kind == "jira":
         if not _url_ok(config.get("base_url", "")):
-            return "Jira URL must start with https://."
+            return Msg("Jira URL must start with https://.")
         if not config.get("email") or not config.get("project_key"):
-            return "Jira needs the account email and the project key."
+            return Msg("Jira needs the account email and the project key.")
     if kind == "gitlab":
         if not _url_ok(config.get("base_url", "")):
-            return "GitLab URL must start with https://."
+            return Msg("GitLab URL must start with https://.")
         if not config.get("project"):
-            return "GitLab needs the project id or path."
+            return Msg("GitLab needs the project id or path.")
     return None
 
 

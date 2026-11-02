@@ -12,6 +12,7 @@ from .ai_redact import Redactor
 from .audit import audit
 from .db import AiNote, AiProvider, AiUsage, Host, Issue
 from .llm import LLMError, LLMRequest, LLMResult
+from .i18n import Msg
 
 
 def default_provider(db: Session) -> AiProvider | None:
@@ -40,7 +41,7 @@ async def generate(request, db: Session, feature: str, system: str, prompt: str,
     app = request.app
     provider = provider or default_provider(db)
     if provider is None:
-        raise LLMError("No AI provider is configured. An admin can add one under Administration → AI.")
+        raise LLMError(Msg("No AI provider is configured. An admin can add one under Administration → AI."))
     config = json.loads(provider.config or "{}")
     secret = app.state.secretbox.decrypt(provider.secret)
     redactor = Redactor(known_hosts(db), enabled=provider.redact)

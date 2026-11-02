@@ -16,6 +16,7 @@ from ..authz import require
 from ..db import AiProvider, AiUsage, utcnow
 from ..deps import get_db, verify_csrf
 from ..llm import DEFAULT_MODELS, GEMINI_BASE_URL, PROVIDER_KINDS, LLMError, validate_provider
+from ..i18n import Msg, flash, tr
 from ..render import render
 
 router = APIRouter()
@@ -51,7 +52,7 @@ def _fields(kind: str, model: str, base_url: str, api_version: str) -> dict:
 def _max_tokens(value: str) -> int:
     n = int(value) if value.strip().isdigit() else 0
     if not 256 <= n <= 128000:
-        raise ValueError("Max output tokens must be between 256 and 128000.")
+        raise ValueError(Msg("Max output tokens must be between 256 and 128000."))
     return n
 
 
@@ -67,13 +68,13 @@ def provider_create(request: Request, name: str = Form(""), kind: str = Form("")
     form = {"name": name, "kind": kind, "model": model, "base_url": base_url, "api_version": api_version,
             "max_tokens": max_tokens, "redact": redact}
     config = _fields(kind, model, base_url, api_version)
-    err = "Give the provider a name." if not name.strip() else validate_provider(kind, config, {"api_key": api_key.strip()})
+    err = Msg("Give the provider a name.") if not name.strip() else validate_provider(kind, config, {"api_key": api_key.strip()})
     try:
         tokens = _max_tokens(max_tokens)
     except ValueError as e:
-        err = err or str(e)
+        err = err or e.args[0]
     if err:
-        return _page(request, db, 400, err, form)
+        return _page(request, db, 400, tr(request, err), form)
     first = db.scalar(select(func.count()).select_from(AiProvider)) == 0
     p = AiProvider(name=name.strip()[:64], kind=kind, config=json.dumps(config), max_tokens=tokens, redact=redact,
                    secret=request.app.state.secretbox.encrypt({"api_key": api_key.strip()}), enabled=True, is_default=first)
@@ -81,7 +82,7 @@ def provider_create(request: Request, name: str = Form(""), kind: str = Form("")
     db.commit()
     ai.refresh_ready(request.app)
     audit(db, request, "ai.provider_created", target=p.name, provider_id=p.id, kind=kind, model=config["model"], redact=redact)
-    return RedirectResponse(f"/ai?msg=Provider+added.+Press+Test+to+check+the+key.#p{p.id}", status_code=303)
+    return RedirectResponse("/ai?msg=" + flash(request, "Provider added. Press Test to check the key.") + f"#p{p.id}", status_code=303)
 
 
 def _get(db: Session, pid: int) -> AiProvider:
@@ -107,8 +108,8 @@ def provider_edit_page(request: Request, pid: int, db: Session = Depends(get_db)
     return _edit_page(request, _get(db, pid))
 
 
-KEPT_KEY_WARNING = (" The API key from the previous provider type was kept; tick Remove stored key if the new provider "
-                    "does not use it.")
+KEPT_KEY_WARNING = Msg(" The API key from the previous provider type was kept; tick Remove stored key if the new "
+                       "provider does not use it.")
 # Settings whose change makes the last connectivity test meaningless.
 _TESTED_FIELDS = {"kind", "model", "base_url", "api_version", "api_key"}
 
@@ -130,13 +131,13 @@ async def provider_update(request: Request, pid: int, name: str = Form(""), kind
         secret["api_key"] = api_key.strip()
     elif remove_key:
         secret.pop("api_key", None)
-    err = "Give the provider a name." if not name.strip() else validate_provider(kind, config, secret)
+    err = Msg("Give the provider a name.") if not name.strip() else validate_provider(kind, config, secret)
     try:
         tokens = _max_tokens(max_tokens)
     except ValueError as e:
-        err = err or str(e)
+        err = err or e.args[0]
     if err:
-        return _edit_page(request, p, 400, err, form)
+        return _edit_page(request, p, 400, tr(request, err), form)
     old_config = json.loads(p.config or "{}")
     old = {"name": p.name, "kind": p.kind, "max_tokens": p.max_tokens, "redact": p.redact,
            "api_key": stored.get("api_key"), **{k: old_config.get(k, "") for k in ("model", "base_url", "api_version")}}
@@ -154,9 +155,9 @@ async def provider_update(request: Request, pid: int, name: str = Form(""), kind
     warning = KEPT_KEY_WARNING if "kind" in changed and secret.get("api_key") and "api_key" not in changed else ""
     if action == "test":
         ok, _ = await _run_test(request, db, p)
-        message = ("Test succeeded." if ok else "Test failed.") + warning
+        message = tr(request, "Test succeeded." if ok else "Test failed.") + (tr(request, warning) if warning else "")
         return RedirectResponse(f"/ai/providers/{pid}?{urlencode({'msg': message})}", status_code=303)
-    return RedirectResponse(f"/ai?{urlencode({'msg': 'Provider saved.' + warning})}#p{pid}", status_code=303)
+    return RedirectResponse(f"/ai?{urlencode({'msg': tr(request, 'Provider saved.') + (tr(request, warning) if warning else '')})}#p{pid}", status_code=303)
 
 
 @router.post("/ai/providers/{pid}/default", dependencies=MANAGE)
@@ -168,7 +169,7 @@ def provider_default(request: Request, pid: int, db: Session = Depends(get_db)):
     db.commit()
     ai.refresh_ready(request.app)
     audit(db, request, "ai.provider_updated", target=p.name, provider_id=p.id, default=True)
-    return RedirectResponse("/ai?msg=Default+provider+changed", status_code=303)
+    return RedirectResponse("/ai?msg=" + flash(request, "Default provider changed"), status_code=303)
 
 
 @router.post("/ai/providers/{pid}/toggle", dependencies=MANAGE)
@@ -194,7 +195,7 @@ def provider_delete(request: Request, pid: int, db: Session = Depends(get_db)):
     db.commit()
     ai.refresh_ready(request.app)
     audit(db, request, "ai.provider_deleted", target=name, provider_id=pid)
-    return RedirectResponse("/ai?msg=Provider+deleted", status_code=303)
+    return RedirectResponse("/ai?msg=" + flash(request, "Provider deleted"), status_code=303)
 
 
 async def _run_test(request: Request, db: Session, p: AiProvider) -> tuple[bool, str]:
@@ -215,4 +216,4 @@ async def _run_test(request: Request, db: Session, p: AiProvider) -> tuple[bool,
 @router.post("/ai/providers/{pid}/test", dependencies=MANAGE)
 async def provider_test(request: Request, pid: int, db: Session = Depends(get_db)):
     ok, _ = await _run_test(request, db, _get(db, pid))
-    return RedirectResponse("/ai?msg=" + ("Test+succeeded" if ok else "Test+failed") + f"#p{pid}", status_code=303)
+    return RedirectResponse("/ai?msg=" + flash(request, "Test succeeded" if ok else "Test failed") + f"#p{pid}", status_code=303)

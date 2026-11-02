@@ -35,14 +35,14 @@ def user_change_error(db: Session, actor: User, target: User, change: str) -> st
     """Why ``actor`` may not apply ``change`` (demote | deactivate | delete | reset) to ``target``; None if allowed."""
     if actor.id == target.id:
         return {
-            "demote": "You cannot change your own role. Ask another administrator.",
-            "deactivate": "You cannot deactivate yourself.",
-            "delete": "You cannot delete yourself.",
-            "reset": "You cannot reset your own password here. Use Profile → Change password.",
+            "demote": Msg("You cannot change your own role. Ask another administrator."),
+            "deactivate": Msg("You cannot deactivate yourself."),
+            "delete": Msg("You cannot delete yourself."),
+            "reset": Msg("You cannot reset your own password here. Use Profile → Change password."),
         }[change]
     if change in ("demote", "deactivate", "delete") and target.role == "admin" and target.is_active \
             and active_admin_count(db) <= 1:
-        return "This is the last active admin. Promote or activate another admin first."
+        return Msg("This is the last active admin. Promote or activate another admin first.")
     return None
 
 
@@ -83,13 +83,13 @@ def user_create(request: Request, username: str = Form(""), display_name: str = 
     form = {"username": username, "display_name": display_name, "email": email, "role": role}
     display_name, email, err = _clean_profile(display_name, email)
     if not USERNAME_RE.match(username):
-        err = "Username must be 2-64 characters: letters, digits, dot, dash, underscore or @, starting with a letter or digit."
+        err = Msg("Username must be 2-64 characters: letters, digits, dot, dash, underscore or @, starting with a letter or digit.")
     elif role not in ROLES:
-        err = "Unknown role."
+        err = Msg("Unknown role.")
     elif db.scalar(select(User).where(func.lower(User.username) == username.lower())) is not None:
-        err = f"A user named '{username}' already exists."
+        err = Msg("A user named '{name}' already exists.", name=username)
     if err:
-        return _list(request, db, status_code=400, error=err, form=form)
+        return _list(request, db, status_code=400, error=tr(request, err), form=form)
     password = temp_password()
     user = User(username=username, display_name=display_name, email=email, role=role,
                 password_hash=hash_password(password), must_change_password=True, is_active=True)
@@ -111,13 +111,13 @@ def user_edit(request: Request, user_id: int, role: str = Form(""), display_name
     target = _get(db, user_id)
     display_name, email, err = _clean_profile(display_name, email)
     if role not in ROLES:
-        err = "Unknown role."
+        err = Msg("Unknown role.")
     elif role != target.role:
         if target.role == "admin" or target.id == request.state.user.id:
             err = err or user_change_error(db, _actor(request, db), target, "demote")
     if err:
         return render(request, "user_form.html", status_code=400, active="users", target=target, roles=ROLES,
-                      role_descriptions=ROLE_DESCRIPTIONS, error=err)
+                      role_descriptions=ROLE_DESCRIPTIONS, error=tr(request, err))
     changes = {k: [getattr(target, k), v] for k, v in (("role", role), ("display_name", display_name), ("email", email))
                if getattr(target, k) != v}
     target.role, target.display_name, target.email = role, display_name, email
@@ -127,7 +127,7 @@ def user_edit(request: Request, user_id: int, role: str = Form(""), display_name
     if changes:
         audit(db, request, "user.updated", target=target.username, user_id=target.id,
               **{k: f"{a} -> {b}" for k, (a, b) in changes.items()})
-    return RedirectResponse(f"/users?msg=Saved+{target.username}", status_code=303)
+    return RedirectResponse("/users?msg=" + flash(request, "Saved {name}", name=target.username), status_code=303)
 
 
 @router.post("/users/{user_id}/active", dependencies=[Depends(verify_csrf)])
@@ -136,16 +136,16 @@ def user_toggle_active(request: Request, user_id: int, db: Session = Depends(get
     if target.is_active:
         err = user_change_error(db, _actor(request, db), target, "deactivate")
         if err:
-            return _list(request, db, status_code=400, error=err)
+            return _list(request, db, status_code=400, error=tr(request, err))
         target.is_active = False
         target.session_version += 1  # sign the user out everywhere
-        action, msg = "user.deactivated", "Deactivated"
+        action, msg = "user.deactivated", "Deactivated {name}"
     else:
         target.is_active = True
-        action, msg = "user.activated", "Activated"
+        action, msg = "user.activated", "Activated {name}"
     db.commit()
     audit(db, request, action, target=target.username, user_id=target.id)
-    return RedirectResponse(f"/users?msg={msg}+{target.username}", status_code=303)
+    return RedirectResponse("/users?msg=" + flash(request, msg, name=target.username), status_code=303)
 
 
 @router.post("/users/{user_id}/reset-password", dependencies=[Depends(verify_csrf)])
@@ -153,7 +153,7 @@ def user_reset_password(request: Request, user_id: int, db: Session = Depends(ge
     target = _get(db, user_id)
     err = user_change_error(db, _actor(request, db), target, "reset")
     if err:
-        return _list(request, db, status_code=400, error=err)
+        return _list(request, db, status_code=400, error=tr(request, err))
     password = temp_password()
     target.password_hash = hash_password(password)
     target.must_change_password = True
@@ -168,9 +168,9 @@ def user_delete(request: Request, user_id: int, db: Session = Depends(get_db)):
     target = _get(db, user_id)
     err = user_change_error(db, _actor(request, db), target, "delete")
     if err:
-        return _list(request, db, status_code=400, error=err)
+        return _list(request, db, status_code=400, error=tr(request, err))
     name = target.username
     db.delete(target)
     db.commit()
     audit(db, request, "user.deleted", target=name, user_id=user_id)
-    return RedirectResponse(f"/users?msg=Deleted+{name}", status_code=303)
+    return RedirectResponse("/users?msg=" + flash(request, "Deleted {name}", name=name), status_code=303)

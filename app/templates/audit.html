@@ -1,26 +1,26 @@
 {% extends "base.html" %}
-{% set section = "Administration" %}
-{% set page_title = "Audit log" %}
-{% set page_subtitle = "Every sign-in and every change made through the scanner, newest first. Times are UTC." %}
-{% block page_actions %}<a class="btn" href="{{ csv_url }}"><svg class="icon"><use href="#i-download"/></svg>Export CSV</a>{% endblock %}
+{% set section = t("Administration") %}
+{% set page_title = t("Audit log") %}
+{% set page_subtitle = t("Every sign-in and every change made through the scanner, newest first. Times are UTC.") %}
+{% block page_actions %}<a class="btn" href="{{ csv_url }}"><svg class="icon"><use href="#i-download"/></svg>{{ t("Export CSV") }}</a>{% endblock %}
 {% block content %}
 <form method="get" action="/audit" class="card mb">
   <div class="card-body row" style="align-items:flex-end">
-    <div class="field" style="min-width:160px"><label for="username">User</label>
-      <select id="username" name="username"><option value="">All users</option>{% for u in usernames %}<option value="{{ u }}" {{ 'selected' if f.username == u }}>{{ u }}</option>{% endfor %}</select></div>
-    <div class="field" style="min-width:190px"><label for="action">Action</label>
-      <select id="action" name="action"><option value="">All actions</option>{% for k, label in action_groups.items() %}<option value="{{ k }}" {{ 'selected' if f.action == k }}>{{ label }}</option>{% endfor %}</select></div>
-    <div class="field"><label for="since">From</label><input id="since" name="since" type="date" value="{{ f.since or '' }}"></div>
-    <div class="field"><label for="until">To</label><input id="until" name="until" type="date" value="{{ f.until or '' }}"></div>
-    <button type="submit"><svg class="icon"><use href="#i-filter"/></svg>Filter</button>
-    <a class="btn ghost" href="/audit">Reset</a>
+    <div class="field" style="min-width:160px"><label for="username">{{ t("User") }}</label>
+      <select id="username" name="username"><option value="">{{ t("All users") }}</option>{% for u in usernames %}<option value="{{ u }}" {{ 'selected' if f.username == u }}>{{ u }}</option>{% endfor %}</select></div>
+    <div class="field" style="min-width:190px"><label for="action">{{ t("Action") }}</label>
+      <select id="action" name="action"><option value="">{{ t("All actions") }}</option>{% for k, label in action_groups.items() %}<option value="{{ k }}" {{ 'selected' if f.action == k }}>{{ t(label) }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="since">{{ t("From") }}</label><input id="since" name="since" type="date" value="{{ f.since or '' }}"></div>
+    <div class="field"><label for="until">{{ t("To") }}</label><input id="until" name="until" type="date" value="{{ f.until or '' }}"></div>
+    <button type="submit"><svg class="icon"><use href="#i-filter"/></svg>{{ t("Filter") }}</button>
+    <a class="btn ghost" href="/audit">{{ t("Reset") }}</a>
   </div>
 </form>
 <div class="card">
-  <div class="table-toolbar"><div class="text-2"><b class="num">{{ total }}</b> event(s){% if pages > 1 %} · page <span class="num">{{ page }}</span> of <span class="num">{{ pages }}</span>{% endif %}</div></div>
+  <div class="table-toolbar"><div class="text-2"><b class="num">{{ total }}</b> {{ t("event(s)") }}{% if pages > 1 %} · {{ t("page") }} <span class="num">{{ page }}</span> {{ t("of") }} <span class="num">{{ pages }}</span>{% endif %}</div></div>
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th>Time (UTC)</th><th>User</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr></thead>
+    <thead><tr><th>{{ t("Time (UTC)") }}</th><th>{{ t("User") }}</th><th>{{ t("Action") }}</th><th>{{ t("Target") }}</th><th>{{ t("Details") }}</th><th>IP</th></tr></thead>
     <tbody>
     {% for a in rows %}
     <tr>
@@ -31,15 +31,15 @@
       <td class="small text-2 audit-details">{{ details_text(a) }}</td>
       <td class="cell-mono small muted">{{ a.ip }}</td>
     </tr>
-    {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-scroll"/></svg><b>No matching events</b>Adjust the filters above.</div></td></tr>{% endfor %}
+    {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><svg class="icon"><use href="#i-scroll"/></svg><b>{{ t("No matching events") }}</b>{{ t("Adjust the filters above.") }}</div></td></tr>{% endfor %}
     </tbody>
   </table>
   </div>
   {% if pages > 1 %}
-  <nav class="pager" aria-label="Audit log pages">
-    {% if page > 1 %}<a class="btn ghost sm" href="{{ page_url(page - 1) }}">Previous</a>{% endif %}
-    <span class="small text-2">Page {{ page }} of {{ pages }}</span>
-    {% if page < pages %}<a class="btn ghost sm" href="{{ page_url(page + 1) }}">Next</a>{% endif %}
+  <nav class="pager" aria-label="{{ t('Audit log pages') }}">
+    {% if page > 1 %}<a class="btn ghost sm" href="{{ page_url(page - 1) }}">{{ t("Previous") }}</a>{% endif %}
+    <span class="small text-2">{{ t("Page {page} of {pages}", page=page, pages=pages) }}</span>
+    {% if page < pages %}<a class="btn ghost sm" href="{{ page_url(page + 1) }}">{{ t("Next") }}</a>{% endif %}
   </nav>
   {% endif %}
 </div>
