@@ -2,43 +2,43 @@
 {% from "_issue_macros.html" import status_badge, confidence_badge, due_cell %}
 {% from "_ai.html" import ai_meta, ai_badge %}
 {% set page_title = issue.title or issue.vuln_id %}
-{% set page_subtitle = issue.vuln_id ~ " on " ~ issue.asset ~ ((" (" ~ issue.hostname ~ ")") if issue.hostname and issue.hostname != issue.address else "") %}
+{% set page_subtitle = issue.vuln_id ~ t(" on ") ~ issue.asset ~ ((" (" ~ issue.hostname ~ ")") if issue.hostname and issue.hostname != issue.address else "") %}
 {% set manage = can('issues.manage') %}
-{% block page_actions %}{% if can('scan.run') and issue.template_id and not issue.verify_job_id and not issue.reverify_job_id and not (manage and issue.status == 'fixed') %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="btn{{ '' if manage else ' primary' }}" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>{% endif %}<a class="btn ghost" href="/reports/issues/{{ issue.id }}" title="Printable evidence report: risk, timeline and the full request/response"><svg class="icon"><use href="#i-file"/></svg>Print proof</a><a class="btn ghost" href="/issues">Back to issues</a>{% endblock %}
+{% block page_actions %}{% if can('scan.run') and issue.template_id and not issue.verify_job_id and not issue.reverify_job_id and not (manage and issue.status == 'fixed') %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="btn{{ '' if manage else ' primary' }}" title="{{ t('Re-run {template} against {asset} and keep the proof', template=issue.template_id, asset=issue.asset) }}"><svg class="icon"><use href="#i-play"/></svg>{{ t("Verify now") }}</button></form>{% endif %}<a class="btn ghost" href="/reports/issues/{{ issue.id }}" title="{{ t('Printable evidence report: risk, timeline and the full request/response') }}"><svg class="icon"><use href="#i-file"/></svg>{{ t("Print proof") }}</a><a class="btn ghost" href="/issues">{{ t("Back to issues") }}</a>{% endblock %}
 {% block content %}
 <div class="issue-head card mb"><div class="card-body row center" style="gap:10px">
-  <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="Changed manually; scans no longer raise it">(manual)</span>{% endif %}
+  <span class="badge sev-{{ issue.severity }}">{{ issue.severity }}</span>{% if issue.severity_overridden %}<span class="small text-2" title="{{ t('Changed manually; scans no longer raise it') }}">{{ t("(manual)") }}</span>{% endif %}
   {{ status_badge(issue.status) }} {{ confidence_badge(issue.confidence, issue) }}
-  {% if issue.status == 'fixed' and issue.reverify_job_id %}<span class="status st-running" title="Re-verification scan"><a href="/jobs/{{ issue.reverify_job_id }}">re-verifying (job #{{ issue.reverify_job_id }})</a></span>
-  {% elif issue.status == 'fixed' and issue.reverify_requested_at %}<span class="status st-queued">{% if reverify.enabled %}re-verify queued{% else %}re-verify paused (Settings){% endif %}</span>{% endif %}
-  {% if issue.verify_job_id %}<span class="status st-running" title="Verification scan"><a href="/jobs/{{ issue.verify_job_id }}">verifying (job #{{ issue.verify_job_id }})</a></span>
-  {% elif issue.verify_result %}<span class="status verify-{{ issue.verify_result }}" title="{{ 'Last verified ' ~ issue.last_verified_at.strftime('%Y-%m-%d %H:%M') ~ ' UTC' if issue.last_verified_at else '' }}"><svg class="icon sm"><use href="#i-play"/></svg>{{ verify_labels.get(issue.verify_result, issue.verify_result) }}</span>{% endif %}
-  {% if issue_is_overdue(issue) %}<span class="due overdue"><svg class="icon sm"><use href="#i-clock"/></svg>Overdue since {{ issue.due_at.strftime('%Y-%m-%d') }}</span>{% endif %}
+  {% if issue.status == 'fixed' and issue.reverify_job_id %}<span class="status st-running" title="{{ t('Re-verification scan') }}"><a href="/jobs/{{ issue.reverify_job_id }}">{{ t("re-verifying (job #{id})", id=issue.reverify_job_id) }}</a></span>
+  {% elif issue.status == 'fixed' and issue.reverify_requested_at %}<span class="status st-queued">{% if reverify.enabled %}{{ t("re-verify queued") }}{% else %}{{ t("re-verify paused (Settings)") }}{% endif %}</span>{% endif %}
+  {% if issue.verify_job_id %}<span class="status st-running" title="{{ t('Verification scan') }}"><a href="/jobs/{{ issue.verify_job_id }}">{{ t("verifying (job #{id})", id=issue.verify_job_id) }}</a></span>
+  {% elif issue.verify_result %}<span class="status verify-{{ issue.verify_result }}" title="{{ t('Last verified {when} UTC', when=issue.last_verified_at.strftime('%Y-%m-%d %H:%M')) if issue.last_verified_at else '' }}"><svg class="icon sm"><use href="#i-play"/></svg>{{ t(verify_labels.get(issue.verify_result, issue.verify_result)) }}</span>{% endif %}
+  {% if issue_is_overdue(issue) %}<span class="due overdue"><svg class="icon sm"><use href="#i-clock"/></svg>{{ t("Overdue since {date}", date=issue.due_at.strftime('%Y-%m-%d')) }}</span>{% endif %}
   <span class="spacer"></span>
-  <span class="small text-2">Owner: <b>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else 'unassigned' }}</b></span>
+  <span class="small text-2">{{ t("Owner:") }} <b>{{ (issue.assignee.display_name or issue.assignee.username) if issue.assignee else t('unassigned') }}</b></span>
 </div></div>
 {% if manage %}
 {% set ns = next_step %}
 {% macro status_form(a, cls='') -%}
-<form method="post" action="/issues/{{ issue.id }}/status" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="{{ a.status }}"><button type="submit"{% if cls %} class="{{ cls }}"{% endif %}><svg class="icon"><use href="#i-{{ 'refresh' if a.label == 'Reopen' else 'check' }}"/></svg>{{ a.label }}</button></form>
+<form method="post" action="/issues/{{ issue.id }}/status" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="status" value="{{ a.status }}"><button type="submit"{% if cls %} class="{{ cls }}"{% endif %}><svg class="icon"><use href="#i-{{ 'refresh' if a.label == 'Reopen' else 'check' }}"/></svg>{{ t(a.label) }}</button></form>
 {%- endmacro %}
 <section class="card next-step" id="next-step" aria-labelledby="next-step-title">
   <div class="card-body next-step-body">
     <div class="next-step-text">
-      <h2 id="next-step-title"><svg class="icon"><use href="#i-flag"/></svg>Next step</h2>
-      <p class="small text-2">{% if issue.status == 'new' %}Check the evidence below, then triage it, or mark it a false positive with a reason.
-        {% elif issue.status == 'triaged' %}Start work when someone picks up the fix.
-        {% elif issue.status == 'in_progress' %}Mark it fixed once the patch or configuration change is in place.
-        {% elif issue.status == 'fixed' %}{% if ns.primary %}Re-run {{ issue.template_id }} against {{ issue.asset }} to prove the fix.{% elif ns.why == 'running' %}A verification scan is running (job #{{ ns.job_id }}). <a href="/jobs/{{ ns.job_id }}">Open the job</a>{% elif ns.why == 'no_scan' %}Ask someone with scan rights to run Verify now.{% else %}The next scan of {{ issue.asset }} confirms the fix.{% endif %}
-        {% else %}Closed as {{ issue_status_labels.get(issue.status, issue.status) }}. Reopen it if the problem comes back.{% endif %}</p>
+      <h2 id="next-step-title"><svg class="icon"><use href="#i-flag"/></svg>{{ t("Next step") }}</h2>
+      <p class="small text-2">{% if issue.status == 'new' %}{{ t("Check the evidence below, then triage it, or mark it a false positive with a reason.") }}
+        {% elif issue.status == 'triaged' %}{{ t("Start work when someone picks up the fix.") }}
+        {% elif issue.status == 'in_progress' %}{{ t("Mark it fixed once the patch or configuration change is in place.") }}
+        {% elif issue.status == 'fixed' %}{% if ns.primary %}{{ t("Re-run {template} against {asset} to prove the fix.", template=issue.template_id, asset=issue.asset) }}{% elif ns.why == 'running' %}{{ t("A verification scan is running (job #{id}).", id=ns.job_id) }} <a href="/jobs/{{ ns.job_id }}">{{ t("Open the job") }}</a>{% elif ns.why == 'no_scan' %}{{ t("Ask someone with scan rights to run Verify now.") }}{% else %}{{ t("The next scan of {asset} confirms the fix.", asset=issue.asset) }}{% endif %}
+        {% else %}{{ t("Closed as {status}. Reopen it if the problem comes back.", status=t(issue_status_labels.get(issue.status, issue.status))) }}{% endif %}</p>
     </div>
     <div class="row center next-step-actions">
       {% if ns.primary and ns.primary.kind == 'status' %}{{ status_form(ns.primary, 'primary') }}
-      {% elif ns.primary and ns.primary.kind == 'verify' %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="primary" title="Re-run {{ issue.template_id }} against {{ issue.asset }} and keep the proof"><svg class="icon"><use href="#i-play"/></svg>Verify now</button></form>
-      {% elif ns.note %}<span class="status st-queued">{{ ns.note }}</span>{% endif %}
+      {% elif ns.primary and ns.primary.kind == 'verify' %}<form method="post" action="/issues/{{ issue.id }}/verify" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="primary" title="{{ t('Re-run {template} against {asset} and keep the proof', template=issue.template_id, asset=issue.asset) }}"><svg class="icon"><use href="#i-play"/></svg>{{ t("Verify now") }}</button></form>
+      {% elif ns.note %}<span class="status st-queued">{{ t(ns.note) }}</span>{% endif %}
       {% for a in ns.secondary %}
-      {% if a.kind == 'assign' %}<form method="post" action="/issues/{{ issue.id }}/assign" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="assignee" value="{{ user.id }}"><button type="submit"><svg class="icon"><use href="#i-user"/></svg>Assign to me</button></form>
-      {% elif a.kind == 'reason' %}<a class="btn ghost" href="/issues/{{ issue.id }}?status={{ a.status }}#change-status">{{ a.label }}</a>{% endif %}
+      {% if a.kind == 'assign' %}<form method="post" action="/issues/{{ issue.id }}/assign" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="assignee" value="{{ user.id }}"><button type="submit"><svg class="icon"><use href="#i-user"/></svg>{{ t("Assign to me") }}</button></form>
+      {% elif a.kind == 'reason' %}<a class="btn ghost" href="/issues/{{ issue.id }}?status={{ a.status }}#change-status">{{ t(a.label) }}</a>{% endif %}
       {% endfor %}
     </div>
   </div>
@@ -47,73 +47,73 @@
 <div class="grid grid-issue">
   <div class="stack">
     <div class="card">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>Details</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-info"/></svg>{{ t("Details") }}</h2></div>
       <div class="card-body">
         <dl class="kv">
-          <dt>Vulnerability</dt><dd class="cell-mono">{{ issue.vuln_id }}{% if issue.cve_id %} · <a href="https://nvd.nist.gov/vuln/detail/{{ issue.cve_id }}" target="_blank" rel="noopener noreferrer">NVD<svg class="icon sm"><use href="#i-external"/></svg></a>{% endif %}</dd>
-          <dt>Asset</dt><dd class="cell-mono">{{ issue.asset }}{% if issue.hostname %} · {{ issue.hostname }}{% endif %} · <a href="/inventory?q={{ issue.address }}">inventory</a></dd>
-          {% if issue.scope %}<dt>Scope</dt><dd><a href="/scopes/{{ issue.scope.id }}">{{ issue.scope.name }}</a> <span class="badge crit-{{ issue.scope.criticality }}">{{ issue.scope.criticality }} criticality</span></dd>{% endif %}
-          {% if campaigns %}<dt>Campaign</dt><dd>{% for cp in campaigns %}<a href="/campaigns/{{ cp.id }}">{{ cp.name }}</a>{{ ', ' if not loop.last }}{% endfor %}</dd>{% endif %}
-          {% if issue.template_id %}<dt>Nuclei template</dt><dd class="cell-mono">{{ issue.template_id }}</dd>{% endif %}
-          {% if rule %}<dt>Version rule</dt><dd><a href="/rules">{{ rule.name }}</a> <span class="cell-mono small text-2">{{ rule.product_pattern }} {{ rule.version_constraint }}</span>{% if not rule.enabled %} <span class="badge neutral">disabled</span>{% endif %}</dd>{% endif %}
-          <dt>First seen</dt><dd class="num">{{ issue.first_seen.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
-          <dt>Last seen</dt><dd class="num">{{ issue.last_seen.strftime('%Y-%m-%d %H:%M') }} UTC · {{ issue.occurrences }} sighting(s)</dd>
-          <dt>Due (SLA)</dt><dd>{% if issue.due_at %}{{ issue.due_at.strftime('%Y-%m-%d %H:%M') }} UTC <span class="text-2 small">({{ sla.get(issue.severity, '—') }} days for {{ issue.severity }})</span>{% else %}<span class="muted">no SLA</span>{% endif %}</dd>
-          {% if issue.resolved_at %}<dt>Resolved</dt><dd class="num">{{ issue.resolved_at.strftime('%Y-%m-%d %H:%M') }} UTC</dd>{% endif %}
+          <dt>{{ t("Vulnerability") }}</dt><dd class="cell-mono">{{ issue.vuln_id }}{% if issue.cve_id %} · <a href="https://nvd.nist.gov/vuln/detail/{{ issue.cve_id }}" target="_blank" rel="noopener noreferrer">NVD<svg class="icon sm"><use href="#i-external"/></svg></a>{% endif %}</dd>
+          <dt>{{ t("Asset") }}</dt><dd class="cell-mono">{{ issue.asset }}{% if issue.hostname %} · {{ issue.hostname }}{% endif %} · <a href="/inventory?q={{ issue.address }}">{{ t("inventory") }}</a></dd>
+          {% if issue.scope %}<dt>{{ t("Scope") }}</dt><dd><a href="/scopes/{{ issue.scope.id }}">{{ issue.scope.name }}</a> <span class="badge crit-{{ issue.scope.criticality }}">{{ t("{level} criticality", level=issue.scope.criticality) }}</span></dd>{% endif %}
+          {% if campaigns %}<dt>{{ t("Campaign") }}</dt><dd>{% for cp in campaigns %}<a href="/campaigns/{{ cp.id }}">{{ cp.name }}</a>{{ ', ' if not loop.last }}{% endfor %}</dd>{% endif %}
+          {% if issue.template_id %}<dt>{{ t("Nuclei template") }}</dt><dd class="cell-mono">{{ issue.template_id }}</dd>{% endif %}
+          {% if rule %}<dt>{{ t("Version rule") }}</dt><dd><a href="/rules">{{ rule.name }}</a> <span class="cell-mono small text-2">{{ rule.product_pattern }} {{ rule.version_constraint }}</span>{% if not rule.enabled %} <span class="badge neutral">{{ t("disabled") }}</span>{% endif %}</dd>{% endif %}
+          <dt>{{ t("First seen") }}</dt><dd class="num">{{ issue.first_seen.strftime('%Y-%m-%d %H:%M') }} UTC</dd>
+          <dt>{{ t("Last seen") }}</dt><dd class="num">{{ issue.last_seen.strftime('%Y-%m-%d %H:%M') }} UTC · {{ t("{n} sighting(s)", n=issue.occurrences) }}</dd>
+          <dt>{{ t("Due (SLA)") }}</dt><dd>{% if issue.due_at %}{{ issue.due_at.strftime('%Y-%m-%d %H:%M') }} UTC <span class="text-2 small">{{ t("({days} days for {severity})", days=sla.get(issue.severity, '—'), severity=issue.severity) }}</span>{% else %}<span class="muted">{{ t("no SLA") }}</span>{% endif %}</dd>
+          {% if issue.resolved_at %}<dt>{{ t("Resolved") }}</dt><dd class="num">{{ issue.resolved_at.strftime('%Y-%m-%d %H:%M') }} UTC</dd>{% endif %}
         </dl>
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>Evidence <span class="chip num">{{ findings|length }}</span></h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>{{ t("Evidence") }} <span class="chip num">{{ findings|length }}</span></h2></div>
       <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Severity</th><th>Matched at</th><th>Job</th><th>Time</th><th>Proof</th></tr></thead>
+        <thead><tr><th>{{ t("Severity") }}</th><th>{{ t("Matched at") }}</th><th>{{ t("Job") }}</th><th>{{ t("Time") }}</th><th>{{ t("Proof") }}</th></tr></thead>
         <tbody>
         {% for fd in findings %}
-        <tr{% if proof and proof.finding_id == fd.id %} class="selected"{% endif %}><td><span class="badge sev-{{ fd.severity }}">{{ fd.severity }}</span></td><td class="cell-mono small"><span class="truncate" title="{{ fd.matched_at }}">{{ fd.matched_at }}</span></td><td><a href="/jobs/{{ fd.job_id }}">Job #{{ fd.job_id }}</a></td><td class="small text-2 num">{{ fd.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/issues/{{ issue.id }}?proof={{ fd.id }}#proof">proof</a></td></tr>
-        {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>No scan evidence yet</b>{% if issue.confidence == 'suspected' %}Suspected from the installed version. Run a <a href="/nuclei">nuclei scan</a> against {{ issue.asset }} to confirm.{% endif %}</div></td></tr>{% endfor %}
+        <tr{% if proof and proof.finding_id == fd.id %} class="selected"{% endif %}><td><span class="badge sev-{{ fd.severity }}">{{ fd.severity }}</span></td><td class="cell-mono small"><span class="truncate" title="{{ fd.matched_at }}">{{ fd.matched_at }}</span></td><td><a href="/jobs/{{ fd.job_id }}">Job #{{ fd.job_id }}</a></td><td class="small text-2 num">{{ fd.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a href="/issues/{{ issue.id }}?proof={{ fd.id }}#proof">{{ t("proof") }}</a></td></tr>
+        {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><svg class="icon"><use href="#i-target"/></svg><b>{{ t("No scan evidence yet") }}</b>{% if issue.confidence == 'suspected' %}{{ t("Suspected from the installed version. Run a") }} <a href="/nuclei">{{ t("nuclei scan") }}</a> {{ t("against {asset} to confirm.", asset=issue.asset) }}{% endif %}</div></td></tr>{% endfor %}
         </tbody>
       </table>
       </div>
     </div>
     {% if proof %}
     <div class="card" id="proof">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Proof <span class="small text-2 cell-mono">{{ proof.template_id }} · <a href="/jobs/{{ proof.job_id }}">job #{{ proof.job_id }}</a>{% if proof.timestamp %}{% set tz = proof.timestamp[19:] %} · {{ proof.timestamp[:19]|replace('T', ' ') }}{{ tz.split('.')[-1].lstrip('0123456789') if '.' in tz else tz }}{% endif %}</span></h2>
-        {% if proof.curl %}<button type="button" class="sm ghost" data-copy="{{ proof.curl }}"><svg class="icon sm"><use href="#i-copy"/></svg>Copy curl</button>{% endif %}</div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>{{ t("Proof") }} <span class="small text-2 cell-mono">{{ proof.template_id }} · <a href="/jobs/{{ proof.job_id }}">job #{{ proof.job_id }}</a>{% if proof.timestamp %}{% set tz = proof.timestamp[19:] %} · {{ proof.timestamp[:19]|replace('T', ' ') }}{{ tz.split('.')[-1].lstrip('0123456789') if '.' in tz else tz }}{% endif %}</span></h2>
+        {% if proof.curl %}<button type="button" class="sm ghost" data-copy="{{ proof.curl }}"><svg class="icon sm"><use href="#i-copy"/></svg>{{ t("Copy curl") }}</button>{% endif %}</div>
       <div class="card-body stack">
         <dl class="kv">
-          <dt>Matched at</dt><dd class="cell-mono">{{ proof.matched_at }}</dd>
-          {% if proof.matcher %}<dt>Matcher</dt><dd class="cell-mono">{{ proof.matcher }}{% if not proof.matcher_status %} <span class="small text-2">(matcher-status false)</span>{% endif %}</dd>{% endif %}
-          {% if proof.extracted %}<dt>Extracted</dt><dd class="cell-mono">{{ proof.extracted|join(', ') }}</dd>{% endif %}
+          <dt>{{ t("Matched at") }}</dt><dd class="cell-mono">{{ proof.matched_at }}</dd>
+          {% if proof.matcher %}<dt>{{ t("Matcher") }}</dt><dd class="cell-mono">{{ proof.matcher }}{% if not proof.matcher_status %} <span class="small text-2">(matcher-status false)</span>{% endif %}</dd>{% endif %}
+          {% if proof.extracted %}<dt>{{ t("Extracted") }}</dt><dd class="cell-mono">{{ proof.extracted|join(', ') }}</dd>{% endif %}
         </dl>
         {% if proof.has_http %}
         {% for label, part in [('Request', proof.request), ('Response', proof.response)] if part %}
         <details class="proof"{{ ' open' if label == 'Request' }}>
-          <summary>{{ label }} <span class="small text-2">({{ (part.text|length) + (part.rest|length) + part.omitted }} chars)</span></summary>
+          <summary>{{ t(label) }} <span class="small text-2">{{ t("({n} chars)", n=(part.text|length) + (part.rest|length) + part.omitted) }}</span></summary>
           <pre class="code proof-text">{{ part.text }}<span class="proof-rest" hidden>{{ part.rest }}</span></pre>
-          {% if part.rest %}<button type="button" class="sm ghost" data-proof-more>Show full {{ label|lower }}</button>{% endif %}
-          {% if part.omitted %}<div class="small text-2">… {{ part.omitted }} more characters not shown</div>{% endif %}
+          {% if part.rest %}<button type="button" class="sm ghost" data-proof-more>{{ t("Show full request") if label == "Request" else t("Show full response") }}</button>{% endif %}
+          {% if part.omitted %}<div class="small text-2">… {{ t("{n} more characters not shown", n=part.omitted) }}</div>{% endif %}
         </details>
         {% endfor %}
-        {% else %}<p class="small text-2">nuclei did not record a request/response for this template type ({{ proof.type or 'unknown' }}); the matched location above is the evidence.</p>{% endif %}
+        {% else %}<p class="small text-2">{{ t("nuclei did not record a request/response for this template type ({type}); the matched location above is the evidence.", type=proof.type or 'unknown') }}</p>{% endif %}
       </div>
     </div>
     {% endif %}
     <div class="card" id="timeline">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Timeline</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Timeline") }}</h2></div>
       <div class="card-body">
         <ol class="timeline">
         {% for e in issue.events|reverse %}
           <li class="ev-{{ e.kind }}">
             <div class="ev-meta"><b>{{ e.username }}</b> <span class="text-2 small num">{{ e.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
             <div class="ev-body">
-              {% if e.kind == 'created' %}Created from {{ e.body }}
-              {% elif e.kind == 'seen' %}Seen again: {{ e.body }}
-              {% elif e.kind == 'confirmed' and 'verified' in (e.from_value, e.to_value) %}Confidence: {{ issue_confidence_labels.get(e.from_value, e.from_value) }} → {{ issue_confidence_labels.get(e.to_value, e.to_value) }} — {{ e.body }}
-              {% elif e.kind == 'confirmed' %}Confirmed by a scan: {{ e.body }}
-              {% elif e.kind in ('status', 'reopened', 'auto_fixed') %}{{ {'reopened': 'Reopened', 'auto_fixed': 'Automatically marked fixed'}.get(e.kind, 'Status') }}: {{ issue_status_labels.get(e.from_value, e.from_value) }} → {{ issue_status_labels.get(e.to_value, e.to_value) }}{% if e.body %}<div class="text-2 small">{{ e.body }}</div>{% endif %}
-              {% elif e.kind == 'assigned' %}{% if e.to_value %}Assigned to {{ e.to_value }}{% else %}Unassigned{% endif %}{% if e.from_value %} <span class="text-2">(was {{ e.from_value }})</span>{% endif %}
-              {% elif e.kind == 'severity' %}Severity {{ e.from_value }} → {{ e.to_value }}{% if e.body %} <span class="text-2 small">({{ e.body }})</span>{% endif %}
+              {% if e.kind == 'created' %}{{ t("Created from") }} {{ e.body }}
+              {% elif e.kind == 'seen' %}{{ t("Seen again:") }} {{ e.body }}
+              {% elif e.kind == 'confirmed' and 'verified' in (e.from_value, e.to_value) %}{{ t("Confidence:") }} {{ t(issue_confidence_labels.get(e.from_value, e.from_value)) }} → {{ t(issue_confidence_labels.get(e.to_value, e.to_value)) }} — {{ e.body }}
+              {% elif e.kind == 'confirmed' %}{{ t("Confirmed by a scan:") }} {{ e.body }}
+              {% elif e.kind in ('status', 'reopened', 'auto_fixed') %}{{ {'reopened': t('Reopened'), 'auto_fixed': t('Automatically marked fixed')}.get(e.kind, t('Status')) }}: {{ t(issue_status_labels.get(e.from_value, e.from_value)) }} → {{ t(issue_status_labels.get(e.to_value, e.to_value)) }}{% if e.body %}<div class="text-2 small">{{ e.body }}</div>{% endif %}
+              {% elif e.kind == 'assigned' %}{% if e.to_value %}{{ t("Assigned to {name}", name=e.to_value) }}{% else %}{{ t("Unassigned") }}{% endif %}{% if e.from_value %} <span class="text-2">{{ t("(was {name})", name=e.from_value) }}</span>{% endif %}
+              {% elif e.kind == 'severity' %}{{ t("Severity") }} {{ e.from_value }} → {{ e.to_value }}{% if e.body %} <span class="text-2 small">({{ e.body }})</span>{% endif %}
               {% elif e.kind == 'comment' %}<div class="comment">{{ e.body }}</div>
               {% elif e.kind in ('ticket', 'reverify', 'verify') %}{{ e.body }}
               {% else %}{{ e.kind }} {{ e.body }}{% endif %}
@@ -124,8 +124,8 @@
         {% if manage %}
         <form method="post" action="/issues/{{ issue.id }}/comment" class="stack" style="margin-top:12px">
           <input type="hidden" name="csrf" value="{{ csrf }}">
-          <div class="field"><label for="body">Add a comment</label><textarea id="body" name="body" rows="3" required maxlength="5000" placeholder="What did you check, who owns the fix, which patch applies…"></textarea></div>
-          <div><button type="submit"><svg class="icon"><use href="#i-plus"/></svg>Comment</button></div>
+          <div class="field"><label for="body">{{ t("Add a comment") }}</label><textarea id="body" name="body" rows="3" required maxlength="5000" placeholder="{{ t('What did you check, who owns the fix, which patch applies…') }}"></textarea></div>
+          <div><button type="submit"><svg class="icon"><use href="#i-plus"/></svg>{{ t("Comment") }}</button></div>
         </form>
         {% endif %}
       </div>
@@ -133,105 +133,105 @@
   </div>
   <div class="stack">
     <div class="card" id="risk">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Risk</h2>{% if risk.intel_updated %}<span class="small text-2">Intel updated {{ risk.intel_updated.strftime('%Y-%m-%d %H:%M') }} UTC</span>{% endif %}</div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>{{ t("Risk") }}</h2>{% if risk.intel_updated %}<span class="small text-2">{{ t("Intel updated {when} UTC", when=risk.intel_updated.strftime('%Y-%m-%d %H:%M')) }}</span>{% endif %}</div>
       <div class="card-body stack">
-        <div class="risk-head"><span class="risk-big risk-{{ risk.band }}">{{ risk.total }}</span><span class="badge risk risk-{{ risk.band }}">{{ risk.band }}</span><span class="small text-2">of 100</span></div>
-        <table class="risk-parts" aria-label="Risk score breakdown"><tbody>
-          {% for label, points, detail in risk.parts %}<tr><td>{{ label }}<div class="small text-2">{{ detail }}</div></td><td class="num">+{{ points }}</td></tr>{% endfor %}
+        <div class="risk-head"><span class="risk-big risk-{{ risk.band }}">{{ risk.total }}</span><span class="badge risk risk-{{ risk.band }}">{{ risk.band }}</span><span class="small text-2">{{ t("of 100") }}</span></div>
+        <table class="risk-parts" aria-label="{{ t('Risk score breakdown') }}"><tbody>
+          {% for label, points, detail in risk.parts %}<tr><td>{{ label }}<div class="small text-2">{{ t(detail) }}</div></td><td class="num">+{{ points }}</td></tr>{% endfor %}
         </tbody></table>
         <dl class="kv">
-          <dt>EPSS</dt><dd>{% if risk.epss is not none %}<span class="num">{{ risk.epss_text }}</span>{% if risk.epss_top %} <span class="text-2">({{ risk.epss_top }})</span>{% endif %}{% if risk.epss_date %}<div class="small text-2">FIRST score of {{ risk.epss_date }}</div>{% endif %}{% else %}<span class="muted">{{ 'not scored yet' if issue.cve_id else 'no CVE' }}</span>{% endif %}</dd>
-          <dt>CISA KEV</dt><dd>{% if risk.kev %}<span class="badge kev" title="Listed in the CISA Known Exploited Vulnerabilities catalog"><svg class="icon sm"><use href="#i-alert"/></svg>Known exploited</span>{% if risk.kev_ransomware %} <span class="badge sev-critical">Used by ransomware</span>{% endif %}{% if risk.kev_due %}<div class="small text-2">federal due date {{ risk.kev_due }}</div>{% endif %}{% else %}<span class="muted">not listed</span>{% endif %}</dd>
+          <dt>EPSS</dt><dd>{% if risk.epss is not none %}<span class="num">{{ risk.epss_text }}</span>{% if risk.epss_top %} <span class="text-2">({{ risk.epss_top }})</span>{% endif %}{% if risk.epss_date %}<div class="small text-2">{{ t("FIRST score of {date}", date=risk.epss_date) }}</div>{% endif %}{% else %}<span class="muted">{{ t('not scored yet') if issue.cve_id else t('no CVE') }}</span>{% endif %}</dd>
+          <dt>CISA KEV</dt><dd>{% if risk.kev %}<span class="badge kev" title="{{ t('Listed in the CISA Known Exploited Vulnerabilities catalog') }}"><svg class="icon sm"><use href="#i-alert"/></svg>{{ t("Known exploited") }}</span>{% if risk.kev_ransomware %} <span class="badge sev-critical">{{ t("Used by ransomware") }}</span>{% endif %}{% if risk.kev_due %}<div class="small text-2">{{ t("federal due date {date}", date=risk.kev_due) }}</div>{% endif %}{% else %}<span class="muted">{{ t("not listed") }}</span>{% endif %}</dd>
         </dl>
-        {% if issue.cve_id and not risk.intel_updated %}<p class="small text-2">Intel for {{ issue.cve_id }} has not been fetched yet; it refreshes hourly{% if can('settings.manage') %} or from <a href="/settings#intel">Settings</a>{% endif %}.</p>{% endif %}
+        {% if issue.cve_id and not risk.intel_updated %}<p class="small text-2">{{ t("Intel for {cve} has not been fetched yet; it refreshes hourly", cve=issue.cve_id) }}{% if can('settings.manage') %} {{ t("or from") }} <a href="/settings#intel">{{ t("Settings") }}</a>{% endif %}.</p>{% endif %}
       </div>
     </div>
-    {% if not manage %}<div class="alert info" role="note"><svg class="icon"><use href="#i-info"/></svg><div>Read-only: your <b>{{ role_labels.get(user.role, user.role) }}</b> role cannot triage issues.</div></div>{% endif %}
+    {% if not manage %}<div class="alert info" role="note"><svg class="icon"><use href="#i-info"/></svg><div>{{ t("Read-only: your") }} <b>{{ t(role_labels.get(user.role, user.role)) }}</b> {{ t("role cannot triage issues.") }}</div></div>{% endif %}
     {% set show_verify = not issue.template_id and can('scan.run') %}
     {% set show_ai = ai_ready or ai_explain or ai_triage %}
     {% set show_tickets = tickets or (manage and ticket_channels) %}
-    {% set more_parts = (['status', 'owner', 'severity'] if manage else []) + (['tickets'] if show_tickets else []) + (['AI'] if show_ai else []) + (['verification template'] if show_verify else []) %}
+    {% set more_parts = ([t('status'), t('owner'), t('severity')] if manage else []) + ([t('tickets')] if show_tickets else []) + (['AI'] if show_ai else []) + ([t('verification template')] if show_verify else []) %}
     {% set more_body %}
     {% if manage %}
     <form method="post" action="/issues/{{ issue.id }}/status" class="card" id="change-status" data-loading>
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>Change status</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-check-circle"/></svg>{{ t("Change status") }}</h2></div>
       <div class="card-body stack">
         {% if transitions %}
-        <div class="field"><label for="status">Move to</label><select id="status" name="status">{% for t in transitions %}<option value="{{ t }}"{{ ' selected' if t == prefill_status }}>{{ issue_status_labels[t] }}{{ ' (reason required)' if t in needs_reason }}</option>{% endfor %}</select></div>
-        <div class="field"><label for="comment">Comment</label><textarea id="comment" name="comment" rows="3" placeholder="Required for False positive and Accepted risk"{{ ' autofocus' if prefill_status in needs_reason }}></textarea></div>
-        <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Update status</button></div>
+        <div class="field"><label for="status">{{ t("Move to") }}</label><select id="status" name="status">{% for st in transitions %}<option value="{{ st }}"{{ ' selected' if st == prefill_status }}>{{ t(issue_status_labels[st]) }}{{ t(' (reason required)') if st in needs_reason }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="comment">{{ t("Comment") }}</label><textarea id="comment" name="comment" rows="3" placeholder="{{ t('Required for False positive and Accepted risk') }}"{{ ' autofocus' if prefill_status in needs_reason }}></textarea></div>
+        <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>{{ t("Update status") }}</button></div>
         {% endif %}
       </div>
     </form>
     <form method="post" action="/issues/{{ issue.id }}/assign" class="card">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>Assignee</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-user"/></svg>{{ t("Assignee") }}</h2></div>
       <div class="card-body row" style="align-items:flex-end">
-        <div class="field" style="flex:1"><label for="assignee">Owner</label><select id="assignee" name="assignee"><option value="">Unassigned</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if issue.assignee_id == u.id }}>{{ u.display_name or u.username }}{{ ' (you)' if u.id == user.id }}</option>{% endfor %}</select></div>
-        <button type="submit">Save</button>
+        <div class="field" style="flex:1"><label for="assignee">{{ t("Owner") }}</label><select id="assignee" name="assignee"><option value="">{{ t("Unassigned") }}</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if issue.assignee_id == u.id }}>{{ u.display_name or u.username }}{{ t(' (you)') if u.id == user.id }}</option>{% endfor %}</select></div>
+        <button type="submit">{{ t("Save") }}</button>
       </div>
     </form>
     <form method="post" action="/issues/{{ issue.id }}/severity" class="card">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>Severity</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-alert"/></svg>{{ t("Severity") }}</h2></div>
       <div class="card-body row" style="align-items:flex-end">
-        <div class="field" style="flex:1"><label for="severity">Severity</label><select id="severity" name="severity">{% for s in issue_severities %}<option value="{{ s }}" {{ 'selected' if issue.severity == s }}>{{ s }}</option>{% endfor %}</select><span class="hint">A manual change stops scans from raising it and recalculates the due date.</span></div>
-        <button type="submit">Save</button>
+        <div class="field" style="flex:1"><label for="severity">{{ t("Severity") }}</label><select id="severity" name="severity">{% for s in issue_severities %}<option value="{{ s }}" {{ 'selected' if issue.severity == s }}>{{ s }}</option>{% endfor %}</select><span class="hint">{{ t("A manual change stops scans from raising it and recalculates the due date.") }}</span></div>
+        <button type="submit">{{ t("Save") }}</button>
       </div>
     </form>
     {% endif %}
     {% if show_verify %}
     <div class="card" id="verify">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Verification template</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>{{ t("Verification template") }}</h2></div>
       <div class="card-body stack">
-        <p class="small text-2">This issue comes from a version rule, so there is no nuclei template to run yet. Pick one from the library{% if ai_ready and can('templates.manage') %} or let the AI draft a detection check{% endif %}; <b>Verify now</b> then re-runs it against {{ issue.asset }} and keeps the proof.</p>
-        {% if verify_refusal %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div><b>The configured AI model declined this request</b> ({{ verify_refusal }}). Writing a verification template for your own assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model under <a href="/ai">System → AI</a> to one that supports authorized security testing, then try again.</div></div>{% endif %}
+        <p class="small text-2">{{ t("This issue comes from a version rule, so there is no nuclei template to run yet. Pick one from the library") }}{% if ai_ready and can('templates.manage') %}{{ t(" or let the AI draft a detection check") }}{% endif %}; <b>{{ t("Verify now") }}</b> {{ t("then re-runs it against {asset} and keeps the proof.", asset=issue.asset) }}</p>
+        {% if verify_refusal %}<div class="alert error" role="alert"><svg class="icon"><use href="#i-alert-circle"/></svg><div><b>{{ t("The configured AI model declined this request") }}</b> ({{ verify_refusal }}). {{ t("Writing a verification template for your own assets is a legitimate security-testing task, but some models refuse it. Switch the default provider or model under") }} <a href="/ai">{{ t("System → AI") }}</a> {{ t("to one that supports authorized security testing, then try again.") }}</div></div>{% endif %}
         {% if verify_draft %}
         <form method="post" action="/issues/{{ issue.id }}/template/save-run" class="stack" data-loading>
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <div class="row center" style="gap:8px">{% if verify_draft.provider %}{{ ai_badge() }}{% endif %}<span class="status {{ 'st-done' if verify_draft.ok else 'st-failed' }}">{{ verify_draft.message }}</span></div>
           {% if verify_draft.notes %}<p class="small text-2">{{ verify_draft.notes }}</p>{% endif %}
-          <div class="field"><label for="verify-yaml">Review and edit before running{% if verify_draft.provider %} (drafted by {{ verify_draft.provider }} · {{ verify_draft.model }}){% endif %}</label>
+          <div class="field"><label for="verify-yaml">{{ t("Review and edit before running") }}{% if verify_draft.provider %} {{ t("(drafted by {provider} · {model})", provider=verify_draft.provider, model=verify_draft.model) }}{% endif %}</label>
             <textarea id="verify-yaml" name="yaml" rows="16" class="code-input" spellcheck="false">{{ verify_draft.yaml }}</textarea></div>
-          <div><button type="submit" class="primary"><svg class="icon"><use href="#i-play"/></svg>Save &amp; run as proof</button></div>
+          <div><button type="submit" class="primary"><svg class="icon"><use href="#i-play"/></svg>{{ t("Save & run as proof") }}</button></div>
         </form>
         {% endif %}
         {% if can('issues.manage') %}
         <form method="post" action="/issues/{{ issue.id }}/template" class="stack" id="verify-search">
           <input type="hidden" name="csrf" value="{{ csrf }}">
-          <div class="field"><label for="verify-q">Use an existing template</label><input id="verify-q" type="search" placeholder="Search the template index: CVE id, product, keyword" autocomplete="off"></div>
+          <div class="field"><label for="verify-q">{{ t("Use an existing template") }}</label><input id="verify-q" type="search" placeholder="{{ t('Search the template index: CVE id, product, keyword') }}" autocomplete="off"></div>
           <div id="verify-results" class="stack" aria-live="polite"></div>
-          <div><button type="submit"><svg class="icon"><use href="#i-link"/></svg>Link template</button></div>
+          <div><button type="submit"><svg class="icon"><use href="#i-link"/></svg>{{ t("Link template") }}</button></div>
         </form>
         {% endif %}
         {% if ai_ready and can('templates.manage') %}
-        <form method="post" action="/ai/issues/{{ issue.id }}/template-draft" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>Draft verification template with AI</button></form>
+        <form method="post" action="/ai/issues/{{ issue.id }}/template-draft" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-spark"/></svg>{{ t("Draft verification template with AI") }}</button></form>
         {% endif %}
       </div>
     </div>
     {% endif %}
     {% if show_ai %}
     <div class="card" id="ai">
-      <div class="card-head"><h2>{{ ai_badge() }} AI assistant</h2></div>
+      <div class="card-head"><h2>{{ ai_badge() }} {{ t("AI assistant") }}</h2></div>
       <div class="card-body stack">
         {% if ai_ready %}
         <div class="row">
-          <form method="post" action="/ai/issues/{{ issue.id }}/explain" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>Explain &amp; remediate</button></form>
-          {% if has_evidence %}<form method="post" action="/ai/issues/{{ issue.id }}/triage" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-search"/></svg>Triage evidence</button></form>{% endif %}
+          <form method="post" action="/ai/issues/{{ issue.id }}/explain" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>{{ t("Explain & remediate") }}</button></form>
+          {% if has_evidence %}<form method="post" action="/ai/issues/{{ issue.id }}/triage" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-search"/></svg>{{ t("Triage evidence") }}</button></form>{% endif %}
         </div>
         {% endif %}
-        {% if ai_triage %}{% set t = ai_triage.data|fromjson %}
+        {% if ai_triage %}{% set tri = ai_triage.data|fromjson %}
         <div class="ai-out">
-          <div class="row center" style="gap:8px"><span class="badge triage-{{ t.verdict }}">{{ triage_labels.get(t.verdict, t.verdict) }}</span><span class="small text-2">confidence {{ t.confidence }}%</span></div>
-          <p class="small" style="margin:6px 0">{{ t.reasoning }}</p>
-          {% if t.checks %}<ul class="small">{% for c in t.checks %}<li>{{ c }}</li>{% endfor %}</ul>{% endif %}
+          <div class="row center" style="gap:8px"><span class="badge triage-{{ tri.verdict }}">{{ t(triage_labels.get(tri.verdict, tri.verdict)) }}</span><span class="small text-2">{{ t("confidence {n}%", n=tri.confidence) }}</span></div>
+          <p class="small" style="margin:6px 0">{{ tri.reasoning }}</p>
+          {% if tri.checks %}<ul class="small">{% for c in tri.checks %}<li>{{ c }}</li>{% endfor %}</ul>{% endif %}
           {{ ai_meta(ai_triage) }}
         </div>
         {% endif %}
         {% if ai_explain %}
         <div class="ai-out md">{{ ai_explain.content|mdlite }}{{ ai_meta(ai_explain) }}
-          {% if can('issues.manage') %}<form method="post" action="/ai/issues/{{ issue.id }}/explain/comment"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost sm"><svg class="icon sm"><use href="#i-plus"/></svg>Add to timeline</button></form>{% endif %}
+          {% if can('issues.manage') %}<form method="post" action="/ai/issues/{{ issue.id }}/explain/comment"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost sm"><svg class="icon sm"><use href="#i-plus"/></svg>{{ t("Add to timeline") }}</button></form>{% endif %}
         </div>
         {% endif %}
       </div>
@@ -239,11 +239,11 @@
     {% endif %}
     {% if show_tickets %}
     <div class="card">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>Tickets</h2></div>
+      <div class="card-head"><h2><svg class="icon"><use href="#i-link"/></svg>{{ t("Tickets") }}</h2></div>
       <div class="card-body stack">
-        {% for t in tickets %}<div class="row center between list-row"><a href="{{ t.url }}" target="_blank" rel="noopener noreferrer" class="cell-mono">{{ t.key }}<svg class="icon sm"><use href="#i-external"/></svg></a><span class="small text-2">{{ t.channel.name }} · <span class="status {{ 'st-running' if t.state == 'open' else 'st-done' }}">{{ t.state }}</span></span></div>{% endfor %}
+        {% for tk in tickets %}<div class="row center between list-row"><a href="{{ tk.url }}" target="_blank" rel="noopener noreferrer" class="cell-mono">{{ tk.key }}<svg class="icon sm"><use href="#i-external"/></svg></a><span class="small text-2">{{ tk.channel.name }} · <span class="status {{ 'st-running' if tk.state == 'open' else 'st-done' }}">{{ tk.state }}</span></span></div>{% endfor %}
         {% if manage %}{% set linked = tickets|map(attribute='channel_id')|list %}{% for c in ticket_channels if c.id not in linked %}
-        <form method="post" action="/issues/{{ issue.id }}/tickets" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="channel_id" value="{{ c.id }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-plus"/></svg>Create ticket in {{ c.name }}</button></form>
+        <form method="post" action="/issues/{{ issue.id }}/tickets" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="channel_id" value="{{ c.id }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-plus"/></svg>{{ t("Create ticket in {name}", name=c.name) }}</button></form>
         {% endfor %}{% endif %}
       </div>
     </div>
@@ -251,7 +251,7 @@
     {% endset %}
     {% if manage %}
     <details class="more-actions" id="more-actions"{{ ' open' if (error or prefill_status or verify_draft or verify_refusal or open_more) }}>
-      <summary><svg class="icon"><use href="#i-sliders"/></svg><span>More actions</span><span class="small text-2">{{ more_parts|join(', ') }}</span></summary>
+      <summary><svg class="icon"><use href="#i-sliders"/></svg><span>{{ t("More actions") }}</span><span class="small text-2">{{ more_parts|join(', ') }}</span></summary>
       <div class="stack more-actions-body">{{ more_body }}</div>
     </details><!-- /more-actions -->
     {% elif more_parts %}{{ more_body }}{% endif %}

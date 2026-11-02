@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .i18n import Msg
 from .db import Finding, Issue, IssueEvent, Job, TemplateIndex, utcnow
 
 log = logging.getLogger(__name__)
@@ -69,10 +70,10 @@ def start_verify(db: Session, app, issue: Issue, actor) -> Job:
     from .routers.nuclei import launch_nuclei
     from .scanners.nuclei_runner import PROFILES
     if not issue.template_id:
-        raise VerifyError("This issue has no nuclei template yet. Link one or draft it with the AI first.")
+        raise VerifyError(Msg("This issue has no nuclei template yet. Link one or draft it with the AI first."))
     path = db.scalar(select(TemplateIndex.path).where(TemplateIndex.template_id == issue.template_id).limit(1))
     if path is None:
-        raise VerifyError(f"Template {issue.template_id} is not in the template index. Reindex templates or pick another template.")
+        raise VerifyError(Msg("Template {tid} is not in the template index. Reindex templates or pick another template.", tid=issue.template_id))
     target = issue_target(db, issue)
     prof = PROFILES["normal"]
     params = {"targets": [target], "template_ids": [issue.template_id], "mode": "selected", "profile": "normal",
@@ -81,7 +82,7 @@ def start_verify(db: Session, app, issue: Issue, actor) -> Job:
         job = launch_nuclei(db, app.state.settings, app.state.job_runner, [target], [path], params,
                             rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
     except ValueError as e:  # e.g. the target list could not be written; the job is already marked failed
-        raise VerifyError(f"The verification scan could not start: {e}") from e
+        raise VerifyError(Msg("The verification scan could not start: {error}", error=str(e))) from e
     issue.verify_job_id = job.id
     _event(db, issue, f"Verification scan started: job #{job.id} against {target}.", actor)
     db.commit()
@@ -99,10 +100,12 @@ class BulkResult:
     issues: int = 0
     skipped: dict[str, int] = field(default_factory=dict)
 
-    def summary(self) -> str:
-        text = f"Started {len(self.jobs)} job(s) for {self.issues} issue(s)"
-        parts = [f"{n} ({SKIP_LABELS[k]})" for k, n in self.skipped.items() if n]
-        return text + ("; skipped " + ", ".join(parts) if parts else "") + "."
+    def summary(self, tr=None) -> str:
+        """English, or translated with ``tr(text, **params)`` (e.g. ``lambda s, **p: i18n.tr(request, s, **p)``)."""
+        tr = tr or (lambda s, **p: s.format(**p) if p else s)
+        text = tr("Started {jobs} job(s) for {issues} issue(s)", jobs=len(self.jobs), issues=self.issues)
+        parts = [f"{n} ({tr(SKIP_LABELS[k])})" for k, n in self.skipped.items() if n]
+        return text + (tr("; skipped ") + ", ".join(parts) if parts else "") + "."
 
 
 def start_verify_many(db: Session, app, issues: list[Issue], actor) -> BulkResult:

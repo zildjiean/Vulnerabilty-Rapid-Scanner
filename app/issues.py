@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .i18n import Msg
 from .db import AppSetting, Finding, Host, Issue, IssueEvent, Job, Rule, RuleMatch, Service, utcnow
 from .render import SEVERITY_ORDER, normalize_severity
 
@@ -118,9 +119,9 @@ def set_sla(db: Session, values: dict) -> dict[str, int]:
         try:
             days = int(values.get(sev))
         except (TypeError, ValueError):
-            raise ValueError(f"{sev.capitalize()} SLA must be a whole number of days.")
+            raise ValueError(Msg("{sev} SLA must be a whole number of days.", sev=sev.capitalize()))
         if not 1 <= days <= 3650:
-            raise ValueError(f"{sev.capitalize()} SLA must be between 1 and 3650 days.")
+            raise ValueError(Msg("{sev} SLA must be between 1 and 3650 days.", sev=sev.capitalize()))
         sla[sev] = days
     row = db.get(AppSetting, SLA_KEY) or AppSetting(key=SLA_KEY)
     row.value = json.dumps(sla)
@@ -408,12 +409,12 @@ def next_actions(issue, user_id, can_scan: bool) -> dict:
 
 def change_status(db: Session, issue: Issue, new: str, actor, comment: str = "") -> None:
     if new not in STATUSES:
-        raise ValueError("Unknown status.")
+        raise ValueError(Msg("Unknown status."))
     if new not in TRANSITIONS.get(issue.status, []):
-        raise ValueError(f"Cannot move an issue from {STATUS_LABELS[issue.status]} to {STATUS_LABELS[new]}.")
+        raise ValueError(Msg("Cannot move an issue from {old} to {new}.", old=STATUS_LABELS[issue.status], new=STATUS_LABELS[new]))
     comment = (comment or "").strip()
     if new in NEEDS_REASON and not comment:
-        raise ValueError(f"{STATUS_LABELS[new]} needs a reason in the comment.")
+        raise ValueError(Msg("{status} needs a reason in the comment.", status=STATUS_LABELS[new]))
     _set_status(db, issue, new, actor)
     if comment:
         _event(db, issue, "comment", actor, body=comment)
@@ -433,7 +434,7 @@ def assign(db: Session, issue: Issue, user, actor) -> None:
 
 def set_severity(db: Session, issue: Issue, severity: str, actor) -> None:
     if severity not in ISSUE_SEVERITIES:
-        raise ValueError("Unknown severity.")
+        raise ValueError(Msg("Unknown severity."))
     old = issue.severity
     issue.severity = severity
     issue.severity_overridden = True
@@ -445,6 +446,6 @@ def set_severity(db: Session, issue: Issue, severity: str, actor) -> None:
 def add_comment(db: Session, issue: Issue, body: str, actor) -> None:
     body = (body or "").strip()
     if not body:
-        raise ValueError("Comment is empty.")
+        raise ValueError(Msg("Comment is empty."))
     _event(db, issue, "comment", actor, body=body[:5000])
     db.flush()
