@@ -55,24 +55,36 @@ def launch_nuclei(db: Session, settings, runner, target_list: list[str], paths: 
                   rate_limit: int, timeout: int, extra_flags: list[str], tags: list[str] | None = None,
                   severities: list[str] | None = None, campaign_id: int | None = None,
                   schedule_id: int | None = None) -> Job:
-    """Create and start a nuclei job. Inputs must already be validated."""
+    """Create and start a nuclei job. Inputs must already be validated. Anything that goes wrong after the job row
+    exists marks it failed (never left queued); a target file that cannot be written raises ValueError."""
     job = runner.create_job(db, "nuclei", [settings.nuclei_bin], params=params)
-    job.campaign_id = campaign_id
-    job.schedule_id = schedule_id
     try:
-        targets_file = write_targets_file(settings, job.id, target_list)
-    except OSError as e:
-        job.status, job.finished_at = "failed", utcnow()
-        job.log = f"[nuclei] could not write the target list: {e.strerror or type(e).__name__}"
+        job.campaign_id = campaign_id
+        job.schedule_id = schedule_id
+        try:
+            targets_file = write_targets_file(settings, job.id, target_list)
+        except OSError as e:
+            raise ValueError(f"Could not write the target list: {e.strerror or type(e).__name__} "
+                             f"(job #{job.id} was marked failed).") from e
+        argv = build_nuclei_argv(settings.nuclei_bin, paths, str(targets_file), str(settings.nuclei_templates_dir),
+                                 rate_limit=max(1, min(rate_limit, 1000)), timeout=max(1, min(timeout, 120)),
+                                 tags=tags or [], severities=severities or [], extra=extra_flags)
+        job.command = quote_argv(argv)
         db.commit()
-        raise ValueError(f"Could not write the target list (job #{job.id} was marked failed).")
-    argv = build_nuclei_argv(settings.nuclei_bin, paths, str(targets_file), str(settings.nuclei_templates_dir),
-                             rate_limit=max(1, min(rate_limit, 1000)), timeout=max(1, min(timeout, 120)),
-                             tags=tags or [], severities=severities or [], extra=extra_flags)
-    job.command = quote_argv(argv)
-    db.commit()
-    runner.start(job.id, argv, on_complete=on_nuclei_complete, stdout_to_log=True)
+        runner.start(job.id, argv, on_complete=on_nuclei_complete, stdout_to_log=True)
+    except Exception as e:
+        _fail_job(db, job, e)
+        raise
     return job
+
+
+def _fail_job(db: Session, job: Job, error: Exception) -> None:
+    try:
+        job.status, job.finished_at = "failed", utcnow()
+        job.log = f"[nuclei] the scan could not start: {error}"
+        db.commit()
+    except Exception:  # noqa: BLE001 - the original error is what the caller must see
+        db.rollback()
 
 
 def advanced_changed(template_paths, mode, groups, tags, severities, profile, rate_limit, timeout, no_mhe) -> bool:

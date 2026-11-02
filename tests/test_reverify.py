@@ -210,3 +210,23 @@ def test_request_is_set_for_verified_fixed_issues(env):
         db.commit()
     set_status(env, a, "fixed")
     assert get(env, a).reverify_requested_at is not None
+
+
+def test_target_file_failure_clears_the_request_with_a_note(env, monkeypatch):
+    from app.routers import nuclei as nuclei_router
+
+    def full(*a, **kw):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(nuclei_router, "write_targets_file", full)
+    seed(env, SPECS)
+    a = ids_for(env, "192.168.1.10")
+    set_status(env, a, "fixed", back_minutes=16)
+    assert env.portal.call(rv.run_reverify, env.app) == []
+    issue = get(env, a)
+    assert issue.status == "fixed" and issue.reverify_requested_at is None and issue.reverify_job_id is None
+    assert any("could not start" in body for _, body in events(env, a))
+    with env.app.state.SessionLocal() as db:
+        assert [j.status for j in db.scalars(select(Job).where(Job.status != "done"))] == ["failed"]
+    assert env.portal.call(rv.run_reverify, env.app) == []  # not retried every loop
+    with env.app.state.SessionLocal() as db:
+        assert len(list(db.scalars(select(Job).where(Job.status != "done")))) == 1

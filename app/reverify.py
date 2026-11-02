@@ -91,8 +91,14 @@ async def run_reverify(app, now=None) -> list[int]:
                     targets.append(t)
             params = {"targets": targets, "template_ids": [issues[0].template_id], "mode": "selected",
                       "profile": "normal", "reverify": [i.id for i in issues]}
-            job = launch_nuclei(db, app.state.settings, app.state.job_runner, targets, [path], params,
-                                rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
+            try:
+                job = launch_nuclei(db, app.state.settings, app.state.job_runner, targets, [path], params,
+                                    rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
+            except ValueError as e:  # the job is marked failed; clear the requests instead of retrying every loop
+                for issue in issues:
+                    _note(db, issue, f"Re-verification could not start: {e} The issue stays fixed. Verify manually.")
+                    issue.reverify_requested_at = None
+                continue
             for issue in issues:
                 issue.reverify_job_id = job.id
                 _note(db, issue, f"Re-verification scan started: job #{job.id}.")
