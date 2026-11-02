@@ -8,6 +8,27 @@
 <a class="btn" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>New nuclei scan</a>{% endif %}
 {% endblock %}
 {% block content %}
+{% if get_started %}
+{% set n_done = get_started|selectattr('done')|list|length %}
+{% set first_todo = (get_started|rejectattr('done')|first).key %}
+<section class="card mb onboarding" id="get-started" aria-labelledby="get-started-title">
+  <div class="card-head wrap"><h2 id="get-started-title"><svg class="icon"><use href="#i-flag"/></svg>Get started</h2>
+    <form method="post" action="/onboarding/dismiss"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost sm" aria-label="Dismiss the Get started checklist"><svg class="icon sm"><use href="#i-x"/></svg>Dismiss</button></form></div>
+  <div class="card-body">
+    <p class="small text-2" style="margin:0" id="get-started-progress"><b class="num">{{ n_done }} of {{ get_started|length }} done</b> · a few steps to get useful results from this scanner.</p>
+    <div class="progress-line" role="progressbar" aria-labelledby="get-started-progress" aria-valuemin="0" aria-valuemax="{{ get_started|length }}" aria-valuenow="{{ n_done }}"><i style="width:{{ (100 * n_done / get_started|length)|round(1) }}%"></i></div>
+    <ol class="checklist">
+      {% for s in get_started %}
+      <li class="{{ 'done' if s.done }}" data-step="{{ s.key }}">
+        <span class="mark" aria-hidden="true">{% if s.done %}<svg class="icon sm"><use href="#i-check"/></svg>{% else %}{{ loop.index }}{% endif %}</span>
+        <div class="txt"><b>{{ s.title }}</b><span>{{ s.help }}</span></div>
+        {% if s.done %}<span class="status st-done"><span class="sr-only">{{ s.title }}: </span>Done</span>{% else %}<a class="btn sm{{ ' primary' if s.key == first_todo }}" href="{{ s.href }}">{{ s.action }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+{% endif %}
 {% if drafts_waiting %}
 <div class="grid grid-4 mb">
   <a class="card kpi kpi-link" href="/campaigns?view=draft" data-stat="drafts_waiting"><div class="kpi-icon warn"><svg class="icon"><use href="#i-radar"/></svg></div><div><div class="kpi-label">Drafts waiting</div><div class="kpi-value">{{ drafts_waiting }}</div><div class="kpi-sub">0-day watch campaigns to review</div></div></a>

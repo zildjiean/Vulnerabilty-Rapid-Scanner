@@ -3,12 +3,14 @@ from __future__ import annotations
 import re
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..db import Finding, Host, Rule, RuleMatch, Scope, Service, TemplateIndex
-from ..deps import get_db
+from ..db import Finding, Host, Rule, RuleMatch, Scope, Service, TemplateIndex, User, utcnow
+from ..deps import get_db, verify_csrf
 from ..render import SEVERITIES, render
+from .. import onboarding
 from .jobs import job_summary, recent_jobs
 
 router = APIRouter()
@@ -66,4 +68,22 @@ def dashboard(request: Request, trend_days: str = "", trend_scope_id: str = Quer
                   active_campaigns=active_campaigns, drafts_waiting=drafts, top_risks=top_risks(db),
                   jobs=recent_jobs(db, limit=10), job_summary=job_summary, surface_counts=surface.open_counts(db, 7),
                   surface_labels=surface.KIND_LABELS, trend=t, trend_charts=trend_charts(t),
-                  trend_periods=trends.PERIOD_LABELS, trend_scopes=list(db.scalars(select(Scope).order_by(Scope.name))))
+                  trend_periods=trends.PERIOD_LABELS, trend_scopes=list(db.scalars(select(Scope).order_by(Scope.name))),
+                  get_started=onboarding.card(db, request.state.user))
+
+
+@router.post("/onboarding/dismiss", dependencies=[Depends(verify_csrf)])
+def onboarding_dismiss(request: Request, db: Session = Depends(get_db)):
+    """Hide the Get started card for the signed-in user (Profile -> Show Get started again brings it back)."""
+    me = db.get(User, request.state.user.id)
+    me.onboarding_dismissed_at = utcnow()
+    db.commit()
+    return RedirectResponse("/?msg=Get+started+hidden.+Bring+it+back+from+your+profile.", status_code=303)
+
+
+@router.post("/onboarding/reset", dependencies=[Depends(verify_csrf)])
+def onboarding_reset(request: Request, db: Session = Depends(get_db)):
+    me = db.get(User, request.state.user.id)
+    me.onboarding_dismissed_at = None
+    db.commit()
+    return RedirectResponse("/", status_code=303)

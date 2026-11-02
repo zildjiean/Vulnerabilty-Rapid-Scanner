@@ -29,6 +29,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, default=0)
+    onboarding_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # Get started card hidden
 
 
 class AuditLog(Base):
@@ -555,6 +556,7 @@ _ADDED_COLUMNS = [
     ("issues", "verify_result", "VARCHAR(16) NOT NULL DEFAULT ''"),
     ("issues", "verified_finding_id", "INTEGER"),
     ("watch_hits", "record", "TEXT NOT NULL DEFAULT '{}'"),
+    ("users", "onboarding_dismissed_at", "DATETIME"),
 ]
 
 
