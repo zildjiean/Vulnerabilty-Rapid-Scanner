@@ -160,7 +160,7 @@ def test_dashboard_and_findings_link_issues(auth):
     assert f'href="/issues/{ids["CVE-2021-41773"]}"' in r.text
 
 
-def test_verified_confidence_kpis_filter_and_fix_verified_status_label(auth):
+def test_verified_confidence_kpis_filter_and_resolved_status_label(auth):
     from app.routers.issues import issue_kpis
     ids = seed(auth, SPECS)
     with auth.app.state.SessionLocal() as db:
@@ -174,12 +174,12 @@ def test_verified_confidence_kpis_filter_and_fix_verified_status_label(auth):
     assert '<option value="verified"' in page and "conf-verified" in page
     filtered = auth.get("/issues?confidence=verified").text
     assert "CVE-2021-41773 title" in filtered and "exposed-panel title" not in filtered
-    assert iss.CONFIDENCE_LABELS["verified"] == "Verified" and iss.STATUS_LABELS["verified"] == "Fix verified"
+    assert iss.CONFIDENCE_LABELS["verified"] == "Verified" and iss.STATUS_LABELS["verified"] == "Resolved"
     with auth.app.state.SessionLocal() as db:
         i = db.get(Issue, ids["exposed-panel"])
         iss.change_status(db, i, "fixed", actor=None)
         iss.change_status(db, i, "verified", actor=None)
         db.commit()
     closed = auth.get("/issues?view=closed").text
-    assert "Fix verified" in closed and "exposed-panel title" in closed
-    assert "Fix verified" in auth.get(f"/issues/{ids['exposed-panel']}").text
+    assert "Resolved" in closed and "exposed-panel title" in closed
+    assert "Resolved" in auth.get(f"/issues/{ids['exposed-panel']}").text

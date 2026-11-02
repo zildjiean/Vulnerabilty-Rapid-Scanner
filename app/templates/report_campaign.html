@@ -17,7 +17,7 @@
   <div class="card kpi"><div><div class="kpi-label">Exposed assets</div><div class="kpi-value">{{ p.total }}</div><div class="kpi-sub">{{ p.confirmed }} confirmed · {{ p.conf_verified }} verified · {{ p.suspected }} suspected</div></div></div>
   <div class="card kpi"><div><div class="kpi-label">Open</div><div class="kpi-value">{{ p.open }}</div></div></div>
   <div class="card kpi"><div style="flex:1"><div class="kpi-label">Remediated</div><div class="kpi-value">{{ p.remediated_pct }}%</div>{{ progress_bar(p) }}</div></div>
-  <div class="card kpi"><div><div class="kpi-label">Fix verified</div><div class="kpi-value">{{ p.verified }}</div><div class="kpi-sub">{{ p.fixed }} awaiting verification</div></div></div>
+  <div class="card kpi"><div><div class="kpi-label">Resolved</div><div class="kpi-value">{{ p.verified }}</div><div class="kpi-sub">{{ p.fixed }} awaiting verification</div></div></div>
 </div>
 <div class="card"><div class="table-wrap"><table class="data">
   <thead><tr><th>Asset</th><th>Severity</th><th>Confidence</th><th>Status</th><th>Assignee</th><th>First seen</th><th>Resolved</th></tr></thead>
