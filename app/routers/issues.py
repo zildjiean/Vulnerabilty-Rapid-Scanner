@@ -17,7 +17,7 @@ from ..campaigns import campaigns_for_issue
 from ..ai import latest_note
 from ..ai_features import TRIAGE_LABELS
 from ..reverify import get_reverify_settings
-from ..authz import require
+from ..authz import has_perm, require
 from ..db import Finding, Issue, IssueTicket, NotificationChannel, Rule, TemplateIndex, User, utcnow
 from ..deps import get_db, get_settings, verify_csrf
 from ..render import SEVERITY_ORDER, render, templates
@@ -123,10 +123,15 @@ def _detail(request: Request, db: Session, issue: Issue, status_code: int = 200,
         selected = older if older is not None and older.issue_id == issue.id else None
     selected = selected or (findings[0] if findings else None)
     rule = db.get(Rule, issue.rule_id) if issue.rule_id else None
+    transitions = iss.allowed_transitions(issue.status)
+    prefill = request.query_params.get("status", "")   # "False positive…" link: pre-select it in Change status
+    user = request.state.user
     return render(request, "issue_detail.html", status_code=status_code, active="issues", issue=issue, error=error,
+                  next_step=iss.next_actions(issue, user.id, has_perm(user, "scan.run")),
+                  prefill_status=prefill if prefill in transitions else "",
                   findings=findings, rule=rule, users=assignable_users(db), verify_labels=proof.VERIFY_LABELS,
                   proof=proof.proof_from_finding(selected),
-                  transitions=iss.allowed_transitions(issue.status), needs_reason=iss.NEEDS_REASON,
+                  transitions=transitions, needs_reason=iss.NEEDS_REASON,
                   sla=iss.get_sla(db), campaigns=campaigns_for_issue(db, issue), reverify=get_reverify_settings(db),
                   ai_explain=latest_note(db, "explain", "issue", issue.id), ai_triage=latest_note(db, "triage", "issue", issue.id),
                   triage_labels=TRIAGE_LABELS, has_evidence=bool(findings), risk=rk.scores_for(db, [issue])[issue.id],

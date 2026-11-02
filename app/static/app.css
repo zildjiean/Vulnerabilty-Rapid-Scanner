@@ -368,6 +368,23 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--danger)}
 .bulk-bar select{min-height:34px;width:auto}
 .grid-issue{display:grid;gap:16px;grid-template-columns:minmax(0,1fr) 340px;align-items:start}
 @media (max-width:1100px){.grid-issue{grid-template-columns:1fr}}
+/* Issue page: Next step card and the More actions section */
+.next-step{margin-bottom:16px;border-left:3px solid var(--primary)}
+.next-step-body{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap}
+.next-step-text{min-width:0;flex:1 1 260px}
+.next-step-text h2{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.next-step-text p{margin:0}
+.next-step-actions{gap:8px;flex-wrap:wrap}
+.more-actions{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.more-actions>summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 18px;cursor:pointer;font-weight:600;font-size:15px;list-style:none;border-radius:var(--radius)}
+.more-actions>summary::-webkit-details-marker{display:none}
+.more-actions>summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--text-3);border-bottom:2px solid var(--text-3);transform:rotate(45deg);transition:transform var(--t-fast)}
+.more-actions[open]>summary::after{transform:rotate(-135deg)}
+.more-actions>summary:hover{background:var(--surface-2)}
+.more-actions>summary .small{font-weight:400}
+.more-actions[open]>summary{border-bottom:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0}
+.more-actions-body{padding:12px}
+.more-actions-body>.card{box-shadow:none}
 .issue-head .spacer{flex:1}
 .timeline{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--border);display:grid;gap:14px}
 .timeline li{position:relative}
