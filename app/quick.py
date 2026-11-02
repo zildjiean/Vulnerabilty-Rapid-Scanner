@@ -29,7 +29,12 @@ LEVELS = {
 DEFAULT_LEVEL = "standard"
 
 
+EMPTY_SUMMARY = "Enter at least one target to see what will run."
+
+
 def summary(n_targets: int, level: str) -> str:
+    if n_targets <= 0:
+        return EMPTY_SUMMARY
     lv = LEVELS.get(level, LEVELS[DEFAULT_LEVEL])
     return (f"nmap {n_targets} target(s) ({lv['ports_label']}) → nuclei ({preset_label(lv['preset'])}) "
             "on the services found")

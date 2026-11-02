@@ -417,6 +417,14 @@
     refreshCount();
   }
 
+  // ---------- Presets: tell the server the radio is authoritative (absent without JS) ----------
+  $$("form").forEach((f) => {
+    if (!$("input[data-opens-advanced]", f)) return;
+    const marker = document.createElement("input");
+    marker.type = "hidden"; marker.name = "js"; marker.value = "1";
+    f.appendChild(marker);
+  });
+
   // ---------- Presets: Custom opens Advanced options; editing an advanced field selects Custom ----------
   $$("input[data-opens-advanced]").forEach((custom) => {
     const details = document.getElementById(custom.dataset.opensAdvanced);
@@ -441,6 +449,7 @@
       const n = (ta.value || "").split(/[\n,]/).map((x) => x.trim()).filter(Boolean).length;
       const lvl = $('input[name="level"]:checked', qform);
       if (!lvl || !out) return;
+      if (!n) { out.textContent = out.dataset.empty; return; }
       out.textContent = "nmap " + n + " target(s) (" + lvl.dataset.ports + ") → nuclei (" + lvl.dataset.preset + ") on the services found";
     };
     let pending = null;  // one polite live region; debounce so typing does not flood screen readers

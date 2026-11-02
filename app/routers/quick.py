@@ -42,7 +42,7 @@ def _page(request: Request, db: Session, targets: str = "", level: str = quick.D
           error: str | None = None, status_code: int = 200):
     return render(request, "quick.html", status_code=status_code, active="quick", error=error,
                   form={"targets": targets, "level": level}, levels=quick.LEVELS,
-                  summary=quick.summary(_count(targets), level), jobs=recent_quick_jobs(db), job_summary=job_summary,
+                  summary=quick.summary(_count(targets), level), empty_summary=quick.EMPTY_SUMMARY, jobs=recent_quick_jobs(db), job_summary=job_summary,
                   preset_label=quick.preset_label)
 
 

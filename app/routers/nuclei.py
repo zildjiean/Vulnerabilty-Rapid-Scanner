@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
@@ -20,6 +22,7 @@ from ..validation import parse_nuclei_targets
 from .jobs import job_summary, recent_jobs
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 DEFAULT_NUCLEI_FORM = {"targets": "", "selected": [], "rate_limit": 150, "timeout": 10, "mode": "selected",
                        "groups": [], "tags": "", "severities": [], "profile": DEFAULT_PROFILE, "no_mhe": False,
@@ -79,12 +82,21 @@ def launch_nuclei(db: Session, settings, runner, target_list: list[str], paths: 
 
 
 def _fail_job(db: Session, job: Job, error: Exception) -> None:
+    """Mark the job failed after ``error``; the failure may have been a commit, so start from a clean session."""
+    job_id = job.id
     try:
-        job.status, job.finished_at = "failed", utcnow()
-        job.log = f"[nuclei] the scan could not start: {error}"
-        db.commit()
-    except Exception:  # noqa: BLE001 - the original error is what the caller must see
         db.rollback()
+        row = db.get(Job, job_id)
+        if row is not None:
+            row.status, row.finished_at = "failed", utcnow()
+            row.log = f"[nuclei] the scan could not start: {error}"
+            db.commit()
+    except Exception:  # noqa: BLE001 - the original error is what the caller must see
+        log.exception("nuclei job %s: could not mark it failed", job_id)
+        try:
+            db.rollback()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def advanced_changed(template_paths, mode, groups, tags, severities, profile, rate_limit, timeout, no_mhe) -> bool:
@@ -105,7 +117,7 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
                       mode: str = Form("selected"), groups: list[str] = Form(default=[]), tags: str = Form(""),
                       severities: list[str] = Form(default=[]), rate_limit: int = Form(150), timeout: int = Form(10),
                       profile: str = Form(DEFAULT_PROFILE), no_mhe: bool = Form(False), preset: str = Form("custom"),
-                      db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
+                      js: str = Form(""), db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
     selected = selected_from_paths(db, template_paths)
     severities = [s for s in severities if s in SEVERITIES]
 
@@ -117,9 +129,12 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
 
     if preset not in PRESETS:
         return fail("Invalid preset.")
-    if preset != "custom" and advanced_changed(template_paths, mode, groups, tags, severities, profile, rate_limit,
-                                               timeout, no_mhe):
-        preset = "custom"  # without JS, edited Advanced options must win over a preset left at its default
+    # With JS (the script adds js=1) the preset radio is authoritative: picking a field already selected Custom, and
+    # going back to a preset leaves stale Advanced values behind. Without JS nothing selects Custom for the user, so
+    # edited Advanced options win over a preset left at its default.
+    if preset != "custom" and not js and advanced_changed(template_paths, mode, groups, tags, severities, profile,
+                                                          rate_limit, timeout, no_mhe):
+        preset = "custom"
     if preset != "custom":  # a preset decides templates, filters and speed: the advanced fields are ignored
         try:
             target_list = parse_nuclei_targets(targets)

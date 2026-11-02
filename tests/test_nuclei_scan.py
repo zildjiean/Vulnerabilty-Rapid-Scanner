@@ -108,3 +108,44 @@ def test_any_error_after_create_job_marks_it_failed(client, settings):
             launch_nuclei(db, settings, Runner(), ["http://10.0.0.1"], ["/t"], {}, rate_limit=1, timeout=1,
                           extra_flags=[])
         assert db.scalar(select(Job)).status == "failed"
+
+
+def test_failed_commit_still_marks_the_job_failed(client, settings, monkeypatch):
+    """The commit inside launch_nuclei itself fails (e.g. lock timeout): the row must not stay queued."""
+    from sqlalchemy.exc import OperationalError
+    from app.routers.nuclei import launch_nuclei
+
+    class Runner:
+        def create_job(self, db, kind, argv, params=None):
+            j = Job(kind=kind, status="queued", command="nuclei", params_json="{}")
+            db.add(j)
+            db.commit()
+            return j
+
+        def start(self, *a, **kw):
+            raise AssertionError("not reached")
+    with client.app.state.SessionLocal() as db:
+        real_commit, real_rollback, calls, broken = db.commit, db.rollback, [], []
+
+        def flaky_commit():  # like a failed COMMIT: the session is unusable until rolled back
+            calls.append(1)
+            if len(calls) == 2 or broken:
+                broken.append(1)
+                raise OperationalError("COMMIT", {}, Exception("database is locked"))
+            return real_commit()
+
+        def rollback():
+            broken.clear()
+            return real_rollback()
+        monkeypatch.setattr(db, "commit", flaky_commit)
+        monkeypatch.setattr(db, "rollback", rollback)
+        with pytest.raises(OperationalError):
+            launch_nuclei(db, settings, Runner(), ["http://10.0.0.1"], ["/t"], {}, rate_limit=1, timeout=1,
+                          extra_flags=[])
+    with client.app.state.SessionLocal() as db:
+        assert db.scalar(select(Job)).status == "failed"
+
+
+def test_quick_summary_empty_targets(auth):
+    r = auth.get("/quick")
+    assert "Enter at least one target to see what will run." in r.text and "nmap 0 target(s)" not in r.text

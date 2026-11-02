@@ -257,3 +257,38 @@ def test_schedule_with_an_invalid_saved_preset_errors(auth):
     assert s.last_status == "error" and "Invalid preset." in s.last_message
     with auth.app.state.SessionLocal() as db:
         assert db.scalar(select(Job).where(Job.kind == "nuclei")) is None
+
+
+# ----------------------------------------------------------------- JS vs no-JS posts
+def test_js_post_keeps_the_chosen_preset_despite_leftover_advanced_fields(auth):
+    """With JS the radio is authoritative: Custom -> back to Recommended leaves mode=all behind, Recommended runs."""
+    csrf = get_csrf(auth, "/nuclei")
+    r = auth.post("/nuclei/scan", data={"csrf": csrf, "targets": "http://192.168.1.10:8080", "preset": "recommended",
+                                        **NO_JS_DEFAULTS, "mode": "all", "tags": "php", "js": "1"},
+                  follow_redirects=False)
+    jid = _job_of(r)
+    wait_job(auth, jid)
+    with auth.app.state.SessionLocal() as db:
+        job = db.get(Job, jid)
+        assert json.loads(job.params_json)["preset"] == "recommended"
+        assert "-severity critical,high,medium" in job.command and "-tags" not in job.command
+        a = db.scalar(select(AuditLog).where(AuditLog.action == "scan.nuclei"))
+        assert json.loads(a.details)["preset"] == "recommended"
+
+
+def test_same_post_without_js_is_custom(auth):
+    csrf = get_csrf(auth, "/nuclei")
+    r = auth.post("/nuclei/scan", data={"csrf": csrf, "targets": "http://192.168.1.10:8080", "preset": "recommended",
+                                        **NO_JS_DEFAULTS, "mode": "all"}, follow_redirects=False)
+    jid = _job_of(r)
+    wait_job(auth, jid)
+    with auth.app.state.SessionLocal() as db:
+        assert json.loads(db.get(Job, jid).params_json)["preset"] == "custom"
+
+
+def test_js_marker_is_added_by_script_only():
+    from pathlib import Path
+    html = (Path(__file__).parent.parent / "app" / "templates" / "nuclei.html").read_text()
+    assert 'name="js"' not in html  # absent without JS
+    js = (Path(__file__).parent.parent / "app" / "static" / "app.js").read_text()
+    assert 'marker.name = "js"' in js
