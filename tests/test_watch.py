@@ -782,3 +782,14 @@ def test_odd_versions_are_possible_not_dropped():
     later = svc("Apache httpd", "2.4 or later", "cpe:/a:apache:http_server")
     m = watch.match_cve(rec([cpe_match("apache", "http_server", si="2.4.0", ee="2.4.62")]), [later])
     assert [x.quality for x in m] == ["possible"]
+
+
+def test_watch_savepoints_survive_a_concurrent_commit(env, monkeypatch):
+    """Regression: the per-CVE savepoints ran in a deferred transaction; a commit by another connection between a
+    read and the hit INSERT raised 'database is locked' and the CVE was dropped from the run."""
+    from tests.test_discovery import commit_from_another_connection
+    state = commit_from_another_connection(env, monkeypatch, watch, "upsert_hit")
+    summary = run(env, WatchNet())
+    state["thread"].join(10)
+    assert summary["errors"] == [] and summary["matched"] == 2 and summary["drafts"] == 2
+    assert state["error"] is None and state["committed"].is_set()

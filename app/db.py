@@ -530,6 +530,15 @@ def make_engine(url: str) -> Engine:
     return engine
 
 
+def begin_write(db) -> None:
+    """Take SQLite's write lock for the session's transaction now (waiting up to busy_timeout), before savepoints.
+    With pysqlite a SAVEPOINT opened outside a transaction starts a DEFERRED one: its first read fixes a snapshot,
+    and if another connection commits before the savepoint's first write, SQLite fails at once with "database is
+    locked" (busy_timeout does not apply to a stale snapshot). A no-op write makes the transaction a write
+    transaction from the start; the lock is released by the caller's commit / rollback."""
+    db.execute(text("UPDATE app_settings SET key = key WHERE 0"))
+
+
 def make_session_factory(engine: Engine) -> sessionmaker:
     return sessionmaker(bind=engine, expire_on_commit=False)
 

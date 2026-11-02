@@ -319,7 +319,8 @@ def complete_discovery(db: Session, job: Job, output: str) -> dict:
     baseline = set(roots) - roots_with_assets(db, roots)  # before this ingest adds rows
     now, compiled = utcnow(), compile_scopes(db)
     changes: list[tuple[SurfaceChange, str]] = []
-    for chunk in _chunks(sorted(found)):
+    chunks = _chunks(sorted(found))
+    for n, chunk in enumerate(chunks, 1):
         existing = _load(db, chunk)  # read before anything is pending, so the write lock starts at flush
         for host in chunk:
             info = found[host]
@@ -341,7 +342,12 @@ def complete_discovery(db: Session, job: Job, output: str) -> dict:
                 db.add(c)
                 changes.append((c, info["root"]))
         db.flush()
-        db.commit()
+        if n < len(chunks):
+            db.commit()
+    # The last chunk stays uncommitted: its flushed writes hold SQLite's write lock, so the notification savepoint
+    # runs inside that write transaction. A savepoint opened after a commit would start a fresh deferred
+    # transaction, and a commit by another connection between its first read and its INSERT fails at once with
+    # "database is locked" (busy_timeout does not apply to a stale snapshot), silently losing the alert.
     to_notify = [c for c, root in changes if root not in baseline]
     if to_notify:
         try:
@@ -349,6 +355,7 @@ def complete_discovery(db: Session, job: Job, output: str) -> dict:
                 surface.notify_changes(db, job, to_notify)
         except Exception:  # noqa: BLE001 - a notification problem must never fail the ingest
             log.exception("discovery notification for job %s failed", job.id)
+    db.commit()
     return {"hosts": len(found), "new": len(changes), "baseline": bool(baseline), "notified": len(to_notify),
             "hostnames": sorted(found), "new_hostnames": sorted(c.hostname for c, _ in changes)}
 
