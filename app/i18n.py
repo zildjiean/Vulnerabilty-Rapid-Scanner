@@ -185,4 +185,13 @@ def dynamic_keys() -> set[str]:
             add(i.label, *(tb.label for tb in i.tabs))
     from .authz import PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_LABELS
     add(ROLE_LABELS, ROLE_DESCRIPTIONS, PERMISSIONS)
+    # (while areas are being translated) app/i18n_th_*.py may list their own dynamic labels in dynamic()
+    import importlib
+    import pkgutil
+    from pathlib import Path
+    for m in pkgutil.iter_modules([str(Path(__file__).parent)]):
+        if m.name.startswith("i18n_th_"):
+            mod = importlib.import_module(f"app.{m.name}")
+            if hasattr(mod, "dynamic"):
+                add(mod.dynamic())
     return keys
