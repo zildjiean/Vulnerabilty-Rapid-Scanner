@@ -9,6 +9,8 @@
 {% if job.kind == 'nuclei' and job.status == 'done' %}<a class="btn primary" href="/findings?job={{ job.id }}"><svg class="icon"><use href="#i-alert"/></svg>View findings</a>{% endif %}
 {% if job.kind == 'discovery' and params.get('result', {}).get('probe_job') %}<a class="btn" href="/jobs/{{ params.result.probe_job }}"><svg class="icon"><use href="#i-globe"/></svg>Web probe job #{{ params.result.probe_job }}</a>{% endif %}
 {% if job.kind == 'discovery_probe' and params.get('parent_job') %}<a class="btn" href="/jobs/{{ params.parent_job }}"><svg class="icon"><use href="#i-globe"/></svg>Discovery job #{{ params.parent_job }}</a>{% endif %}
+{% if quick and quick.get('step') == 1 and quick.get('nuclei_job') %}<a class="btn" href="/jobs/{{ quick.nuclei_job }}"><svg class="icon"><use href="#i-bug"/></svg>Step 2: nuclei job #{{ quick.nuclei_job }}</a>{% endif %}
+{% if quick and quick.get('step') == 2 and quick.get('parent_job') %}<a class="btn" href="/jobs/{{ quick.parent_job }}"><svg class="icon"><use href="#i-radar"/></svg>Step 1: nmap job #{{ quick.parent_job }}</a>{% endif %}
 {% if job.kind in ('discovery', 'discovery_probe') and job.status == 'done' %}<a class="btn primary" href="/discovery"><svg class="icon"><use href="#i-globe"/></svg>View discovered assets</a>{% endif %}
 {% endblock %}
 {% block content %}
@@ -28,7 +30,7 @@
   <div class="card-body">
     <dl class="meta" style="margin:0">
       <div><dt>Status</dt><dd>{% if job.status == 'done' and warnings %}<span id="job-status" class="status st-warning">Done with warnings</span>{% else %}<span id="job-status" class="status st-{{ job.status }}">{{ job.status }}</span>{% endif %}</dd></div>
-      <div><dt>Kind</dt><dd><span class="chip">{{ job.kind }}</span></dd></div>
+      <div><dt>Kind</dt><dd><span class="chip">{{ job.kind }}</span>{% if quick %} <span class="badge quick-badge">Quick scan · step {{ 2 if quick.get('step') == 2 else 1 }} of 2</span>{% endif %}</dd></div>
       <div><dt>Created</dt><dd class="num">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd></div>
       <div><dt>Started</dt><dd class="num">{{ job.started_at.strftime('%H:%M:%S') if job.started_at else '—' }}</dd></div>
       <div><dt>Finished</dt><dd class="num">{{ job.finished_at.strftime('%H:%M:%S') if job.finished_at else '—' }}</dd></div>
@@ -36,6 +38,7 @@
       <div><dt>Exit code</dt><dd class="num">{{ job.exit_code if job.exit_code is not none else '—' }}</dd></div>
     </dl>
     {% if summary %}<p class="text-2 small" style="margin:14px 0 0">{{ summary }}</p>{% endif %}
+    {% if quick %}<p class="small" style="margin:10px 0 0">{% if quick.get('step') == 2 %}Step 2 of a quick scan: checks the services found by <a href="/jobs/{{ quick.parent_job }}">nmap job #{{ quick.parent_job }}</a>.{% elif quick.get('nuclei_job') %}Step 1 of a quick scan. The vulnerability check runs as <a href="/jobs/{{ quick.nuclei_job }}">nuclei job #{{ quick.nuclei_job }}</a>{% if job.status == 'cancelled' %} (cancelling this step does not stop it: open it to cancel){% endif %}.{% elif quick.get('nuclei') == 'skipped' %}Step 1 of a quick scan. No open services were found on the targets, so there was nothing to check for vulnerabilities.{% elif quick.get('nuclei') == 'cancelled' %}Step 1 of a quick scan, cancelled before the vulnerability check started.{% elif quick.get('nuclei') == 'error' %}Step 1 of a quick scan. The vulnerability check could not start; see the warnings above.{% elif job.status in ('queued', 'running') %}Step 1 of a quick scan. The vulnerability check starts on its own when this step finishes.{% else %}Step 1 of a quick scan. The vulnerability check was not started.{% endif %}</p>{% endif %}
     <div class="mono small text-2" style="margin-top:10px;word-break:break-all"><span class="muted">$</span> {{ job.command }}</div>
   </div>
 </div>

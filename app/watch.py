@@ -18,7 +18,7 @@ from typing import Callable, Iterable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db import AppSetting, AuditLog, Campaign, Host, Service, WatchHit, utcnow
+from .db import AppSetting, AuditLog, Campaign, Host, Service, WatchHit, begin_write, utcnow
 from .intel import (MAX_REFERENCES, NVD_URL, GetJson, _best_metric, _parse_time, http_get_json, load_kev_feed,
                     normalize_cve, nvd_wait)
 from .risk import short_error
@@ -738,6 +738,7 @@ def run_watch(db: Session, settings, get_json: GetJson, now: datetime | None = N
                     rec[k] = nvd[k]
 
     summary["cves"] = len(cves)
+    begin_write(db)  # the network part is over: hold the write lock so the savepoints below never hit a stale snapshot
     services = inventory(db.execute(select(Service, Host).join(Host, Host.id == Service.host_id)
                                     .order_by(Host.address, Service.port)).tuples())
     existing = _campaigns_by_cve(db)

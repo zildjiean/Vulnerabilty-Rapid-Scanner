@@ -1,19 +1,36 @@
 {% extends "base.html" %}
 {% set section = "Detection" %}
 {% set page_title = "Nuclei scan" %}
-{% set page_subtitle = "Run one or many nuclei templates against URLs or host:port targets. Search the index by id, name, tag or CVE." %}
+{% set page_subtitle = "Check URLs or host:port targets for known vulnerabilities. Pick a preset, or open Advanced options to choose templates yourself." %}
 {% block page_actions %}<a class="btn" href="/templates"><svg class="icon"><use href="#i-file"/></svg>Manage templates</a>{% endblock %}
 {% block content %}
 {% with perm="scan.run", what="start scans" %}{% include "_readonly.html" %}{% endwith %}
 <form method="post" action="/nuclei/scan" id="nuclei-form" data-loading>
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="grid grid-2 mb">
-    <div class="card">
-      <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Targets</h2><a class="btn sm ghost" href="/inventory">Pick from inventory</a></div>
-      <div class="card-body stack">
+  <div class="card mb">
+    <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Targets and preset</h2><a class="btn sm ghost" href="/inventory">Pick from inventory</a></div>
+    <div class="card-body grid grid-2">
+      <div class="stack">
         <div class="field"><label for="targets">Target list</label>
-          <textarea id="targets" name="targets" rows="12" required placeholder="http://192.168.1.10:8080&#10;https://web01.lab&#10;192.168.1.12:3306" aria-describedby="targets-hint">{{ form.targets }}</textarea>
+          <textarea id="targets" name="targets" rows="9" required placeholder="http://192.168.1.10:8080&#10;https://web01.lab&#10;192.168.1.12:3306" aria-describedby="targets-hint">{{ form.targets }}</textarea>
           <span class="hint" id="targets-hint">One per line: full URL or host:port. Bare hosts are probed for https:// and http:// automatically; the job log shows "Targets loaded" and "Found N URL from httpx" so you can confirm the target answered.</span></div>
+      </div>
+      <fieldset>
+        <legend>What to check</legend>
+        <div class="choice-grid choice-stack">
+          {% for key, p in presets.items() %}
+          <label class="choice"><input type="radio" name="preset" value="{{ key }}" {{ 'checked' if form.preset == key }}{% if key == 'custom' %} data-opens-advanced="nuclei-advanced"{% endif %}><div><b>{{ p.label }}</b><span>{{ p.help }}</span></div></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </div>
+  </div>
+  <details class="advanced mb" id="nuclei-advanced"{{ ' open' if advanced_open }}>
+    <summary><svg class="icon"><use href="#i-sliders"/></svg><span><b>Advanced options</b><span class="hint">Templates, filters and speed. Used only with the Custom preset; changing anything here selects Custom.</span></span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></summary>
+    <div class="grid grid-2 advanced-body" data-advanced-for="preset">
+    <div class="card">
+      <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Speed and reliability</h2></div>
+      <div class="card-body stack">
         <fieldset>
           <legend>Scan profile</legend>
           <div class="choice-grid">
@@ -89,7 +106,8 @@
         </fieldset>
       </div>
     </div>
-  </div>
+    </div>
+  </details>
   <div class="row between center mb">
     <span class="text-2 small">The job runs in the background. Findings are stored per job and in the global findings list.</span>
     <button class="primary" type="submit" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>Start nuclei scan</button>

@@ -317,3 +317,32 @@ def test_bulk_verify_result_is_readable_in_the_job_list():
     from app.routers.jobs import job_summary
     job = Job(kind="nuclei", params_json=json.dumps({"result": {"findings": 3, "verify": {"reproduced": 1, "not_reproduced": 2}}}))
     assert "reproduced 1, not reproduced 2" in job_summary(job)
+
+
+# ----------------------------------------------------------------- target list cannot be written
+@pytest.fixture
+def no_disk(monkeypatch):
+    from app.routers import nuclei as nuclei_router
+
+    def full(*a, **kw):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(nuclei_router, "write_targets_file", full)
+
+
+def test_verify_shows_an_error_when_the_scan_cannot_start(env, no_disk):
+    iid = seed(env, SPECS)[CVE]
+    r = env.post(f"/issues/{iid}/verify", data={"csrf": get_csrf(env, f"/issues/{iid}")})
+    assert r.status_code == 400 and "could not start" in r.text and "No space left on device" in r.text
+    with env.app.state.SessionLocal() as db:
+        assert db.get(Issue, iid).verify_job_id is None
+        assert [j.status for j in db.scalars(select(Job).where(Job.status != "done"))] == ["failed"]
+
+
+def test_bulk_verify_reports_a_scan_that_cannot_start(env, no_disk):
+    ids = seed(env, SPECS)
+    r = env.post("/issues/bulk-verify", data={"csrf": get_csrf(env, "/issues"), "issue_ids": [ids[CVE]]},
+                 follow_redirects=False)
+    assert r.status_code == 303 and "err=" in r.headers["location"]
+    assert "scan+could+not+start" in r.headers["location"]
+    with env.app.state.SessionLocal() as db:
+        assert [j.status for j in db.scalars(select(Job).where(Job.status != "done"))] == ["failed"]

@@ -35,7 +35,8 @@
         {{ item('/changes', 'changes', 'activity', 'Changes') }}
         {{ item('/reports', 'reports', 'file', 'Reports') }}
       </div>
-      {% call group('scan', 'Scanning', ['nmap', 'nuclei', 'discovery', 'findings', 'jobs', 'schedules', 'scopes']) %}
+      {% call group('scan', 'Scanning', ['quick', 'nmap', 'nuclei', 'discovery', 'findings', 'jobs', 'schedules', 'scopes']) %}
+        {{ item('/quick', 'quick', 'zap', 'Quick scan') }}
         {{ item('/nmap', 'nmap', 'radar', 'Nmap scan') }}
         {{ item('/nuclei', 'nuclei', 'bug', 'Nuclei scan') }}
         {{ item('/discovery', 'discovery', 'globe', 'Discovery') }}

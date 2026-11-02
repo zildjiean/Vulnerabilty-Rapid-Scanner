@@ -382,8 +382,12 @@
       const rm = document.createElement("button"); rm.type = "button"; rm.className = "ghost sm icon-btn rm"; rm.setAttribute("aria-label", "Remove " + t.template_id); rm.innerHTML = '<svg class="icon sm"><use href="#i-x"/></svg>';
       li.append(inp, mkBadge(t.severity), b, n, rm);
       selected.appendChild(li); refreshCount();
+      selected.dispatchEvent(new Event("change", { bubbles: true }));
     };
-    selected.addEventListener("click", (e) => { const btn = e.target.closest(".rm"); if (btn) { btn.closest("li").remove(); refreshCount(); } });
+    selected.addEventListener("click", (e) => {
+      const btn = e.target.closest(".rm");
+      if (btn) { btn.closest("li").remove(); refreshCount(); selected.dispatchEvent(new Event("change", { bubbles: true })); }
+    });
     const search = async () => {
       const term = q.value.trim();
       if (term.length < 2) { results.innerHTML = ""; return; }
@@ -411,5 +415,47 @@
     q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 250); });
     sev.addEventListener("change", search); src.addEventListener("change", search);
     refreshCount();
+  }
+
+  // ---------- Presets: tell the server the radio is authoritative (absent without JS) ----------
+  $$("form").forEach((f) => {
+    if (!$("input[data-opens-advanced]", f)) return;
+    const marker = document.createElement("input");
+    marker.type = "hidden"; marker.name = "js"; marker.value = "1";
+    f.appendChild(marker);
+  });
+
+  // ---------- Presets: Custom opens Advanced options; editing an advanced field selects Custom ----------
+  $$("input[data-opens-advanced]").forEach((custom) => {
+    const details = document.getElementById(custom.dataset.opensAdvanced);
+    if (!details) return;
+    $$('input[name="' + custom.name + '"]').forEach((r) => r.addEventListener("change", () => {
+      if (r.checked && r === custom) details.open = true;
+    }));
+    const body = $("[data-advanced-for]", details);
+    const pickCustom = (e) => {
+      if (e.target.closest("#tpl-q, #group-filter, #tpl-sev, #tpl-src")) return;  // searching alone changes nothing
+      if (!custom.checked) { custom.checked = true; custom.dispatchEvent(new Event("change", { bubbles: true })); }
+    };
+    body?.addEventListener("change", pickCustom);
+    body?.addEventListener("input", pickCustom);
+  });
+
+  // ---------- Quick scan: live summary ----------
+  const qform = $("#quick-form");
+  if (qform) {
+    const ta = $("#targets", qform), out = $("#quick-summary");
+    const update = () => {
+      const n = (ta.value || "").split(/[\n,]/).map((x) => x.trim()).filter(Boolean).length;
+      const lvl = $('input[name="level"]:checked', qform);
+      if (!lvl || !out) return;
+      if (!n) { out.textContent = out.dataset.empty; return; }
+      out.textContent = "nmap " + n + " target(s) (" + lvl.dataset.ports + ") → nuclei (" + lvl.dataset.preset + ") on the services found";
+    };
+    let pending = null;  // one polite live region; debounce so typing does not flood screen readers
+    const later = () => { clearTimeout(pending); pending = setTimeout(update, 500); };
+    ta?.addEventListener("input", later);
+    $$('input[name="level"]', qform).forEach((r) => r.addEventListener("change", later));
+    update();  // restored form values (back button) differ from the server-rendered text
   }
 })();

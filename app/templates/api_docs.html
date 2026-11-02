@@ -29,6 +29,7 @@ curl -s -H "Authorization: Bearer $ZDRS_KEY" {{ B }}/me</pre>
     ('POST', '/campaigns/{id}/verify', 'scan.run', 'Body: profile (gentle|normal|aggressive), extra_targets []. Returns job_id.'),
     ('POST', '/scans/nmap', 'scan.run', 'Body: targets [], port_mode (top|all|custom), custom_ports, timing (T2|T3|T4), scan_type (syn|connect), skip_ping.'),
     ('POST', '/scans/nuclei', 'scan.run', 'Body: targets [], mode (selected|all|groups), template_ids [], groups [], severities [], profile.'),
+    ('POST', '/scans/quick', 'scan.run', 'Body: targets [] (same rules as nmap), level (standard|thorough, default standard). Runs nmap, then nuclei with a preset (Recommended | Full) on the services found. Returns the nmap job_id; the job links to the nuclei step.'),
     ('POST', '/scans/discovery', 'scan.run', 'Body: domains [] (root domains you own or are authorized to test, max 20), probe (default true: chain an httpx web probe). Returns job_id.'),
     ('GET', '/jobs/{id}', 'view', 'Job status, summary, warnings, finding count. Query: log=true adds the log tail.'),
   ] %}

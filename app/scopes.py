@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db import Host, Issue, Scope
+from .db import Host, Issue, Scope, Service
 from .validation import parse_nmap_targets
 
 CRITICALITIES = ("critical", "high", "medium", "low")
@@ -68,6 +68,25 @@ class Matcher:
 
     def __bool__(self) -> bool:
         return bool(self.networks or self.octet_ranges or self.names)
+
+
+def services_in(db: Session, include: list[str], exclude: list[str] | tuple = ()) -> list[str]:
+    """nuclei targets (``service_to_target``) for every inventory service whose host matches ``include`` and not
+    ``exclude`` (scope / nmap target syntax), de-duplicated, ordered by address and port. Used by nuclei schedules
+    and by the Quick scan nuclei step."""
+    from .routers.inventory import service_to_target  # local import: the inventory router imports this module
+    inc, exc = Matcher.parse(list(include)), Matcher.parse(list(exclude))
+    out: list[str] = []
+    seen: set[str] = set()
+    for svc, host in db.execute(select(Service, Host).join(Host, Host.id == Service.host_id)
+                                .order_by(Host.address, Service.port)):
+        name = host.hostname or ""
+        if inc.matches(host.address, name) and not exc.matches(host.address, name):
+            t = service_to_target(host.address, svc)
+            if t not in seen:
+                seen.add(t)
+                out.append(t)
+    return out
 
 
 def validate_scope_fields(name: str, targets: str, exclusions: str, criticality: str) -> str | None:

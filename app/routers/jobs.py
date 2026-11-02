@@ -45,11 +45,18 @@ def job_summary(job: Job) -> str:
         parts.append(f"{len(domains)} domain(s): " + ", ".join(domains[:3]) + ("…" if len(domains) > 3 else ""))
         if p.get("probe") is False:
             parts.append("no web probe")
+    quick = p.get("quick") if isinstance(p.get("quick"), dict) else None
+    if quick and quick.get("step") == 2:
+        targets = []  # the head already counts them
     if p.get("parent_job"):
         parts.append(f"web probe of {p.get('hosts', 0)} host(s) from discovery job #{p['parent_job']}")
     if targets:
         parts.append(f"{len(targets)} target(s): " + ", ".join(targets[:3]) + ("…" if len(targets) > 3 else ""))
     mode = p.get("mode")
+    preset = p.get("preset")
+    if preset and preset != "custom":
+        from ..nuclei_presets import preset_label
+        parts.append(f"{preset_label(preset)} preset")
     if mode == "all":
         parts.append("all templates")
     elif mode == "groups":
@@ -72,7 +79,15 @@ def job_summary(job: Job) -> str:
     result = p.get("result")
     if isinstance(result, dict):
         parts.append(", ".join(f"{k} {_result_value(v)}" for k, v in result.items()))
-    return " · ".join(parts)
+    text = " · ".join(parts)
+    if quick:
+        if quick.get("step") == 2:
+            head = (f"Quick scan step 2/2: nuclei on {len(p.get('targets') or [])} service(s) from job "
+                    f"#{quick.get('parent_job')}")
+        else:
+            head = "Quick scan step 1/2: nmap"
+        text = head + (" · " + text if text else "")
+    return text
 
 
 @router.get("/jobs")
@@ -99,7 +114,9 @@ def job_detail(request: Request, job_id: int, db: Session = Depends(get_db), run
         counts = surface.job_counts(db, job.id)
         rows = list(db.scalars(surface.query(db, days="all", job_id=job.id, state="all").limit(20)))
         changes = {"counts": counts, "rows": rows, "total": sum(counts.values()), "labels": surface.KIND_LABELS}
-    return render(request, "job_detail.html", active="jobs", job=job, log=log, live=live, params=params, summary=job_summary(job),
+    quick = params.get("quick") if isinstance(params, dict) and isinstance(params.get("quick"), dict) else None
+    return render(request, "job_detail.html", active="jobs", job=job, log=log, live=live, params=params, quick=quick,
+                  summary=job_summary(job),
                   ai_diagnosis=latest_note(db, "diagnose", "job", job.id), changes=changes)
 
 

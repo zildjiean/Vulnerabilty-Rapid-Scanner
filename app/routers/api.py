@@ -299,6 +299,26 @@ async def scan_nmap(request: Request, body: NmapIn, db: Session = Depends(get_db
     return {"job_id": job.id, "url": f"{get_base_url(db)}/jobs/{job.id}"}
 
 
+class QuickIn(BaseModel):
+    targets: list[str]
+    level: Literal["standard", "thorough"] = "standard"
+
+
+@router.post("/scans/quick", status_code=202, dependencies=[Depends(require("scan.run"))])
+async def scan_quick(request: Request, body: QuickIn, db: Session = Depends(get_db), settings=Depends(get_settings),
+                     runner=Depends(get_runner)):
+    """Quick scan: nmap, then nuclei with the level's preset on the services found. Returns the nmap job (step 1);
+    its ``summary`` / the job page link to step 2 once it starts."""
+    from ..quick import launch_quick
+    try:
+        targets = parse_nmap_targets("\n".join(body.targets))
+        job = launch_quick(db, settings, runner, targets, body.level)
+    except ValueError as e:
+        _bad(str(e))
+    audit(db, request, "scan.quick", target=", ".join(targets), job_id=job.id, level=body.level)
+    return {"job_id": job.id, "url": f"{get_base_url(db)}/jobs/{job.id}"}
+
+
 class NucleiIn(BaseModel):
     targets: list[str]
     mode: Literal["selected", "all", "groups"] = "selected"

@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 1.8.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 1.9.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -46,6 +46,20 @@ docker compose up -d --build
 
 ถ้าเปิดใช้งานนอกเครื่องตัวเอง ให้วางหลัง reverse proxy ที่มี TLS และตั้ง `HTTPS=1`
 
+### Get started: เริ่มจากตรงไหน
+
+หน้า Dashboard มีการ์ด **Get started** บอก 5 ขั้นที่ควรทำก่อน แต่ละขั้นติ๊กถูกเองเมื่อทำเสร็จจริง และมีปุ่มพาไปหน้านั้น
+
+1. ดาวน์โหลดชุดตรวจช่องโหว่ (nuclei templates)
+2. สแกนครั้งแรกด้วย **Quick scan**
+3. เปิด issue แล้วจัดการ (assign, เริ่มแก้ หรือระบุว่า false positive / ยอมรับความเสี่ยง)
+4. ตั้ง schedule ให้สแกนซ้ำอัตโนมัติ
+5. ตั้งช่องทางแจ้งเตือน (Slack, Teams, อีเมล, webhook)
+
+แต่ละคนเห็นเฉพาะขั้นที่ตัวเองมีสิทธิ์ทำ การ์ดหายไปเมื่อทำครบ หรือกด **Dismiss** ถ้าอยากเห็นอีกครั้ง ไปที่หน้า Profile แล้วกด **Show Get started again**
+
+![การ์ด Get started บน Dashboard](screenshots/get-started.png)
+
 ## 2. ภาพรวมเมนู
 
 | ส่วน | เมนู | ใช้ทำอะไร |
@@ -57,7 +71,8 @@ docker compose up -d --build
 | | Inventory | host, service, software, version ทั้งหมดที่เจอ |
 | | Changes | สิ่งที่เปลี่ยนไปจากการสแกน nmap แต่ละรอบ: host ใหม่, พอร์ตเปิด/ปิด, เวอร์ชันเปลี่ยน, host ไม่ตอบ |
 | | Reports | รายงานผู้บริหาร, รายงาน campaign / scope, export |
-| Scanning | Nmap scan, Nuclei scan | สั่งสแกนเอง |
+| Scanning | Quick scan | ใส่เป้าหมายแล้วกดครั้งเดียว: หาพอร์ตและ service แล้วตรวจช่องโหว่ต่อให้อัตโนมัติ |
+| | Nmap scan, Nuclei scan | สั่งสแกนเองแบบกำหนดทุกอย่าง |
 | | Discovery | ค้นหา subdomain และเว็บที่เปิดสู่อินเทอร์เน็ตจาก root domain ขององค์กร |
 | | Findings | ผลดิบจาก nuclei ทุก job |
 | | Jobs | ประวัติงาน, log สด, ยกเลิกงาน |
@@ -86,6 +101,27 @@ docker compose up -d --build
 
 ## 4. ค้นหา asset: Nmap scan และ Inventory
 
+### Quick scan: สแกนครบในคลิกเดียว
+
+เหมาะกับคนที่ไม่อยากเลือกพอร์ต template หรือ profile เอง
+
+1. ไปที่ **Scanning → Quick scan** (หรือปุ่ม **Quick scan** บน Dashboard)
+2. **Targets** ใส่ IP, CIDR, ช่วง (`10.0.0.1-50`) หรือ hostname บรรทัดละรายการ (ใส่ `hostname/prefix` เช่น `example.com/30` ไม่ได้)
+3. **How deep**
+   - *Standard* (ค่าเริ่มต้น) 1,000 พอร์ตยอดนิยม แล้วตรวจด้วยชุด **Recommended** ใช้เวลาไม่กี่นาทีสำหรับเครือข่ายเล็ก
+   - *Thorough* ทุก 65,535 พอร์ต แล้วตรวจด้วยชุด **Full** ทุกความรุนแรง ช้ากว่ามาก เหมาะกับ host สำคัญไม่กี่ตัว
+4. ใต้ฟอร์มสรุปให้ว่าจะรันอะไร เช่น "nmap 2 target(s) (1,000 ports) → nuclei (Recommended) on the services found" ไม่มีอะไรเริ่มจนกว่าจะกด **Start quick scan**
+
+ระบบทำ 2 ขั้นต่อกันเอง
+
+- **ขั้น 1/2 nmap** หา host และ service แล้วบันทึกเข้า Inventory และ Changes ตามปกติ
+- **ขั้น 2/2 nuclei** เริ่มเองเมื่อขั้นแรกเสร็จ ตรวจเฉพาะ service ที่เจอใน target ที่คุณใส่ หน้า job ทั้งสองมีป้าย "Quick scan · step 1 of 2" และลิงก์ถึงกัน
+- ถ้าไม่เจอ service ที่เปิดอยู่ ขั้น 2 จะถูกข้ามพร้อมหมายเหตุบนหน้า job (ไม่ถือเป็น warning และไม่ส่งแจ้งเตือน)
+- ถ้ากด Cancel ระหว่างขั้น 1 ขั้น 2 จะไม่เริ่ม ถ้าขั้น 2 เริ่มไปแล้ว ให้กดลิงก์ไปหน้า job ขั้น 2 แล้วยกเลิกที่นั่น
+- Quick scan ไม่ค้นหา subdomain เพื่อไม่ให้ขอบเขตการสแกนกว้างเกินที่ตั้งใจ ถ้าต้องการให้ใช้ **Discovery**
+
+![หน้า Quick scan](screenshots/quick-scan.png)
+
 ### Nmap scan
 
 1. ไปที่ **Scanning → Nmap scan**
@@ -98,6 +134,8 @@ docker compose up -d --build
    - *SYN (-sS)* เร็ว ต้องมีสิทธิ์ `NET_RAW` (ให้ไว้แล้วใน `docker-compose.yml`)
    - *Connect (-sT)* ใช้เมื่อ container ไม่มีสิทธิ์ raw socket
 5. **Timing** T2 สุภาพ / T3 ปกติ / T4 เร็ว
+
+   Scan type, Timing และ Skip ping อยู่ใต้ **Advanced options** (พับไว้) ค่าเริ่มต้นใช้ได้กับงานส่วนใหญ่
 6. กด Start ระบบพาไปหน้า job ที่แสดง log สด เสร็จแล้วผลเข้า Inventory อัตโนมัติ
 
 ### Inventory
@@ -158,13 +196,23 @@ docker compose up -d --build
 
 1. ไปที่ **Scanning → Nuclei scan**
 2. **Target list** มาจาก Inventory ที่เลือกไว้ หรือพิมพ์ URL / host:port เอง
-3. **Template selection** มี 3 แบบ
+3. **What to check** เลือกชุดตรวจสำเร็จรูป (preset)
+
+   | Preset | ตรวจอะไร |
+   |---|---|
+   | **Recommended** (ค่าเริ่มต้น) | template ทั้งหมด (ทางการ + ของคุณเอง) ระดับ critical, high, medium |
+   | **Critical CVEs only** | เฉพาะ CVE ระดับ critical, high เร็วที่สุดสำหรับหาสิ่งที่ต้อง patch ทันที |
+   | **Full** | ทุก template ทุกความรุนแรง รวม low และ info ช้าที่สุด |
+   | **Custom** | เลือกเองทั้งหมดใน **Advanced options** (ข้อ 4–8 ด้านล่าง) |
+
+   ถ้าแก้ค่าใน Advanced options ระบบจะเปลี่ยน preset เป็น Custom ให้เอง
+4. **Advanced options → Template selection** มี 3 แบบ
    - *Pick templates* ค้นด้วย id, ชื่อ, tag หรือ CVE แล้วเลือกทีละตัวหรือหลายตัว
    - *Template groups* ทั้งโฟลเดอร์ เช่น `http/cves/2026`, `network`
    - *All templates* ทั้งหมด (ใช้เวลานาน)
-4. **Source** *Official*, *Custom (0-day)* หรือ *Official + custom*
-5. **Filters** (ไม่บังคับ ใช้กับทุกโหมด) tags และ severity เช่น เฉพาะ critical, high
-6. **Scan profile**
+5. **Source** *Official*, *Custom (0-day)* หรือ *Official + custom*
+6. **Filters** (ไม่บังคับ ใช้กับทุกโหมด) tags และ severity เช่น เฉพาะ critical, high
+7. **Scan profile**
 
    | Profile | ความเร็ว | เหมาะกับ |
    |---|---|---|
@@ -173,7 +221,7 @@ docker compose up -d --build
    | Aggressive | 400 req/s | เป้าหมายที่แข็งแรงและเป็นของคุณเอง |
 
    ปรับ **Rate limit** และ **Timeout** เองได้
-7. กด Start ผลที่เจอเข้า **Findings** และสร้าง/ยืนยัน **Issue** อัตโนมัติ
+8. กด Start ผลที่เจอเข้า **Findings** และสร้าง/ยืนยัน **Issue** อัตโนมัติ
 
 ### สถานะของ job
 
@@ -330,6 +378,7 @@ inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE
 
 **Scanning → Schedules** หรือจากหน้า scope
 - ชนิดงาน: **nmap discovery**, **nuclei scan** หรือ **campaign verify** (สแกนยืนยัน campaign ที่ active)
+- nuclei scan เลือก preset ได้เหมือนหน้า Nuclei scan (Recommended, Critical CVEs only, Full หรือ Custom) schedule เดิมที่สร้างก่อนเวอร์ชัน 1.9.0 ทำงานเหมือนเดิม (Custom)
 - ความถี่: ทุก N ชั่วโมง, รายวัน หรือรายสัปดาห์ ตาม timezone ใน Settings
 - ตัวอย่างที่แนะนำ: discovery ทุกคืน, nuclei รายสัปดาห์, verify campaign ทุก 4–6 ชั่วโมง
 
@@ -377,6 +426,13 @@ inventory) แล้วจับคู่กับ inventory 3 ชั้น: CPE
 
    ```bash
    curl -s -H "Authorization: Bearer $ZDRS_KEY" http://localhost:8000/api/v1/me
+   ```
+
+   สั่ง Quick scan ผ่าน API:
+
+   ```bash
+   curl -s -X POST -H "Authorization: Bearer $ZDRS_KEY" -H "Content-Type: application/json" \
+     -d '{"targets": ["192.0.2.10"], "level": "standard"}' http://localhost:8000/api/v1/scans/quick
    ```
 4. กด **Revoke** เพื่อยกเลิก key
 
@@ -486,7 +542,7 @@ docker compose build --pull --no-cache && docker compose up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.8.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"1.9.0"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 

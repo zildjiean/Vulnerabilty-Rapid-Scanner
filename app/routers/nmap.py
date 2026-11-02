@@ -17,15 +17,23 @@ router = APIRouter()
 DEFAULT_FORM = {"targets": "", "port_mode": "top", "custom_ports": "", "timing": "T3", "skip_ping": False, "scan_type": "syn"}
 
 
+def advanced_open(form: dict) -> bool:
+    """Advanced options (timing, scan type, skip ping) start open when any differs from the default."""
+    return any(form.get(k) != DEFAULT_FORM[k] for k in ("timing", "scan_type", "skip_ping"))
+
+
 def _page(request: Request, db: Session, form: dict, error: str | None = None, status_code: int = 200):
     return render(request, "nmap.html", status_code=status_code, active="nmap", form=form, error=error,
-                  jobs=recent_jobs(db, kind="nmap"), job_summary=job_summary)
+                  advanced_open=bool(error) or advanced_open(form), jobs=recent_jobs(db, kind="nmap"),
+                  job_summary=job_summary)
 
 
 def launch_nmap(db: Session, settings, runner, target_list: list[str], *, port_mode: str = "top",
                 custom_ports: str = "", timing: str = "T3", skip_ping: bool = False, scan_type: str = "syn",
-                exclude: list[str] | None = None, extra_params: dict | None = None, schedule_id: int | None = None):
-    """Validate options, create and start an nmap job. Raises ValueError for bad options."""
+                exclude: list[str] | None = None, extra_params: dict | None = None, schedule_id: int | None = None,
+                on_complete=on_nmap_complete):
+    """Validate options, create and start an nmap job. Raises ValueError for bad options. ``on_complete`` replaces
+    the ingest hook (Quick scan wraps ``on_nmap_complete`` to chain its nuclei step)."""
     argv = build_nmap_argv(settings.nmap_bin, target_list, port_mode=port_mode, custom_ports=custom_ports,
                            timing=timing, skip_ping=skip_ping, scan_type=scan_type, exclude=exclude)
     params = {"targets": target_list, "port_mode": port_mode, "custom_ports": custom_ports, "scan_type": scan_type,
@@ -36,7 +44,7 @@ def launch_nmap(db: Session, settings, runner, target_list: list[str], *, port_m
     if schedule_id is not None:
         job.schedule_id = schedule_id
         db.commit()
-    runner.start(job.id, argv, on_complete=on_nmap_complete, stdout_to_log=False)
+    runner.start(job.id, argv, on_complete=on_complete, stdout_to_log=False)
     return job
 
 

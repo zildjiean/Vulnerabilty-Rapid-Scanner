@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .db import Finding, Issue, IssueEvent, Job, TemplateIndex, utcnow
+
+log = logging.getLogger(__name__)
 
 PROOF_LIMIT = 4000   # characters shown before "Show full"
 REPORT_FULL_LIMIT = 200_000   # characters of a request / response kept at all on the issue page and report
@@ -74,8 +77,11 @@ def start_verify(db: Session, app, issue: Issue, actor) -> Job:
     prof = PROFILES["normal"]
     params = {"targets": [target], "template_ids": [issue.template_id], "mode": "selected", "profile": "normal",
               "verify_issue": issue.id}
-    job = launch_nuclei(db, app.state.settings, app.state.job_runner, [target], [path], params,
-                        rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
+    try:
+        job = launch_nuclei(db, app.state.settings, app.state.job_runner, [target], [path], params,
+                            rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
+    except ValueError as e:  # e.g. the target list could not be written; the job is already marked failed
+        raise VerifyError(f"The verification scan could not start: {e}") from e
     issue.verify_job_id = job.id
     _event(db, issue, f"Verification scan started: job #{job.id} against {target}.", actor)
     db.commit()
@@ -84,7 +90,7 @@ def start_verify(db: Session, app, issue: Issue, actor) -> Job:
 
 BULK_LIMIT = 200   # issues per bulk request
 SKIP_LABELS = {"no_template": "no template", "not_indexed": "template not indexed", "running": "already running",
-               "over_limit": "over limit"}
+               "over_limit": "over limit", "not_started": "scan could not start"}
 
 
 @dataclass
@@ -146,8 +152,14 @@ def start_verify_many(db: Session, app, issues: list[Issue], actor) -> BulkResul
         params = {"targets": targets, "template_ids": [group[0].template_id], "mode": "selected", "profile": "normal",
                   "verify_issues": [i.id for i in group],
                   "verify_targets": {str(i.id): target_of[i.id] for i in group}}
-        job = launch_nuclei(db, app.state.settings, app.state.job_runner, targets, [path], params,
-                            rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
+        try:
+            job = launch_nuclei(db, app.state.settings, app.state.job_runner, targets, [path], params,
+                                rate_limit=prof["rate_limit"], timeout=prof["timeout"], extra_flags=[])
+        except ValueError:  # the job is already marked failed; the other templates still run
+            log.exception("bulk verification of %s could not start", group[0].template_id)
+            for _ in group:
+                skip("not_started")
+            continue
         for issue in group:
             issue.verify_job_id = job.id
             _event(db, issue, f"Verification scan started: job #{job.id} against {target_of[issue.id]} "

@@ -1036,3 +1036,51 @@ def test_version_probe_disables_update_check(settings, monkeypatch):
     monkeypatch.setattr(updates, "_run_capture", capture)
     asyncio.run(updates.tool_versions(settings))
     assert [settings.subfinder_bin, "-version", "-duc"] in seen and [settings.httpx_bin, "-version", "-duc"] in seen
+
+
+def commit_from_another_connection(client, monkeypatch, module, attr="notify_changes"):
+    """Wrap ``module.attr``: inside the notification savepoint, read (fixing a snapshot), let another connection try to
+    commit a write, then queue the delivery. Returns the writer's state for the assertions."""
+    import threading
+    from app.db import AppSetting, NotificationChannel
+    from sqlalchemy import func
+    real = getattr(module, attr)
+    state = {"committed": threading.Event(), "error": None, "thread": None}
+
+    def writer():
+        try:
+            with client.app.state.SessionLocal() as other:
+                other.merge(AppSetting(key="race-test", value=str(time.time())))
+                other.commit()
+            state["committed"].set()
+        except Exception as e:  # noqa: BLE001
+            state["error"] = e
+
+    def wrapped(db, *a, **kw):
+        if state["thread"] is not None:  # race only the first call
+            return real(db, *a, **kw)
+        db.scalar(select(func.count(NotificationChannel.id)))  # the read that starts the snapshot
+        t = threading.Thread(target=writer)
+        t.start()
+        state["thread"] = t
+        state["committed"].wait(1.0)  # with the write lock held the writer waits for our commit instead
+        return real(db, *a, **kw)
+    monkeypatch.setattr(module, attr, wrapped)
+    return state
+
+
+def test_discovery_notification_survives_a_concurrent_commit(client, db, monkeypatch):
+    """Regression: the notification savepoint ran in a fresh deferred transaction after the ingest commit; a commit
+    by another connection between its read and its INSERT raised 'database is locked' and the alert was lost."""
+    channel(client, "slack", secret=SLACK, events=("surface.changed",), min_severity="low")
+    j1 = make_job(db, ["example.com"])
+    dsc.complete_discovery(db, j1, sf("www.example.com"))
+    db.commit()
+    state = commit_from_another_connection(client, monkeypatch, surface)
+    j2 = make_job(db, ["example.com"])
+    stats = dsc.complete_discovery(db, j2, sf("www.example.com", "vpn.example.com"))
+    db.commit()
+    state["thread"].join(10)
+    assert stats["notified"] == 1
+    assert len(list(db.scalars(select(Delivery)))) == 1
+    assert state["error"] is None and state["committed"].is_set()

@@ -53,6 +53,7 @@
       <label class="check"><input type="checkbox" name="skip_ping" value="true"> Skip host discovery (-Pn)</label>
     </div>
     <div class="stack" data-show-kind="nuclei" hidden>
+      <div class="field"><label for="s-preset">Preset</label><select id="s-preset" name="preset" aria-describedby="s-preset-hint">{% for k, p in presets.items() %}<option value="{{ k }}" {{ 'selected' if k == default_preset }}>{{ p.label }}</option>{% endfor %}</select><span class="hint" id="s-preset-hint">{% for k, p in presets.items() %}<b>{{ p.label }}</b>: {{ p.help }}{{ ' ' if not loop.last }}{% endfor %} Templates, groups, severities and profile below apply only to Custom.</span></div>
       <div class="field"><label for="s-mode">Templates</label><select id="s-mode" name="nuclei_mode"><option value="all">All templates</option><option value="groups">Template groups</option></select></div>
       <div class="field"><label for="s-groups">Groups (when using groups)</label><input id="s-groups" name="groups" placeholder="http/cves, network"></div>
       <fieldset class="field"><legend>Severities</legend><div class="row center">{% for sv in nuclei_severities %}<label class="check"><input type="checkbox" name="severities" value="{{ sv }}" {{ 'checked' if sv in ('critical','high') }}> {{ sv }}</label>{% endfor %}</div></fieldset>

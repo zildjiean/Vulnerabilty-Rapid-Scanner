@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-02
+
+### Added
+- **Quick scan** (*Scanning → Quick scan*, Dashboard button, `scan.run`): enter targets and press Start. Step 1 runs
+  nmap (*Standard*: top 1,000 ports; *Thorough*: all ports); when it finishes, step 2 starts nuclei by itself on the
+  services found inside those targets (*Recommended* or *Full* preset). Both job pages show "Quick scan · step N of 2"
+  and link to each other. No services → step 2 is skipped with a note (no alert); cancelling step 1 stops the chain.
+  Audited as `scan.quick`; API `POST /api/v1/scans/quick`.
+- **Nuclei presets**: *Recommended* (default; all templates, critical/high/medium), *Critical CVEs only*, *Full* and
+  *Custom*. The previous options moved under **Advanced options**; editing one selects Custom (also without
+  JavaScript). Nuclei schedules can use a preset; existing schedules keep running as before.
+- **Get started** checklist on the Dashboard: five steps that tick themselves off from real data, shown only for
+  steps the user may act on; **Dismiss**, and **Show Get started again** on the Profile page.
+- The nmap page keeps scan type, timing and skip-ping under **Advanced options**.
+
+### Fixed
+- Discovery and 0-day watch notifications could be lost with "database is locked" when another job wrote to the
+  database at the same moment (a savepoint opened after a commit started a deferred SQLite transaction). This was
+  also the cause of an occasional test failure.
+- A nuclei job whose start failed (for example, the target list could not be written) no longer stays *queued*; it
+  is marked failed, and Verify now shows an error instead of a server error.
+
 ## [1.8.0] - 2026-10-31
 
 ### Added
@@ -274,7 +296,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.5.0...v1.6.0
