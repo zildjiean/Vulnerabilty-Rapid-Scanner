@@ -75,6 +75,14 @@ def launch_nuclei(db: Session, settings, runner, target_list: list[str], paths: 
     return job
 
 
+def advanced_changed(template_paths, mode, groups, tags, severities, profile, rate_limit, timeout, no_mhe) -> bool:
+    """True when any Advanced option differs from the form default: the user chose settings of their own."""
+    d = DEFAULT_NUCLEI_FORM
+    if template_paths or groups or tags.strip() or severities or no_mhe:
+        return True
+    return (mode, profile, rate_limit, timeout) != (d["mode"], d["profile"], d["rate_limit"], d["timeout"])
+
+
 @router.get("/nuclei")
 def nuclei_page(request: Request, targets: str = "", db: Session = Depends(get_db), settings=Depends(get_settings)):
     return render(request, "nuclei.html", **nuclei_page_context(db, targets=targets, settings=settings))
@@ -97,6 +105,9 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
 
     if preset not in PRESETS:
         return fail("Invalid preset.")
+    if preset != "custom" and advanced_changed(template_paths, mode, groups, tags, severities, profile, rate_limit,
+                                               timeout, no_mhe):
+        preset = "custom"  # without JS, edited Advanced options must win over a preset left at its default
     if preset != "custom":  # a preset decides templates, filters and speed: the advanced fields are ignored
         try:
             target_list = parse_nuclei_targets(targets)

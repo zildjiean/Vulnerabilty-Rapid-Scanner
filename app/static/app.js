@@ -384,7 +384,10 @@
       selected.appendChild(li); refreshCount();
       selected.dispatchEvent(new Event("change", { bubbles: true }));
     };
-    selected.addEventListener("click", (e) => { const btn = e.target.closest(".rm"); if (btn) { btn.closest("li").remove(); refreshCount(); } });
+    selected.addEventListener("click", (e) => {
+      const btn = e.target.closest(".rm");
+      if (btn) { btn.closest("li").remove(); refreshCount(); selected.dispatchEvent(new Event("change", { bubbles: true })); }
+    });
     const search = async () => {
       const term = q.value.trim();
       if (term.length < 2) { results.innerHTML = ""; return; }

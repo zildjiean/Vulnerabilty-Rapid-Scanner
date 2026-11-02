@@ -86,22 +86,70 @@ def _job_of(r):
     return int(r.headers["location"].rsplit("/", 1)[1])
 
 
-def test_default_preset_ignores_advanced_fields(auth):
+NO_JS_DEFAULTS = {"mode": "selected", "profile": "normal", "rate_limit": "150", "timeout": "10", "tags": ""}
+
+
+def test_preset_with_untouched_advanced_fields_runs_the_preset(auth):
+    """A browser without JS posts every advanced field with its default value: the preset applies."""
     csrf = get_csrf(auth, "/nuclei")
     r = auth.post("/nuclei/scan", data={"csrf": csrf, "targets": "http://192.168.1.10:8080", "preset": "recommended",
-                                        "mode": "selected", "template_paths": ["/etc/passwd"], "tags": "php",
-                                        "severities": ["low"], "profile": "aggressive", "rate_limit": "999",
-                                        "no_mhe": "true"}, follow_redirects=False)
+                                        **NO_JS_DEFAULTS}, follow_redirects=False)
     jid = _job_of(r)
     wait_job(auth, jid)
     with auth.app.state.SessionLocal() as db:
         job = db.get(Job, jid)
         params = json.loads(job.params_json)
         assert params["preset"] == "recommended" and params["mode"] == "all"
-        assert "-severity critical,high,medium" in job.command and "-tags" not in job.command
-        assert "-no-mhe" not in job.command and "-rate-limit 150" in job.command and "/etc/passwd" not in job.command
+        assert "-severity critical,high,medium" in job.command and "-rate-limit 150" in job.command
         a = db.scalar(select(AuditLog).where(AuditLog.action == "scan.nuclei"))
         assert json.loads(a.details)["preset"] == "recommended"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("profile", "gentle"), ("rate_limit", "20"), ("timeout", "30"), ("tags", "php"), ("severities", ["low"]),
+    ("no_mhe", "true"), ("groups", ["http"]),
+])
+def test_changed_advanced_field_with_a_preset_is_treated_as_custom(auth, field, value):
+    """With JS off, a user who edits Advanced options but leaves the default preset gets the Custom path: here the
+    (default) 'Pick templates' mode without templates, so the form comes back asking for templates."""
+    csrf = get_csrf(auth, "/nuclei")
+    r = auth.post("/nuclei/scan", data={"csrf": csrf, "targets": "http://192.168.1.10:8080", "preset": "recommended",
+                                        **NO_JS_DEFAULTS, field: value})
+    assert r.status_code == 400 and "Select at least one template" in r.text
+    assert 'name="preset" value="custom" checked' in r.text and 'id="nuclei-advanced" open' in r.text
+    with auth.app.state.SessionLocal() as db:
+        assert db.scalar(select(Job)) is None
+
+
+def test_changed_mode_and_speed_with_a_preset_runs_the_users_settings(auth):
+    csrf = get_csrf(auth, "/nuclei")
+    r = auth.post("/nuclei/scan", data={"csrf": csrf, "targets": "http://192.168.1.10:8080", "preset": "recommended",
+                                        **NO_JS_DEFAULTS, "mode": "all", "profile": "gentle", "rate_limit": "20",
+                                        "no_mhe": "true"}, follow_redirects=False)
+    jid = _job_of(r)
+    wait_job(auth, jid)
+    with auth.app.state.SessionLocal() as db:
+        job = db.get(Job, jid)
+        assert json.loads(job.params_json)["preset"] == "custom"
+        assert "-rate-limit 20" in job.command and "-retries" in job.command and "-no-mhe" in job.command
+        assert "-severity" not in job.command
+
+
+def test_selected_templates_with_a_preset_are_treated_as_custom(auth):
+    from tests.test_nuclei_scan import _template_paths
+    paths = _template_paths(auth)
+    csrf = get_csrf(auth, "/nuclei")
+    r = auth.post("/nuclei/scan", data={"csrf": csrf, "targets": "http://192.168.1.10:8080", "preset": "full",
+                                        **NO_JS_DEFAULTS, "template_paths": [paths["php-detect"]]},
+                  follow_redirects=False)
+    jid = _job_of(r)
+    wait_job(auth, jid)
+    with auth.app.state.SessionLocal() as db:
+        job = db.get(Job, jid)
+        assert json.loads(job.params_json)["preset"] == "custom" and paths["php-detect"] in job.command
+    r = auth.post("/nuclei/scan", data={"csrf": csrf, "targets": "http://10.0.0.1", "preset": "full",
+                                        **NO_JS_DEFAULTS, "template_paths": ["/etc/passwd"]})
+    assert r.status_code == 400 and "not in the template directories" in r.text  # validated like Custom
 
 
 def test_custom_preset_keeps_todays_behaviour(auth):
