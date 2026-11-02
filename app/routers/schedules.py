@@ -15,6 +15,7 @@ from ..db import Job, Schedule, Scope, User, utcnow
 from ..deps import get_db, verify_csrf
 from ..render import render
 from ..scanners.nmap_runner import PORT_MODES, SCAN_TYPES, TIMINGS, build_nmap_argv
+from ..nuclei_presets import DEFAULT_PRESET, PRESETS
 from ..scanners.nuclei_runner import _GROUP_RE, DEFAULT_PROFILE, PROFILES
 
 router = APIRouter()
@@ -32,7 +33,7 @@ def schedule_form_context(db: Session, scope_filter: int | None = None) -> dict:
     return dict(schedules=schedules, last_jobs=jobs, tz_name=sch.get_timezone(db), to_local=lambda d: sch.to_local(d, tz),
                 kinds=sch.KINDS, frequencies=sch.FREQUENCIES, weekdays=sch.WEEKDAYS, all_scopes=list(db.scalars(select(Scope).order_by(Scope.name))),
                 port_modes=PORT_MODES, timings=TIMINGS, scan_types=SCAN_TYPES, profiles=PROFILES,
-                default_profile=DEFAULT_PROFILE, nuclei_severities=NUCLEI_SEVERITIES, scope_filter=scope_filter,
+                default_profile=DEFAULT_PROFILE, presets=PRESETS, default_preset=DEFAULT_PRESET, nuclei_severities=NUCLEI_SEVERITIES, scope_filter=scope_filter,
                 describe=describe)
 
 
@@ -58,7 +59,7 @@ def _to_int(value: str, default: int) -> int:
 
 def build_config(kind: str, port_mode: str, custom_ports: str, timing: str, scan_type: str, skip_ping: bool,
                  nuclei_mode: str, groups: str, severities: list[str], profile: str, domains: str = "",
-                 probe: bool = False) -> dict:
+                 probe: bool = False, preset: str = "custom") -> dict:
     if kind == "discovery":
         from ..discovery import parse_root_domains
         return {"domains": parse_root_domains(domains), "probe": probe}
@@ -68,6 +69,10 @@ def build_config(kind: str, port_mode: str, custom_ports: str, timing: str, scan
                         skip_ping=skip_ping, scan_type=scan_type)
         return {"port_mode": port_mode, "custom_ports": custom_ports, "timing": timing, "scan_type": scan_type,
                 "skip_ping": skip_ping}
+    if kind == "nuclei" and preset != "custom":
+        if preset not in PRESETS:
+            raise ValueError("Invalid preset.")
+        return {"preset": preset}  # templates, filters and profile come from the preset
     if profile not in PROFILES:
         raise ValueError("Unknown scan profile.")
     if kind == "campaign_verify":
@@ -96,7 +101,7 @@ def schedule_create(request: Request, name: str = Form(""), kind: str = Form("")
                     timing: str = Form("T3"), scan_type: str = Form("syn"), skip_ping: bool = Form(False),
                     nuclei_mode: str = Form("all"), groups: str = Form(""), severities: list[str] = Form(default=[]),
                     profile: str = Form(DEFAULT_PROFILE), domains: str = Form(""), probe: bool = Form(False),
-                    back: str = Form("/schedules"), db: Session = Depends(get_db)):
+                    preset: str = Form("custom"), back: str = Form("/schedules"), db: Session = Depends(get_db)):
     scope = db.get(Scope, int(scope_id)) if scope_id.isdigit() else None
     hours, day = _to_int(interval_hours, 0), _to_int(weekday, -1)
     err = sch.validate_schedule(kind, scope.id if scope else None, frequency, hours, time_of_day, day)
@@ -104,7 +109,7 @@ def schedule_create(request: Request, name: str = Form(""), kind: str = Form("")
     if not err:
         try:
             config = build_config(kind, port_mode, custom_ports, timing, scan_type, skip_ping, nuclei_mode, groups,
-                                  severities, profile, domains, probe)
+                                  severities, profile, domains, probe, preset)
         except ValueError as e:
             err = str(e)
     if err:

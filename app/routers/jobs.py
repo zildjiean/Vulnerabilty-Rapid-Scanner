@@ -50,6 +50,10 @@ def job_summary(job: Job) -> str:
     if targets:
         parts.append(f"{len(targets)} target(s): " + ", ".join(targets[:3]) + ("…" if len(targets) > 3 else ""))
     mode = p.get("mode")
+    preset = p.get("preset")
+    if preset and preset != "custom":
+        from ..nuclei_presets import preset_label
+        parts.append(f"{preset_label(preset)} preset")
     if mode == "all":
         parts.append("all templates")
     elif mode == "groups":

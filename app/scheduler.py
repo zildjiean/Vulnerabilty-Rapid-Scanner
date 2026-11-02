@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .audit import audit
-from .db import AppSetting, Campaign, Host, Job, Schedule, Scope, Service, utcnow
+from .db import AppSetting, Campaign, Job, Schedule, Scope, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -108,17 +108,8 @@ def _scope_targets(scope: Scope) -> tuple[list[str], list[str]]:
 
 def scope_services(db: Session, scope: Scope) -> list[str]:
     """nuclei targets for every inventory service inside the scope's own targets / exclusions."""
-    from .routers.inventory import service_to_target
-    from .scopes import Matcher
-    include, exclude = (Matcher.parse(x) for x in _scope_targets(scope))
-    out = []
-    for svc, host in db.execute(select(Service, Host).join(Host, Host.id == Service.host_id).order_by(Host.address, Service.port)):
-        name = host.hostname or ""
-        if include.matches(host.address, name) and not exclude.matches(host.address, name):
-            t = service_to_target(host.address, svc)
-            if t not in out:
-                out.append(t)
-    return out
+    from .scopes import services_in
+    return services_in(db, *_scope_targets(scope))
 
 
 def _run_nmap(app, db: Session, s: Schedule, cfg: dict) -> tuple[Job | None, str]:
@@ -138,6 +129,12 @@ def _run_nuclei(app, db: Session, s: Schedule, cfg: dict) -> tuple[Job | None, s
     if not targets:
         return None, f"No services in the inventory for {s.scope.name} yet. Run nmap discovery first."
     settings = app.state.settings
+    preset = cfg.get("preset", "custom")  # schedules made before presets have none: they run as configured
+    if preset != "custom":
+        from .nuclei_presets import preset_label, preset_launch
+        job = preset_launch(db, settings, app.state.job_runner, targets, preset,
+                            {"schedule": s.name, "scope": s.scope.name}, schedule_id=s.id)
+        return job, f"nuclei scan ({preset_label(preset)}) of {len(targets)} service(s) in {s.scope.name}"
     mode = cfg.get("mode", "all")
     paths = resolve_group_paths(settings, cfg.get("groups") or []) if mode == "groups" else all_template_paths(settings)
     profile = cfg.get("profile", "normal")
