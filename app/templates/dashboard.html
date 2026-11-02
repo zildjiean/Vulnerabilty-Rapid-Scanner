@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% set section = "Overview" %}
-{% set page_title = "Dashboard" %}
-{% set page_subtitle = "Exposure overview across discovered hosts, nuclei findings and version-rule matches." %}
+{% set section = t("Overview") %}
+{% set page_title = t("Dashboard") %}
+{% set page_subtitle = t("Exposure overview across discovered hosts, nuclei findings and version-rule matches.") %}
 {% block page_actions %}
-{% if can('scan.run') %}<a class="btn primary" href="/quick"><svg class="icon"><use href="#i-zap"/></svg>Quick scan</a>
-<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>New nmap scan</a>
-<a class="btn" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>New nuclei scan</a>{% endif %}
+{% if can('scan.run') %}<a class="btn primary" href="/quick"><svg class="icon"><use href="#i-zap"/></svg>{{ t("Quick scan") }}</a>
+<a class="btn" href="/nmap"><svg class="icon"><use href="#i-radar"/></svg>{{ t("New nmap scan") }}</a>
+<a class="btn" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>{{ t("New nuclei scan") }}</a>{% endif %}
 {% endblock %}
 {% block content %}
 {% if get_started %}
 {% set n_done = get_started|selectattr('done')|list|length %}
 {% set first_todo = (get_started|rejectattr('done')|first).key %}
 <section class="card mb onboarding" id="get-started" aria-labelledby="get-started-title">
-  <div class="card-head wrap"><h2 id="get-started-title"><svg class="icon"><use href="#i-flag"/></svg>Get started</h2>
-    <form method="post" action="/onboarding/dismiss"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost sm" aria-label="Dismiss the Get started checklist"><svg class="icon sm"><use href="#i-x"/></svg>Dismiss</button></form></div>
+  <div class="card-head wrap"><h2 id="get-started-title"><svg class="icon"><use href="#i-flag"/></svg>{{ t("Get started") }}</h2>
+    <form method="post" action="/onboarding/dismiss"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ghost sm" aria-label="{{ t('Dismiss the Get started checklist') }}"><svg class="icon sm"><use href="#i-x"/></svg>{{ t("Dismiss") }}</button></form></div>
   <div class="card-body">
-    <p class="small text-2" style="margin:0" id="get-started-progress"><b class="num">{{ n_done }} of {{ get_started|length }} done</b> · a few steps to get useful results from this scanner.</p>
+    <p class="small text-2" style="margin:0" id="get-started-progress"><b class="num">{{ t("{n} of {total} done", n=n_done, total=get_started|length) }}</b> · {{ t("a few steps to get useful results from this scanner.") }}</p>
     <div class="progress-line" role="progressbar" aria-labelledby="get-started-progress" aria-valuemin="0" aria-valuemax="{{ get_started|length }}" aria-valuenow="{{ n_done }}"><i style="width:{{ (100 * n_done / get_started|length)|round(1) }}%"></i></div>
     <ol class="checklist">
       {% for s in get_started %}
       <li class="{{ 'done' if s.done }}" data-step="{{ s.key }}">
         <span class="mark" aria-hidden="true">{% if s.done %}<svg class="icon sm"><use href="#i-check"/></svg>{% else %}{{ loop.index }}{% endif %}</span>
-        <div class="txt"><b>{{ s.title }}</b><span>{{ s.help }}</span></div>
-        {% if s.done %}<span class="status st-done"><span class="sr-only">{{ s.title }}: </span>Done</span>{% else %}<a class="btn sm{{ ' primary' if s.key == first_todo }}" href="{{ s.href }}">{{ s.action }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a>{% endif %}
+        <div class="txt"><b>{{ t(s.title) }}</b><span>{{ t(s.help) }}</span></div>
+        {% if s.done %}<span class="status st-done"><span class="sr-only">{{ t(s.title) }}: </span>{{ t("Done") }}</span>{% else %}<a class="btn sm{{ ' primary' if s.key == first_todo }}" href="{{ s.href }}">{{ t(s.action) }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a>{% endif %}
       </li>
       {% endfor %}
     </ol>
@@ -31,86 +31,86 @@
 {% endif %}
 {% if drafts_waiting %}
 <div class="grid grid-4 mb">
-  <a class="card kpi kpi-link" href="/campaigns?view=draft" data-stat="drafts_waiting"><div class="kpi-icon warn"><svg class="icon"><use href="#i-radar"/></svg></div><div><div class="kpi-label">Drafts waiting</div><div class="kpi-value">{{ drafts_waiting }}</div><div class="kpi-sub">0-day watch campaigns to review</div></div></a>
+  <a class="card kpi kpi-link" href="/campaigns?view=draft" data-stat="drafts_waiting"><div class="kpi-icon warn"><svg class="icon"><use href="#i-radar"/></svg></div><div><div class="kpi-label">{{ t("Drafts waiting") }}</div><div class="kpi-value">{{ drafts_waiting }}</div><div class="kpi-sub">{{ t("0-day watch campaigns to review") }}</div></div></a>
 </div>
 {% endif %}
 {% set sev_total = sev_counts.critical + sev_counts.high + sev_counts.medium + sev_counts.low + sev_counts.info %}
 <div class="grid grid-4 mb">
-  <a class="card kpi kpi-link" href="/issues"><div class="kpi-icon"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Active issues</div><div class="kpi-value" data-stat="issues_active">{{ kpis.active }}</div><div class="kpi-sub">{{ kpis.critical }} critical open · {{ kpis.suspected }} suspected</div></div></a>
-  <a class="card kpi kpi-link" href="/issues?overdue=1"><div class="kpi-icon danger"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">Overdue</div><div class="kpi-value" data-stat="issues_overdue">{{ kpis.overdue }}</div><div class="kpi-sub">{{ kpis.due_soon }} due within 7 days</div></div></a>
-  <a class="card kpi kpi-link" href="/issues?assignee=none"><div class="kpi-icon warn"><svg class="icon"><use href="#i-user"/></svg></div><div><div class="kpi-label">Unassigned</div><div class="kpi-value">{{ kpis.unassigned }}</div><div class="kpi-sub">open work without an owner</div></div></a>
-  <a class="card kpi kpi-link" href="/issues?status=fixed"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div><div class="kpi-label">Awaiting verification</div><div class="kpi-value">{{ kpis.awaiting_verification }}</div><div class="kpi-sub">re-scan to verify the fix</div></div></a>
+  <a class="card kpi kpi-link" href="/issues"><div class="kpi-icon"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">{{ t("Active issues") }}</div><div class="kpi-value" data-stat="issues_active">{{ kpis.active }}</div><div class="kpi-sub">{{ t("{n} critical open", n=kpis.critical) }} · {{ t("{n} suspected", n=kpis.suspected) }}</div></div></a>
+  <a class="card kpi kpi-link" href="/issues?overdue=1"><div class="kpi-icon danger"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">{{ t("Overdue") }}</div><div class="kpi-value" data-stat="issues_overdue">{{ kpis.overdue }}</div><div class="kpi-sub">{{ t("{n} due within 7 days", n=kpis.due_soon) }}</div></div></a>
+  <a class="card kpi kpi-link" href="/issues?assignee=none"><div class="kpi-icon warn"><svg class="icon"><use href="#i-user"/></svg></div><div><div class="kpi-label">{{ t("Unassigned") }}</div><div class="kpi-value">{{ kpis.unassigned }}</div><div class="kpi-sub">{{ t("open work without an owner") }}</div></div></a>
+  <a class="card kpi kpi-link" href="/issues?status=fixed"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div><div class="kpi-label">{{ t("Awaiting verification") }}</div><div class="kpi-value">{{ kpis.awaiting_verification }}</div><div class="kpi-sub">{{ t("re-scan to verify the fix") }}</div></div></a>
 </div>
 <div class="grid grid-4 mb">
-  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">Hosts</div><div class="kpi-value" data-stat="hosts">{{ stats.hosts }}</div><div class="kpi-sub">discovered by nmap</div></div></div>
-  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-layers"/></svg></div><div><div class="kpi-label">Open services</div><div class="kpi-value" data-stat="services">{{ stats.services }}</div><div class="kpi-sub">with product / version</div></div></div>
-  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-alert"/></svg></div><div style="flex:1"><div class="kpi-label">Nuclei findings</div><div class="kpi-value" data-stat="findings">{{ stats.findings }}</div>
-    {% if sev_total %}<div class="sev-bar" role="img" aria-label="Findings by severity: {{ sev_counts.critical }} critical, {{ sev_counts.high }} high, {{ sev_counts.medium }} medium, {{ sev_counts.low }} low, {{ sev_counts.info }} info">
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-server"/></svg></div><div><div class="kpi-label">{{ t("Hosts") }}</div><div class="kpi-value" data-stat="hosts">{{ stats.hosts }}</div><div class="kpi-sub">{{ t("discovered by nmap") }}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-layers"/></svg></div><div><div class="kpi-label">{{ t("Open services") }}</div><div class="kpi-value" data-stat="services">{{ stats.services }}</div><div class="kpi-sub">{{ t("with product / version") }}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-alert"/></svg></div><div style="flex:1"><div class="kpi-label">{{ t("Nuclei findings") }}</div><div class="kpi-value" data-stat="findings">{{ stats.findings }}</div>
+    {% if sev_total %}<div class="sev-bar" role="img" aria-label="{{ t('Findings by severity: {critical} critical, {high} high, {medium} medium, {low} low, {info} info', critical=sev_counts.critical, high=sev_counts.high, medium=sev_counts.medium, low=sev_counts.low, info=sev_counts.info) }}">
       {% for s in ['critical','high','medium','low','info'] if sev_counts[s] %}<i class="{{ s }}" style="width:{{ (100 * sev_counts[s] / sev_total)|round(1) }}%"></i>{% endfor %}</div>
     <div class="legend">{% for s in ['critical','high','medium','low','info'] if sev_counts[s] %}<span><i class="{{ s }}" style="background:var(--sev-{{ s }})"></i>{{ s }} {{ sev_counts[s] }}</span>{% endfor %}</div>
-    {% else %}<div class="kpi-sub">no findings yet</div>{% endif %}</div></div>
-  <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Potential 0-day</div><div class="kpi-value" data-stat="rule_matches">{{ stats.rule_matches }}</div><div class="kpi-sub">{{ stats.rules }} rule(s) enabled · {{ stats.templates }} templates indexed</div></div></div>
+    {% else %}<div class="kpi-sub">{{ t("no findings yet") }}</div>{% endif %}</div></div>
+  <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">{{ t("Potential 0-day") }}</div><div class="kpi-value" data-stat="rule_matches">{{ stats.rule_matches }}</div><div class="kpi-sub">{{ t("{n} rule(s) enabled", n=stats.rules) }} · {{ t("{n} templates indexed", n=stats.templates) }}</div></div></div>
 </div>
 {% from "_chart_macros.html" import chart %}
 <section class="card mb" id="trends-card" aria-labelledby="trends-title">
-  <div class="card-head wrap"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>Trends</h2>
+  <div class="card-head wrap"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>{{ t("Trends") }}</h2>
     <form method="get" action="/#trends-card" class="row trend-controls" data-autosubmit>
-      <label class="small text-2" for="trend-days">Period</label>
-      <select id="trend-days" name="trend_days" class="sm">{% for d, label in trend_periods.items() %}<option value="{{ d }}"{{ ' selected' if d == trend.days }}>{{ label }}</option>{% endfor %}</select>
-      <label class="small text-2" for="trend-scope">Scope</label>
-      <select id="trend-scope" name="trend_scope" class="sm"><option value=""{{ ' selected' if trend.scope_id is none }}>All scopes</option>{% for s in trend_scopes %}<option value="{{ s.id }}"{{ ' selected' if s.id == trend.scope_id }}>{{ s.name }}</option>{% endfor %}</select>
-      <button type="submit" class="sm" id="trend-apply" data-trend-apply>Apply</button>
+      <label class="small text-2" for="trend-days">{{ t("Period") }}</label>
+      <select id="trend-days" name="trend_days" class="sm">{% for d, label in trend_periods.items() %}<option value="{{ d }}"{{ ' selected' if d == trend.days }}>{{ t(label) }}</option>{% endfor %}</select>
+      <label class="small text-2" for="trend-scope">{{ t("Scope") }}</label>
+      <select id="trend-scope" name="trend_scope" class="sm"><option value=""{{ ' selected' if trend.scope_id is none }}>{{ t("All scopes") }}</option>{% for s in trend_scopes %}<option value="{{ s.id }}"{{ ' selected' if s.id == trend.scope_id }}>{{ s.name }}</option>{% endfor %}</select>
+      <button type="submit" class="sm" id="trend-apply" data-trend-apply>{{ t("Apply") }}</button>
     </form></div>
   <div class="card-body"><div class="chart-grid-2">{% for c in trend_charts %}{{ chart(c) }}{% endfor %}</div></div>
 </section>
 <div class="card mb" id="surface-card">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Surface changes (7 days)</h2><a class="btn sm ghost" href="/changes?days=7">Review changes<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Surface changes (7 days)") }}</h2><a class="btn sm ghost" href="/changes?days=7">{{ t("Review changes") }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
   <div class="card-body">
     {% if surface_counts.values()|sum %}
-    <div class="row" style="gap:18px;flex-wrap:wrap">{% for k, label in surface_labels.items() %}<a class="small" href="/changes?days=7&amp;kind={{ k }}"><b class="num" data-surface="{{ k }}">{{ surface_counts[k] }}</b> <span class="text-2">{{ label }}</span></a>{% endfor %}</div>
-    {% else %}<p class="small text-2" style="margin:0">No unacknowledged changes in the last 7 days.</p>{% endif %}
+    <div class="row" style="gap:18px;flex-wrap:wrap">{% for k, label in surface_labels.items() %}<a class="small" href="/changes?days=7&amp;kind={{ k }}"><b class="num" data-surface="{{ k }}">{{ surface_counts[k] }}</b> <span class="text-2">{{ t(label) }}</span></a>{% endfor %}</div>
+    {% else %}<p class="small text-2" style="margin:0">{{ t("No unacknowledged changes in the last 7 days.") }}</p>{% endif %}
   </div>
 </div>
 {% from "_campaign_macros.html" import kev_badge, progress_bar %}
 {% from "_issue_macros.html" import risk_pill %}
 {% if top_risks %}
 <div class="card mb">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Top risks</h2><a class="btn sm ghost" href="/issues">All issues<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>{{ t("Top risks") }}</h2><a class="btn sm ghost" href="/issues">{{ t("All issues") }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
   <div class="table-wrap"><table class="data">
-    <thead><tr><th>Risk</th><th>Issue</th><th>Asset</th></tr></thead>
+    <thead><tr><th>{{ t("Risk") }}</th><th>{{ t("Issue") }}</th><th>{{ t("Asset") }}</th></tr></thead>
     <tbody>{% for i, rs in top_risks %}
-    <tr><td>{{ risk_pill(rs) }}</td><td><a class="issue-title" href="/issues/{{ i.id }}">{{ i.title or i.vuln_id }}</a> <span class="badge sev-{{ i.severity }}">{{ i.severity }}</span>{% if rs.kev %} <span class="badge kev" title="Listed in the CISA Known Exploited Vulnerabilities catalog"><svg class="icon sm"><use href="#i-alert"/></svg>Known exploited</span>{% endif %}<div class="small text-2 cell-mono">{{ i.vuln_id }}</div></td><td class="cell-mono small">{{ i.asset }}</td></tr>
+    <tr><td>{{ risk_pill(rs) }}</td><td><a class="issue-title" href="/issues/{{ i.id }}">{{ i.title or i.vuln_id }}</a> <span class="badge sev-{{ i.severity }}">{{ i.severity }}</span>{% if rs.kev %} <span class="badge kev" title="{{ t('Listed in the CISA Known Exploited Vulnerabilities catalog') }}"><svg class="icon sm"><use href="#i-alert"/></svg>{{ t("Known exploited") }}</span>{% endif %}<div class="small text-2 cell-mono">{{ i.vuln_id }}</div></td><td class="cell-mono small">{{ i.asset }}</td></tr>
     {% endfor %}</tbody>
   </table></div>
 </div>
 {% endif %}
 {% if active_campaigns %}
 <div class="card mb">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-flag"/></svg>Active campaigns</h2><a class="btn sm ghost" href="/campaigns">All campaigns<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-flag"/></svg>{{ t("Active campaigns") }}</h2><a class="btn sm ghost" href="/campaigns">{{ t("All campaigns") }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
   <div class="table-wrap"><table class="data">
-    <thead><tr><th>Campaign</th><th>Exposed</th><th>Open</th><th>Remediation</th></tr></thead>
+    <thead><tr><th>{{ t("Campaign") }}</th><th>{{ t("Exposed") }}</th><th>{{ t("Open") }}</th><th>{{ t("Remediation") }}</th></tr></thead>
     <tbody>{% for c, p in active_campaigns %}
-    <tr><td><a class="issue-title" href="/campaigns/{{ c.id }}">{{ c.name }}</a> <span class="badge sev-{{ c.severity }}">{{ c.severity }}</span> {{ kev_badge(c) }}</td><td class="num">{{ p.total }}</td><td class="num">{{ p.open }}</td><td style="min-width:200px">{{ progress_bar(p) }}<div class="small text-2 num">{{ p.remediated_pct }}% remediated</div></td></tr>
+    <tr><td><a class="issue-title" href="/campaigns/{{ c.id }}">{{ c.name }}</a> <span class="badge sev-{{ c.severity }}">{{ c.severity }}</span> {{ kev_badge(c) }}</td><td class="num">{{ p.total }}</td><td class="num">{{ p.open }}</td><td style="min-width:200px">{{ progress_bar(p) }}<div class="small text-2 num">{{ t("{pct}% remediated", pct=p.remediated_pct) }}</div></td></tr>
     {% endfor %}</tbody>
   </table></div>
 </div>
 {% endif %}
 <div class="grid grid-2">
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>Quick start</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>{{ t("Quick start") }}</h2></div>
     <div class="card-body">
       <ol class="steps">
-        <li><div><b><a href="/updates">Update nuclei templates</a></b><span>Runs automatically on first start. Repeat whenever a CVE drops.</span></div></li>
-        <li><div><b><a href="/nmap">Run an nmap scan</a></b><span>Top 1000 ports, all ports or a custom range. Results land in the inventory.</span></div></li>
-        <li><div><b><a href="/inventory">Review the inventory</a></b><span>Filter by product and version, select hosts, then hand them to nuclei.</span></div></li>
-        <li><div><b><a href="/nuclei">Run nuclei</a></b><span>Search templates by id, tag or CVE (for example <code>CVE-2026-109619</code>), pick one or many.</span></div></li>
-        <li><div><b><a href="/campaigns/new">React to a new 0-day</a></b><span>Start a campaign from the CVE: intel, a version rule and templates in one step.</span></div></li>
-        <li><div><b><a href="/issues">Triage issues</a></b><span>Assign owners, track SLAs and verify fixes with a re-scan.</span></div></li>
+        <li><div><b><a href="/updates">{{ t("Update nuclei templates") }}</a></b><span>{{ t("Runs automatically on first start. Repeat whenever a CVE drops.") }}</span></div></li>
+        <li><div><b><a href="/nmap">{{ t("Run an nmap scan") }}</a></b><span>{{ t("Top 1000 ports, all ports or a custom range. Results land in the inventory.") }}</span></div></li>
+        <li><div><b><a href="/inventory">{{ t("Review the inventory") }}</a></b><span>{{ t("Filter by product and version, select hosts, then hand them to nuclei.") }}</span></div></li>
+        <li><div><b><a href="/nuclei">{{ t("Run nuclei") }}</a></b><span>{{ t("Search templates by id, tag or CVE (for example") }} <code>CVE-2026-109619</code>{{ t("), pick one or many.") }}</span></div></li>
+        <li><div><b><a href="/campaigns/new">{{ t("React to a new 0-day") }}</a></b><span>{{ t("Start a campaign from the CVE: intel, a version rule and templates in one step.") }}</span></div></li>
+        <li><div><b><a href="/issues">{{ t("Triage issues") }}</a></b><span>{{ t("Assign owners, track SLAs and verify fixes with a re-scan.") }}</span></div></li>
       </ol>
     </div>
   </div>
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>Recent jobs</h2><a class="btn sm ghost" href="/jobs">View all<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-activity"/></svg>{{ t("Recent jobs") }}</h2><a class="btn sm ghost" href="/jobs">{{ t("View all") }}<svg class="icon sm"><use href="#i-arrow-right"/></svg></a></div>
     <div class="card-body tight">{% include "_jobs_table.html" %}</div>
   </div>
 </div>
