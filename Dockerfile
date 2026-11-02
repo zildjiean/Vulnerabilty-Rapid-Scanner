@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 ARG APP_VERSION=2.0.0
 LABEL org.opencontainers.image.title="0-Day Rapid Scanner" \
