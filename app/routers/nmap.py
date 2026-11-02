@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ..audit import audit
 from ..authz import require
 from ..deps import get_db, get_runner, get_settings, verify_csrf
+from ..i18n import tr
 from ..render import render
 from ..scanners.nmap_runner import build_nmap_argv, on_nmap_complete
 from ..validation import parse_nmap_targets
@@ -65,6 +66,6 @@ async def nmap_scan(request: Request, targets: str = Form(""), port_mode: str = 
         job = launch_nmap(db, settings, runner, target_list, port_mode=port_mode, custom_ports=custom_ports,
                           timing=timing, skip_ping=skip_ping, scan_type=scan_type)
     except ValueError as e:
-        return _page(request, db, form, error=str(e), status_code=400)
+        return _page(request, db, form, error=tr(request, e), status_code=400)
     audit(db, request, "scan.nmap", target=", ".join(target_list), job_id=job.id, port_mode=port_mode, scan_type=scan_type)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)

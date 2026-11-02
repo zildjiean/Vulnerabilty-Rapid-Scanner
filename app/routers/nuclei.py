@@ -12,6 +12,7 @@ from ..audit import audit
 from ..authz import require
 from ..deps import get_db, get_runner, get_settings, verify_csrf
 from ..jobs import quote_argv
+from ..i18n import Msg, tr
 from ..render import SEVERITIES, SEVERITY_ORDER, render
 from ..jobs import job_warnings
 from ..nuclei_presets import DEFAULT_PRESET, PRESETS, preset_launch
@@ -67,8 +68,8 @@ def launch_nuclei(db: Session, settings, runner, target_list: list[str], paths: 
         try:
             targets_file = write_targets_file(settings, job.id, target_list)
         except OSError as e:
-            raise ValueError(f"Could not write the target list: {e.strerror or type(e).__name__} "
-                             f"(job #{job.id} was marked failed).") from e
+            raise ValueError(Msg("Could not write the target list: {err} (job #{id} was marked failed).",
+                                 err=e.strerror or type(e).__name__, id=job.id)) from e
         argv = build_nuclei_argv(settings.nuclei_bin, paths, str(targets_file), str(settings.nuclei_templates_dir),
                                  rate_limit=max(1, min(rate_limit, 1000)), timeout=max(1, min(timeout, 120)),
                                  tags=tags or [], severities=severities or [], extra=extra_flags)
@@ -121,14 +122,14 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
     selected = selected_from_paths(db, template_paths)
     severities = [s for s in severities if s in SEVERITIES]
 
-    def fail(msg: str):
+    def fail(msg):
         return render(request, "nuclei.html", status_code=400,
-                      **nuclei_page_context(db, targets=targets, selected=selected, error=msg, settings=settings, rate_limit=rate_limit,
+                      **nuclei_page_context(db, targets=targets, selected=selected, error=tr(request, msg), settings=settings, rate_limit=rate_limit,
                                             timeout=timeout, mode=mode, groups=groups, tags=tags, severities=severities,
                                             profile=profile, no_mhe=no_mhe, preset=preset))
 
     if preset not in PRESETS:
-        return fail("Invalid preset.")
+        return fail(Msg("Invalid preset."))
     # With JS (the script adds js=1) the preset radio is authoritative: picking a field already selected Custom, and
     # going back to a preset leaves stale Advanced values behind. Without JS nothing selects Custom for the user, so
     # edited Advanced options win over a preset left at its default.
@@ -140,13 +141,13 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
             target_list = parse_nuclei_targets(targets)
             job = preset_launch(db, settings, runner, target_list, preset, {})
         except ValueError as e:
-            return fail(str(e))
+            return fail(e)
         audit(db, request, "scan.nuclei", target=", ".join(target_list), job_id=job.id, mode="all", preset=preset,
               profile=PRESETS[preset]["profile"], severities=",".join(PRESETS[preset]["severities"]))
         return RedirectResponse(f"/jobs/{job.id}", status_code=303)
     try:
         if mode not in MODES:
-            raise ValueError("Invalid template selection mode.")
+            raise ValueError(Msg("Invalid template selection mode."))
         if mode == "all":
             paths = all_template_paths(settings)
         elif mode == "groups":
@@ -157,7 +158,7 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
         extra_flags = profile_flags(profile, no_mhe)
         target_list = parse_nuclei_targets(targets)
     except ValueError as e:
-        return fail(str(e))
+        return fail(e)
     template_ids = [s["template_id"] for s in selected] if mode == "selected" else []
     params = {"targets": target_list, "template_ids": template_ids, "mode": mode, "tags": tag_list, "severities": severities,
               "profile": profile, "no_mhe": no_mhe, "preset": "custom"}
@@ -167,7 +168,7 @@ async def nuclei_scan(request: Request, targets: str = Form(""), template_paths:
         job = launch_nuclei(db, settings, runner, target_list, paths, params, rate_limit=rate_limit, timeout=timeout,
                             extra_flags=extra_flags, tags=tag_list, severities=severities)
     except ValueError as e:
-        return fail(str(e))
+        return fail(e)
     audit(db, request, "scan.nuclei", target=", ".join(target_list), job_id=job.id, mode=mode, preset="custom", profile=profile,
           templates=len(paths), severities=",".join(severities))
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)

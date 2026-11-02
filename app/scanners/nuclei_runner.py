@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..config import Settings
 from ..db import Finding, Job
+from ..i18n import Msg
 from ..parsers.nuclei_jsonl import parse_nuclei_jsonl
 
 
@@ -32,7 +33,7 @@ DEFAULT_PROFILE = "normal"
 
 def profile_flags(profile: str, no_mhe: bool) -> list[str]:
     if profile not in PROFILES:
-        raise ValueError("Invalid scan profile.")
+        raise ValueError(Msg("Invalid scan profile."))
     flags = list(PROFILES[profile]["flags"])
     if no_mhe:
         flags.append("-no-mhe")
@@ -45,7 +46,7 @@ def build_nuclei_argv(nuclei_bin: str, template_paths: list[str], targets_file: 
                       extra: list[str] | None = None) -> list[str]:
     """template_paths may be template files or directories (nuclei runs every template below a directory)."""
     if not template_paths:
-        raise ValueError("Select at least one template.")
+        raise ValueError(Msg("Select at least one template."))
     # No -silent: nuclei's INF lines (templates/targets loaded, httpx probing, errors) go to stderr and end up in the
     # job log, so an empty result can be told apart from an unreachable target. Findings stay on stdout as JSONL.
     argv = [nuclei_bin, "-jsonl", "-disable-update-check", "-no-color", "-stats", "-stats-interval", "30",
@@ -73,7 +74,7 @@ def parse_tags(text: str) -> list[str]:
         if not t:
             continue
         if not _TAG_RE.match(t):
-            raise ValueError(f"Invalid tag {raw!r}: use letters, digits, '-', '_' or '.' only.")
+            raise ValueError(Msg("Invalid tag {raw!r}: use letters, digits, '-', '_' or '.' only.", raw=raw))
         if t not in out:
             out.append(t)
     return out
@@ -90,20 +91,20 @@ def validate_template_paths(settings: Settings, paths: list[str]) -> list[str]:
     for p in paths:
         rp = Path(p).resolve()
         if not any(rp == r or rp.is_relative_to(r) for r in roots):
-            raise ValueError(f"Template path is not in the template directories: {p}")
+            raise ValueError(Msg("Template path is not in the template directories: {p}", p=p))
         if not (rp.is_file() or rp.is_dir()):
-            raise ValueError(f"Template path not found: {p}")
+            raise ValueError(Msg("Template path not found: {p}", p=p))
         if str(rp) not in out:
             out.append(str(rp))
     if not out:
-        raise ValueError("Select at least one template.")
+        raise ValueError(Msg("Select at least one template."))
     return out
 
 
 def resolve_group_paths(settings: Settings, groups: list[str]) -> list[str]:
     """Map group keys ('http/cves/2026', 'custom') to directories under the template roots."""
     if not groups:
-        raise ValueError("Select at least one template group.")
+        raise ValueError(Msg("Select at least one template group."))
     out: list[str] = []
     for g in groups:
         g = g.strip().strip("/")
@@ -111,12 +112,12 @@ def resolve_group_paths(settings: Settings, groups: list[str]) -> list[str]:
             path = settings.custom_templates_dir.resolve()
         else:
             if not _GROUP_RE.match(g) or ".." in g.split("/"):
-                raise ValueError(f"Invalid template group {g!r}.")
+                raise ValueError(Msg("Invalid template group {g!r}.", g=g))
             path = (settings.nuclei_templates_dir / g).resolve()
             if not path.is_relative_to(settings.nuclei_templates_dir.resolve()):
-                raise ValueError(f"Invalid template group {g!r}.")
+                raise ValueError(Msg("Invalid template group {g!r}.", g=g))
         if not path.is_dir():
-            raise ValueError(f"Template group not found: {g}")
+            raise ValueError(Msg("Template group not found: {g}", g=g))
         if str(path) not in out:
             out.append(str(path))
     return out
@@ -130,7 +131,7 @@ def all_template_paths(settings: Settings) -> list[str]:
     if settings.custom_templates_dir.is_dir() and any(settings.custom_templates_dir.glob("*.y*ml")):
         out.append(str(settings.custom_templates_dir.resolve()))
     if not out:
-        raise ValueError("No templates available yet. Run 'Update nuclei templates' first.")
+        raise ValueError(Msg("No templates available yet. Run 'Update nuclei templates' first."))
     return out
 
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from .i18n import Msg
+
 _NMAP_TARGET_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-:/]*$")
 _NUCLEI_TARGET_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-:/_?=&%@\[\]~+]*$")
 MAX_TARGET_LEN = 253
@@ -24,14 +26,14 @@ def _split(text: str) -> list[str]:
 
 def _validate(items: list[str], pattern: re.Pattern[str], label: str) -> list[str]:
     if not items:
-        raise ValueError(f"Enter at least one {label}.")
+        raise ValueError(Msg("Enter at least one {label}.", label=label))
     if len(items) > MAX_TARGETS:
-        raise ValueError(f"Too many targets (max {MAX_TARGETS}).")
+        raise ValueError(Msg("Too many targets (max {n}).", n=MAX_TARGETS))
     for t in items:
         if len(t) > MAX_TARGET_LEN:
-            raise ValueError(f"Target too long: {t[:40]}…")
+            raise ValueError(Msg("Target too long: {t}…", t=t[:40]))
         if t.startswith("-") or not pattern.match(t):
-            raise ValueError(f"Invalid {label}: {t!r}")
+            raise ValueError(Msg("Invalid {label}: {t!r}", label=label, t=t))
     return items
 
 
@@ -45,5 +47,5 @@ def parse_nuclei_targets(text: str) -> list[str]:
     items = _validate(_split(text), _NUCLEI_TARGET_RE, "nuclei target")
     for t in items:
         if "://" in t and not (t.startswith("http://") or t.startswith("https://")):
-            raise ValueError(f"Only http:// and https:// URLs are supported: {t!r}")
+            raise ValueError(Msg("Only http:// and https:// URLs are supported: {t!r}", t=t))
     return items

@@ -1,23 +1,23 @@
 <div class="table-wrap">
 <table class="data">
-  <thead><tr><th>#</th><th>Kind</th><th>Status</th><th>Summary</th><th>Started</th><th>Duration</th><th></th></tr></thead>
+  <thead><tr><th>#</th><th>{{ t("Kind") }}</th><th>{{ t("Status") }}</th><th>{{ t("Summary") }}</th><th>{{ t("Started") }}</th><th>{{ t("Duration") }}</th><th></th></tr></thead>
   <tbody>
   {% for j in jobs %}
   <tr>
     <td class="num"><a href="/jobs/{{ j.id }}">#{{ j.id }}</a></td>
     <td><span class="chip">{{ j.kind }}</span></td>
-    <td>{% set w = job_warnings(j) %}{% if j.status == 'done' and w %}<span class="status st-warning" title="{{ w|join(' | ') }}">Done with warnings</span>{% else %}<span class="status st-{{ j.status }}">{{ j.status }}</span>{% endif %}</td>
+    <td>{% set w = job_warnings(j) %}{% if j.status == 'done' and w %}<span class="status st-warning" title="{{ w|join(' | ') }}">{{ t("Done with warnings") }}</span>{% else %}<span class="status st-{{ j.status }}">{{ t(j.status) }}</span>{% endif %}</td>
     <td class="small text-2"><span class="truncate" title="{{ job_summary(j) }}">{{ job_summary(j) or '—' }}</span></td>
     <td class="small num">{{ j.started_at.strftime('%Y-%m-%d %H:%M:%S') if j.started_at else '—' }}</td>
     <td class="small num">{{ j.duration ~ 's' if j.duration is not none else '—' }}</td>
     <td class="actions small">
-      {% if j.kind == 'nmap' and j.status == 'done' %}<a href="/inventory">Inventory</a>{% endif %}
-      {% if j.kind == 'nuclei' and j.status == 'done' %}<a href="/findings?job={{ j.id }}">Findings</a>{% endif %}
-      {% if j.kind in ('discovery', 'discovery_probe') and j.status == 'done' %}<a href="/discovery">Assets</a>{% endif %}
+      {% if j.kind == 'nmap' and j.status == 'done' %}<a href="/inventory">{{ t("Inventory") }}</a>{% endif %}
+      {% if j.kind == 'nuclei' and j.status == 'done' %}<a href="/findings?job={{ j.id }}">{{ t("Findings") }}</a>{% endif %}
+      {% if j.kind in ('discovery', 'discovery_probe') and j.status == 'done' %}<a href="/discovery">{{ t("Assets") }}</a>{% endif %}
     </td>
   </tr>
   {% else %}
-  <tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-activity"/></svg><b>No jobs yet</b>Scans and updates will appear here.</div></td></tr>
+  <tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-activity"/></svg><b>{{ t("No jobs yet") }}</b>{{ t("Scans and updates will appear here.") }}</div></td></tr>
   {% endfor %}
   </tbody>
 </table>

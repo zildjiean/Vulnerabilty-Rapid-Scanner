@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from . import surface
 from .config import Settings
 from .db import AppSetting, DiscoveredAsset, Job, SurfaceChange, utcnow
+from .i18n import Msg
 from .jobs import quote_argv
 from .scopes import compile_scopes, scope_for_asset
 
@@ -98,33 +99,33 @@ def parse_root_domains(value: str | list[str]) -> list[str]:
         if not t:
             continue
         if _is_ip_or_cidr(t):
-            raise ValueError(f"{t!r} is an IP address or CIDR range. Enter domain names such as example.com; "
-                             "scan IP ranges with nmap.")
+            raise ValueError(Msg("{t!r} is an IP address or CIDR range. Enter domain names such as example.com; "
+                                 "scan IP ranges with nmap.", t=t))
         if "://" in t:
-            raise ValueError(f"{t!r}: enter the domain without a scheme, e.g. example.com.")
+            raise ValueError(Msg("{t!r}: enter the domain without a scheme, e.g. example.com.", t=t))
         if "/" in t:
-            raise ValueError(f"{t!r}: enter the domain without a path, e.g. example.com.")
+            raise ValueError(Msg("{t!r}: enter the domain without a path, e.g. example.com.", t=t))
         if "*" in t:
-            raise ValueError(f"{t!r}: no wildcard needed, subfinder finds every subdomain of example.com.")
+            raise ValueError(Msg("{t!r}: no wildcard needed, subfinder finds every subdomain of example.com.", t=t))
         try:
             name = _idna(t.rstrip("."))
         except UnicodeError:
-            raise ValueError(f"{t[:80]!r} is not a valid DNS name.")
+            raise ValueError(Msg("{t!r} is not a valid DNS name.", t=t[:80]))
         if len(name) > 253:
-            raise ValueError(f"{t[:40]!r}… is longer than 253 characters.")
+            raise ValueError(Msg("{t!r}… is longer than 253 characters.", t=t[:40]))
         if "." not in name:
-            raise ValueError(f"{t!r}: a root domain needs at least one dot, e.g. example.com.")
+            raise ValueError(Msg("{t!r}: a root domain needs at least one dot, e.g. example.com.", t=t))
         labels = name.split(".")
         if not all(_ROOT_LABEL_RE.match(lab) for lab in labels) or labels[-1].isdigit():
-            raise ValueError(f"{t[:80]!r} is not a valid DNS name.")
+            raise ValueError(Msg("{t!r} is not a valid DNS name.", t=t[:80]))
         if name in PUBLIC_SUFFIXES:
-            raise ValueError(f"{t!r} is a public suffix shared by many owners; enter your own domain under it.")
+            raise ValueError(Msg("{t!r} is a public suffix shared by many owners; enter your own domain under it.", t=t))
         if name not in out:
             out.append(name)
     if not out:
-        raise ValueError("Enter at least one root domain.")
+        raise ValueError(Msg("Enter at least one root domain."))
     if len(out) > MAX_ROOTS:
-        raise ValueError(f"Too many root domains ({len(out)}); the maximum is {MAX_ROOTS} per job.")
+        raise ValueError(Msg("Too many root domains ({n}); the maximum is {max} per job.", n=len(out), max=MAX_ROOTS))
     return out
 
 
@@ -409,13 +410,13 @@ def validate_source_key(name: str, value: str) -> str | None:
     """Error message for a bad key. Never includes the key itself."""
     label, fmt, pair = PROVIDERS[name]
     if len(value) > MAX_KEY_LEN:
-        return f"{label} key is too long (max {MAX_KEY_LEN} characters)."
+        return Msg("{label} key is too long (max {n} characters).", label=label, n=MAX_KEY_LEN)
     if any(ch.isspace() for ch in value) or _CONTROL_RE.search(value):
-        return f"{label} key must be a single value without spaces or line breaks."
+        return Msg("{label} key must be a single value without spaces or line breaks.", label=label)
     if pair:
         left, _, right = value.partition(":")
         if not left or not right:
-            return f"{label} key must be in the form {fmt}."
+            return Msg("{label} key must be in the form {fmt}.", label=label, fmt=fmt)
     return None
 
 
@@ -473,11 +474,11 @@ def tools_status(settings: Settings) -> dict[str, bool]:
 
 def missing_tool_message(settings: Settings, tool: str) -> str:
     if tool == "httpx":
-        return (f"httpx is not installed ({settings.httpx_bin} is missing, or it is the Python httpx client's script, "
-                "not ProjectDiscovery httpx). It ships in the Docker image; set HTTPX_BIN to the ProjectDiscovery "
-                "binary when running outside it.")
-    return (f"subfinder is not installed ({settings.subfinder_bin} not found). It ships in the Docker image; "
-            "set SUBFINDER_BIN when running outside it.")
+        return Msg("httpx is not installed ({bin} is missing, or it is the Python httpx client's script, "
+                   "not ProjectDiscovery httpx). It ships in the Docker image; set HTTPX_BIN to the ProjectDiscovery "
+                   "binary when running outside it.", bin=settings.httpx_bin)
+    return Msg("subfinder is not installed ({bin} not found). It ships in the Docker image; "
+               "set SUBFINDER_BIN when running outside it.", bin=settings.subfinder_bin)
 
 
 def _write_tmp(path: Path, lines: list[str]) -> None:
@@ -485,7 +486,8 @@ def _write_tmp(path: Path, lines: list[str]) -> None:
 
 
 def _tmp_error(e: OSError) -> str:
-    return f"Cannot write a temporary file in the data directory (DATA_DIR/tmp): {e.strerror or type(e).__name__}."
+    return Msg("Cannot write a temporary file in the data directory (DATA_DIR/tmp): {err}.",
+               err=e.strerror or type(e).__name__)
 
 
 def _fail(db: Session, job: Job, message: str) -> None:
@@ -533,7 +535,10 @@ def launch_discovery(db: Session, settings: Settings, runner, box, roots: list[s
     if not tools["subfinder"]:
         raise ValueError(missing_tool_message(settings, "subfinder"))
     if probe and not tools["httpx"]:
-        raise ValueError(missing_tool_message(settings, "httpx") + " Untick 'Probe web services' to enumerate only.")
+        raise ValueError(Msg("httpx is not installed ({bin} is missing, or it is the Python httpx client's script, "
+                             "not ProjectDiscovery httpx). It ships in the Docker image; set HTTPX_BIN to the "
+                             "ProjectDiscovery binary when running outside it. Untick 'Probe web services' to "
+                             "enumerate only.", bin=settings.httpx_bin))
     job = runner.create_job(db, "discovery", [settings.subfinder_bin],
                             params={"domains": roots, "probe": bool(probe), **(extra_params or {})})
     job.schedule_id = schedule_id
@@ -545,7 +550,8 @@ def launch_discovery(db: Session, settings: Settings, runner, box, roots: list[s
     except OSError as e:
         _unlink(domains_file, settings.tmp_dir / f"subfinder-{job.id}.yaml")
         _fail(db, job, "[discovery] " + _tmp_error(e))
-        raise ValueError(_tmp_error(e) + f" Job #{job.id} was marked failed.")
+        raise ValueError(Msg("Cannot write a temporary file in the data directory (DATA_DIR/tmp): {err}. "
+                             "Job #{id} was marked failed.", err=e.strerror or type(e).__name__, id=job.id))
     argv = build_subfinder_argv(settings.subfinder_bin, str(domains_file), str(pc) if pc else None)
     job.command = quote_argv(argv)
     db.commit()

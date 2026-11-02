@@ -12,6 +12,7 @@ from ..db import Job
 from ..audit import audit
 from ..authz import require
 from ..deps import get_db, get_runner, verify_csrf
+from ..i18n import current_lang, request_lang, translate
 from ..render import render
 
 router = APIRouter()
@@ -32,7 +33,13 @@ def _result_value(value) -> str:
     return str(value)
 
 
-def job_summary(job: Job) -> str:
+def job_summary(job: Job, lang: str | None = None) -> str:
+    """One-line description of a job's parameters, in ``lang`` (default: the page being rendered)."""
+    lang = lang or current_lang()
+
+    def t(text, **params):
+        return translate(lang, text, **params)
+
     try:
         p = json.loads(job.params_json or "{}")
     except json.JSONDecodeError:
@@ -40,52 +47,57 @@ def job_summary(job: Job) -> str:
     targets = p.get("targets") or []
     tpl = p.get("template_ids") or []
     parts = []
+
+    def listed(n, items):
+        return ", ".join(items[:3]) + ("…" if len(items) > 3 else "")
+
     domains = p.get("domains") or []
     if domains:
-        parts.append(f"{len(domains)} domain(s): " + ", ".join(domains[:3]) + ("…" if len(domains) > 3 else ""))
+        parts.append(t("{n} domain(s): {items}", n=len(domains), items=listed(len(domains), domains)))
         if p.get("probe") is False:
-            parts.append("no web probe")
+            parts.append(t("no web probe"))
     quick = p.get("quick") if isinstance(p.get("quick"), dict) else None
     if quick and quick.get("step") == 2:
         targets = []  # the head already counts them
     if p.get("parent_job"):
-        parts.append(f"web probe of {p.get('hosts', 0)} host(s) from discovery job #{p['parent_job']}")
+        parts.append(t("web probe of {hosts} host(s) from discovery job #{job}", hosts=p.get("hosts", 0),
+                       job=p["parent_job"]))
     if targets:
-        parts.append(f"{len(targets)} target(s): " + ", ".join(targets[:3]) + ("…" if len(targets) > 3 else ""))
+        parts.append(t("{n} target(s): {items}", n=len(targets), items=listed(len(targets), targets)))
     mode = p.get("mode")
     preset = p.get("preset")
     if preset and preset != "custom":
         from ..nuclei_presets import preset_label
-        parts.append(f"{preset_label(preset)} preset")
+        parts.append(t("{preset} preset", preset=t(preset_label(preset))))
     if mode == "all":
-        parts.append("all templates")
+        parts.append(t("all templates"))
     elif mode == "groups":
         groups = p.get("groups") or []
-        parts.append(f"{len(groups)} group(s): " + ", ".join(groups[:3]) + ("…" if len(groups) > 3 else ""))
+        parts.append(t("{n} group(s): {items}", n=len(groups), items=listed(len(groups), groups)))
     elif tpl:
-        parts.append(f"{len(tpl)} template(s): " + ", ".join(tpl[:3]) + ("…" if len(tpl) > 3 else ""))
+        parts.append(t("{n} template(s): {items}", n=len(tpl), items=listed(len(tpl), tpl)))
     if p.get("profile") and p["profile"] != "normal":
-        parts.append(p["profile"] + " profile")
+        parts.append(t("{profile} profile", profile=p["profile"]))
     if p.get("tags"):
-        parts.append("tags " + ",".join(p["tags"]))
+        parts.append(t("tags {tags}", tags=",".join(p["tags"])))
     if p.get("severities"):
-        parts.append("severity " + ",".join(p["severities"]))
+        parts.append(t("severity {severities}", severities=",".join(p["severities"])))
     if p.get("action"):
         parts.append(p["action"])
     if p.get("campaign"):
-        parts.append("campaign " + str(p["campaign"]))
+        parts.append(t("campaign {name}", name=str(p["campaign"])))
     if p.get("schedule"):
-        parts.append("scheduled: " + str(p["schedule"]))
+        parts.append(t("scheduled: {name}", name=str(p["schedule"])))
     result = p.get("result")
     if isinstance(result, dict):
         parts.append(", ".join(f"{k} {_result_value(v)}" for k, v in result.items()))
     text = " · ".join(parts)
     if quick:
         if quick.get("step") == 2:
-            head = (f"Quick scan step 2/2: nuclei on {len(p.get('targets') or [])} service(s) from job "
-                    f"#{quick.get('parent_job')}")
+            head = t("Quick scan step 2/2: nuclei on {n} service(s) from job #{job}", n=len(p.get("targets") or []),
+                     job=quick.get("parent_job"))
         else:
-            head = "Quick scan step 1/2: nmap"
+            head = t("Quick scan step 1/2: nmap")
         text = head + (" · " + text if text else "")
     return text
 
@@ -116,7 +128,7 @@ def job_detail(request: Request, job_id: int, db: Session = Depends(get_db), run
         changes = {"counts": counts, "rows": rows, "total": sum(counts.values()), "labels": surface.KIND_LABELS}
     quick = params.get("quick") if isinstance(params, dict) and isinstance(params.get("quick"), dict) else None
     return render(request, "job_detail.html", active="jobs", job=job, log=log, live=live, params=params, quick=quick,
-                  summary=job_summary(job),
+                  summary=job_summary(job, request_lang(request)),
                   ai_diagnosis=latest_note(db, "diagnose", "job", job.id), changes=changes)
 
 

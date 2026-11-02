@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from ..i18n import Msg
+
 TIMINGS = ("T2", "T3", "T4")
 SCAN_TYPES = {"syn": ["-sS", "--privileged"], "connect": ["-sT"]}
 PORT_MODES = ("top", "all", "custom")
@@ -12,20 +14,20 @@ def build_nmap_argv(nmap_bin: str, targets: list[str], port_mode: str = "top", c
                     timing: str = "T3", skip_ping: bool = False, scan_type: str = "syn",
                     exclude: list[str] | None = None) -> list[str]:
     if not targets:
-        raise ValueError("No targets.")
+        raise ValueError(Msg("No targets."))
     if timing not in TIMINGS:
-        raise ValueError(f"Invalid timing {timing!r}.")
+        raise ValueError(Msg("Invalid timing {timing!r}.", timing=timing))
     if scan_type not in SCAN_TYPES:
-        raise ValueError(f"Invalid scan type {scan_type!r}.")
+        raise ValueError(Msg("Invalid scan type {scan_type!r}.", scan_type=scan_type))
     if port_mode not in PORT_MODES:
-        raise ValueError(f"Invalid port mode {port_mode!r}.")
+        raise ValueError(Msg("Invalid port mode {port_mode!r}.", port_mode=port_mode))
     argv = [nmap_bin, "-sV", f"-{timing}", *SCAN_TYPES[scan_type]]
     if port_mode == "all":
         argv.append("-p-")
     elif port_mode == "custom":
         spec = custom_ports.replace(" ", "")
         if not spec or not _PORT_SPEC_RE.match(spec):
-            raise ValueError("Custom ports must look like 22,80,8000-9000.")
+            raise ValueError(Msg("Custom ports must look like 22,80,8000-9000."))
         argv += ["-p", spec]
     if skip_ping:
         argv.append("-Pn")

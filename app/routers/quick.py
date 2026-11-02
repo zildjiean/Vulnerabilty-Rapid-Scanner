@@ -13,6 +13,7 @@ from ..audit import audit
 from ..authz import require
 from ..db import Job
 from ..deps import get_db, get_runner, get_settings, verify_csrf
+from ..i18n import Msg, request_lang, tr
 from ..render import render
 from ..validation import parse_nmap_targets
 from .jobs import job_summary
@@ -42,7 +43,8 @@ def _page(request: Request, db: Session, targets: str = "", level: str = quick.D
           error: str | None = None, status_code: int = 200):
     return render(request, "quick.html", status_code=status_code, active="quick", error=error,
                   form={"targets": targets, "level": level}, levels=quick.LEVELS,
-                  summary=quick.summary(_count(targets), level), empty_summary=quick.EMPTY_SUMMARY, jobs=recent_quick_jobs(db), job_summary=job_summary,
+                  summary=quick.summary(_count(targets), level, request_lang(request)),
+                  empty_summary=tr(request, quick.EMPTY_SUMMARY), jobs=recent_quick_jobs(db), job_summary=job_summary,
                   preset_label=quick.preset_label)
 
 
@@ -57,10 +59,10 @@ async def quick_scan(request: Request, targets: str = Form(""), level: str = For
                      db: Session = Depends(get_db), settings=Depends(get_settings), runner=Depends(get_runner)):
     try:
         if level not in quick.LEVELS:
-            raise ValueError("Invalid scan level. Choose Standard or Thorough.")
+            raise ValueError(Msg("Invalid scan level. Choose Standard or Thorough."))
         target_list = parse_nmap_targets(targets)
         job = quick.launch_quick(db, settings, runner, target_list, level)
     except ValueError as e:
-        return _page(request, db, targets=targets, level=level, error=str(e), status_code=400)
+        return _page(request, db, targets=targets, level=level, error=tr(request, e), status_code=400)
     audit(db, request, "scan.quick", target=", ".join(target_list), job_id=job.id, level=level)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)

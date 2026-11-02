@@ -13,6 +13,7 @@ from ..audit import audit
 from ..authz import require
 from ..db import DiscoveredAsset, Job, Scope, utcnow
 from ..deps import get_db, get_runner, get_settings, verify_csrf
+from ..i18n import tr
 from ..render import render
 from .jobs import job_summary
 
@@ -63,7 +64,7 @@ def _page(request: Request, db: Session, f: dict | None = None, page: str = "1",
                   page=page_n, pages=pages, page_url=page_url, f=f, back="/discovery?" + urlencode(params),
                   roots=roots, scope_names=scopes, web_filters=dsc.WEB_FILTERS, states=dsc.STATES,
                   form=form or {"domains": "", "probe": True}, tools=dsc.tools_status(request.app.state.settings),
-                  missing={t: dsc.missing_tool_message(request.app.state.settings, t) for t in ("subfinder", "httpx")},
+                  missing={tool: tr(request, dsc.missing_tool_message(request.app.state.settings, tool)) for tool in ("subfinder", "httpx")},
                   jobs=_recent_jobs(db), job_summary=job_summary, max_roots=dsc.MAX_ROOTS, new_days=dsc.NEW_DAYS,
                   now=utcnow(), error=error)
 
@@ -82,7 +83,7 @@ async def discovery_scan(request: Request, domains: str = Form(""), probe: bool 
         roots = dsc.parse_root_domains(domains)
         job = dsc.launch_discovery(db, settings, runner, request.app.state.secretbox, roots, probe)
     except ValueError as e:
-        return _page(request, db, form=form, error=str(e), status_code=400)
+        return _page(request, db, form=form, error=tr(request, e), status_code=400)
     audit(db, request, "scan.discovery", target=", ".join(roots), job_id=job.id, probe=probe)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
@@ -106,18 +107,18 @@ def _prefill(path: str, targets: list[str]) -> RedirectResponse:
 
 
 @router.post("/discovery/to-nmap", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
-def to_nmap(asset_ids: list[int] = Form(default=[]), back: str = Form("/discovery"), db: Session = Depends(get_db)):
+def to_nmap(request: Request, asset_ids: list[int] = Form(default=[]), back: str = Form("/discovery"), db: Session = Depends(get_db)):
     rows = _selected(db, asset_ids)
     if not rows:
-        return _back(back, "Select at least one asset to scan.")
+        return _back(back, tr(request, "Select at least one asset to scan."))
     return _prefill("/nmap", [a.hostname for a in rows])
 
 
 @router.post("/discovery/to-nuclei", dependencies=[Depends(require("scan.run")), Depends(verify_csrf)])
-def to_nuclei(asset_ids: list[int] = Form(default=[]), back: str = Form("/discovery"), db: Session = Depends(get_db)):
+def to_nuclei(request: Request, asset_ids: list[int] = Form(default=[]), back: str = Form("/discovery"), db: Session = Depends(get_db)):
     rows = _selected(db, asset_ids)
     if not rows:
-        return _back(back, "Select at least one asset to scan.")
+        return _back(back, tr(request, "Select at least one asset to scan."))
     targets: list[str] = []
     for a in rows:
         t = dsc.nuclei_target(a)
@@ -138,7 +139,8 @@ def _set_ignored(request: Request, db: Session, asset_ids: list[int], back: str,
     action = "discovery.ignore" if ignored else "discovery.unignore"
     audit(db, request, action, target=f"{len(rows)} asset(s)", count=len(rows),
           hostnames=", ".join(names[:MAX_AUDIT_NAMES]) + (" …" if len(names) > MAX_AUDIT_NAMES else ""))
-    return _back(back, f"{'Ignored' if ignored else 'Restored'} {len(rows)} asset(s)")
+    return _back(back, tr(request, "Ignored {n} asset(s)", n=len(rows)) if ignored
+                 else tr(request, "Restored {n} asset(s)", n=len(rows)))
 
 
 @router.post("/discovery/ignore", dependencies=[Depends(require("issues.manage")), Depends(verify_csrf)])
