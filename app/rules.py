@@ -8,6 +8,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from .db import Campaign, Rule, RuleMatch, Service, utcnow
+from .i18n import Msg
 from .version_compare import check_clauses, parse_constraint
 
 # Campaigns waiting for review (0-day watch drafts) or turned down: their rules never produce issues.
@@ -18,11 +19,11 @@ def validate_rule(product_pattern: str, version_constraint: str) -> str | None:
     try:
         re.compile(product_pattern)
     except re.error as e:
-        return f"Invalid regex: {e}"
+        return Msg("Invalid regex: {error}", error=str(e))
     try:
         parse_constraint(version_constraint)
     except ValueError as e:
-        return str(e)
+        return e.args[0] if e.args else str(e)
     return None
 
 

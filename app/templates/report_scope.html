@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% from "_issue_macros.html" import status_badge, due_cell %}
-{% set section = "Reports" %}
-{% set page_title = "Scope report: " ~ s.name %}
-{% set page_subtitle = (s.description ~ " · " if s.description else "") ~ s.criticality ~ " criticality · generated " ~ generated.strftime('%Y-%m-%d %H:%M') ~ " UTC" %}
-{% block page_actions %}<a class="btn ghost no-print" href="/scopes/{{ s.id }}">Open scope</a><button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>Print / Save as PDF</button>{% endblock %}
+{% set section = t("Reports") %}
+{% set page_title = t("Scope report: {name}", name=s.name) %}
+{% set page_subtitle = (s.description ~ " · " if s.description else "") ~ t("{level} criticality · generated {when} UTC", level=s.criticality, when=generated.strftime('%Y-%m-%d %H:%M')) %}
+{% block page_actions %}<a class="btn ghost no-print" href="/scopes/{{ s.id }}">{{ t("Open scope") }}</a><button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>{{ t("Print / Save as PDF") }}</button>{% endblock %}
 {% block content %}
 {% from "_report_proof.html" import proof_toggle, evidence_appendix %}
 {{ proof_toggle(show_proof) }}
 <div class="grid grid-2 mb">
-  <div class="card kpi"><div><div class="kpi-label">Assets in inventory</div><div class="kpi-value">{{ hosts|length }}</div><div class="kpi-sub">owner: {{ (s.owner.display_name or s.owner.username) if s.owner else 'none' }}</div></div></div>
-  <div class="card kpi"><div><div class="kpi-label">Active issues</div><div class="kpi-value">{{ issues|length }}</div><div class="kpi-sub">{{ issues|selectattr('severity', 'equalto', 'critical')|list|length }} critical</div></div></div>
+  <div class="card kpi"><div><div class="kpi-label">{{ t("Assets in inventory") }}</div><div class="kpi-value">{{ hosts|length }}</div><div class="kpi-sub">{{ t('owner: {name}', name=(s.owner.display_name or s.owner.username) if s.owner else t('none')) }}</div></div></div>
+  <div class="card kpi"><div><div class="kpi-label">{{ t("Active issues") }}</div><div class="kpi-value">{{ issues|length }}</div><div class="kpi-sub">{{ issues|selectattr('severity', 'equalto', 'critical')|list|length }} critical</div></div></div>
 </div>
 <div class="card"><div class="table-wrap"><table class="data">
-  <thead><tr><th>Severity</th><th>Issue</th><th>Asset</th><th>Status</th><th>Assignee</th><th>Due</th></tr></thead>
+  <thead><tr><th>{{ t("Severity") }}</th><th>{{ t("Issue") }}</th><th>{{ t("Asset") }}</th><th>{{ t("Status") }}</th><th>{{ t("Assignee") }}</th><th>{{ t("Due") }}</th></tr></thead>
   <tbody>{% for i in issues %}<tr><td><span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td><td>{{ i.title or i.vuln_id }}<div class="small text-2 cell-mono">{{ i.vuln_id }}</div></td><td class="cell-mono small">{{ i.asset }}</td><td>{{ status_badge(i.status) }}</td><td class="small">{{ i.assignee.username if i.assignee else '—' }}</td><td class="small">{{ due_cell(i) }}</td></tr>
-  {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>No active issues</b></div></td></tr>{% endfor %}</tbody>
+  {% else %}<tr data-empty="1"><td colspan="6"><div class="empty"><b>{{ t("No active issues") }}</b></div></td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% if show_proof %}{{ evidence_appendix(evidence) }}{% endif %}
 {% endblock %}

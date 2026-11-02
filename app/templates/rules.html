@@ -1,49 +1,49 @@
 {% extends "base.html" %}
-{% set page_title = "Version rules" %}
-{% set page_subtitle = "Flag exposed software by product and version the moment a CVE is announced, before any nuclei template exists. Rules never touch the target and are re-evaluated after every nmap scan." %}
+{% set page_title = t("Version rules") %}
+{% set page_subtitle = t("Flag exposed software by product and version the moment a CVE is announced, before any nuclei template exists. Rules never touch the target and are re-evaluated after every nmap scan.") %}
 {% block page_actions %}
-{% if can('rules.manage') %}<form method="post" action="/rules/evaluate"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>Evaluate now</button></form>{% endif %}
+{% if can('rules.manage') %}<form method="post" action="/rules/evaluate"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit"><svg class="icon"><use href="#i-refresh"/></svg>{{ t("Evaluate now") }}</button></form>{% endif %}
 {% endblock %}
 {% block content %}
 {% with perm="rules.manage", what="create or change version rules" %}{% include "_readonly.html" %}{% endwith %}
 <div class="grid {{ 'grid-2' if can('rules.manage') }} mb">
   {% if can('rules.manage') %}<form method="post" action="/rules" class="card" data-loading>
-    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>New rule</h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-plus"/></svg>{{ t("New rule") }}</h2></div>
     <div class="card-body stack">
       {% include "_rule_fields.html" %}
-      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>Create rule</button></div>
+      <div><button class="primary" type="submit"><svg class="icon"><use href="#i-check"/></svg>{{ t("Create rule") }}</button></div>
     </div>
   </form>{% endif %}
   <div class="card">
-    <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>Rules <span class="chip num">{{ rules|length }}</span></h2></div>
+    <div class="card-head"><h2><svg class="icon"><use href="#i-rule"/></svg>{{ t("Rules") }} <span class="chip num">{{ rules|length }}</span></h2></div>
     <div class="table-wrap">
     <table class="data">
-      <thead><tr><th>On</th><th>Name</th><th>Pattern</th><th>Version</th><th>CVE</th><th>Severity</th><th></th></tr></thead>
+      <thead><tr><th>{{ t("On") }}</th><th>{{ t("Name") }}</th><th>{{ t("Pattern") }}</th><th>{{ t("Version") }}</th><th>CVE</th><th>{{ t("Severity") }}</th><th></th></tr></thead>
       <tbody>
       {% for r in rules %}
       <tr style="{{ '' if r.enabled else 'opacity:.6' }}">
-        <td>{% if can('rules.manage') %}<form method="post" action="/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" role="switch" aria-checked="{{ 'true' if r.enabled else 'false' }}" aria-label="{{ 'Disable' if r.enabled else 'Enable' }} rule {{ r.name }}" title="{{ 'Disable' if r.enabled else 'Enable' }}"><svg class="icon" style="color:{{ 'var(--success)' if r.enabled else 'var(--text-3)' }}"><use href="#i-{{ 'check-circle' if r.enabled else 'power' }}"/></svg></button></form>{% else %}<span class="badge neutral">{{ 'on' if r.enabled else 'off' }}</span>{% endif %}</td>
-        <td>{{ r.name }}{% if r.campaign_id in waiting %} <a class="badge neutral" href="/campaigns/{{ r.campaign_id }}" data-waiting title="This rule belongs to a 0-day watch draft and produces no issues until the campaign is activated">{{ 'waiting for activation' if waiting[r.campaign_id] == 'draft' else 'campaign dismissed' }}</a>{% endif %}</td><td class="cell-mono small">{{ r.product_pattern }}</td><td class="cell-mono small">{{ r.version_constraint }}</td>
+        <td>{% if can('rules.manage') %}<form method="post" action="/rules/{{ r.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm icon-btn" type="submit" role="switch" aria-checked="{{ 'true' if r.enabled else 'false' }}" aria-label="{{ t('Disable rule {name}', name=r.name) if r.enabled else t('Enable rule {name}', name=r.name) }}" title="{{ t('Disable') if r.enabled else t('Enable') }}"><svg class="icon" style="color:{{ 'var(--success)' if r.enabled else 'var(--text-3)' }}"><use href="#i-{{ 'check-circle' if r.enabled else 'power' }}"/></svg></button></form>{% else %}<span class="badge neutral">{% if lang == 'th' %}{{ t('Enabled') if r.enabled else t('Disabled') }}{% else %}{{ 'on' if r.enabled else 'off' }}{% endif %}</span>{% endif %}</td>
+        <td>{{ r.name }}{% if r.campaign_id in waiting %} <a class="badge neutral" href="/campaigns/{{ r.campaign_id }}" data-waiting title="{{ t('This rule belongs to a 0-day watch draft and produces no issues until the campaign is activated') }}">{{ t('waiting for activation') if waiting[r.campaign_id] == 'draft' else t('campaign dismissed') }}</a>{% endif %}</td><td class="cell-mono small">{{ r.product_pattern }}</td><td class="cell-mono small">{{ r.version_constraint }}</td>
         <td class="cell-mono small">{{ r.cve_id }}</td><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td>
-        <td class="actions">{% if can('rules.manage') %}<a class="btn ghost sm" href="/rules/{{ r.id }}/edit"><svg class="icon sm"><use href="#i-edit"/></svg>Edit</a>
-          <form method="post" action="/rules/{{ r.id }}/delete" data-confirm="Delete rule '{{ r.name }}'?"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm danger" type="submit" style="border-color:transparent"><svg class="icon sm"><use href="#i-trash"/></svg>Delete</button></form>{% endif %}</td>
+        <td class="actions">{% if can('rules.manage') %}<a class="btn ghost sm" href="/rules/{{ r.id }}/edit"><svg class="icon sm"><use href="#i-edit"/></svg>{{ t("Edit") }}</a>
+          <form method="post" action="/rules/{{ r.id }}/delete" data-confirm="{{ t("Delete rule '{name}'?", name=r.name) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm danger" type="submit" style="border-color:transparent"><svg class="icon sm"><use href="#i-trash"/></svg>{{ t("Delete") }}</button></form>{% endif %}</td>
       </tr>
-      {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-rule"/></svg><b>No rules yet</b>{{ 'Create one on the left.' if can('rules.manage') }}</div></td></tr>{% endfor %}
+      {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-rule"/></svg><b>{{ t("No rules yet") }}</b>{{ t('Create one on the left.') if can('rules.manage') }}</div></td></tr>{% endfor %}
       </tbody>
     </table>
     </div>
   </div>
 </div>
 <div class="card">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>Potential 0-day exposure <span class="chip num">{{ matches|length }}</span></h2></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-target"/></svg>{{ t("Potential 0-day exposure") }} <span class="chip num">{{ matches|length }}</span></h2></div>
   <div class="table-wrap">
   <table class="data">
-    <thead><tr><th data-sort="text">Severity</th><th data-sort="text">Rule</th><th>CVE</th><th data-sort="text">Host</th><th data-sort="num">Port</th><th data-sort="text">Product</th><th>Version</th></tr></thead>
+    <thead><tr><th data-sort="text">{{ t("Severity") }}</th><th data-sort="text">{{ t("Rule") }}</th><th>CVE</th><th data-sort="text">{{ t("Host") }}</th><th data-sort="num">{{ t("Port") }}</th><th data-sort="text">{{ t("Product") }}</th><th>{{ t("Version") }}</th></tr></thead>
     <tbody>
     {% for m, r, s, h in matches %}
     <tr><td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span></td><td>{{ r.name }}</td><td class="cell-mono">{{ r.cve_id }}</td>
       <td class="cell-mono">{{ h.address }}</td><td class="cell-mono" data-value="{{ s.port }}">{{ s.port }}/{{ s.protocol }}</td><td>{{ s.product }}</td><td class="cell-mono">{{ s.version or s.cpe }}</td></tr>
-    {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>No matches</b>Enable a rule and run an nmap scan.</div></td></tr>{% endfor %}
+    {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><svg class="icon"><use href="#i-check-circle"/></svg><b>{{ t("No matches") }}</b>{{ t("Enable a rule and run an nmap scan.") }}</div></td></tr>{% endfor %}
     </tbody>
   </table>
   </div>

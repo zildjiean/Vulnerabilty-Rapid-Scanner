@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .db import Host, Issue, Scope, Service
+from .i18n import Msg
 from .validation import parse_nmap_targets
 
 CRITICALITIES = ("critical", "high", "medium", "low")
@@ -91,20 +92,20 @@ def services_in(db: Session, include: list[str], exclude: list[str] | tuple = ()
 
 def validate_scope_fields(name: str, targets: str, exclusions: str, criticality: str) -> str | None:
     if not name.strip():
-        return "Give the scope a name."
+        return Msg("Give the scope a name.")
     if len(name.strip()) > 128:
-        return "Scope name is too long (max 128)."
+        return Msg("Scope name is too long (max 128).")
     if criticality not in CRITICALITIES:
-        return "Unknown criticality."
+        return Msg("Unknown criticality.")
     try:
         parse_nmap_targets(targets)
     except ValueError as e:
-        return f"Targets: {e}"
+        return Msg("Targets: {error}", error=e.args[0] if e.args else str(e))
     if exclusions.strip():
         try:
             parse_nmap_targets(exclusions)
         except ValueError as e:
-            return f"Exclusions: {e}"
+            return Msg("Exclusions: {error}", error=e.args[0] if e.args else str(e))
     return None
 
 

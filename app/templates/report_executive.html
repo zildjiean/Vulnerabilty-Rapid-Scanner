@@ -1,55 +1,55 @@
 {% extends "base.html" %}
 {% from "_campaign_macros.html" import kev_badge, progress_bar %}
-{% set section = "Reports" %}
-{% set page_title = "Executive summary" %}
-{% set page_subtitle = "Exposure and remediation for the last " ~ r.days ~ " days (" ~ r.since.strftime('%Y-%m-%d') ~ " to " ~ r.now.strftime('%Y-%m-%d') ~ " UTC)." %}
+{% set section = t("Reports") %}
+{% set page_title = t("Executive summary") %}
+{% set page_subtitle = t("Exposure and remediation for the last {days} days ({start} to {end} UTC).", days=r.days, start=r.since.strftime('%Y-%m-%d'), end=r.now.strftime('%Y-%m-%d')) %}
 {% block page_actions %}
-<div class="tabs no-print" role="tablist">{% for d in periods %}<a role="tab" class="tab {{ 'active' if d == r.days }}" href="/reports?days={{ d }}">{{ d }} days</a>{% endfor %}</div>
-<button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>Print / Save as PDF</button>
+<div class="tabs no-print" role="tablist">{% for d in periods %}<a role="tab" class="tab {{ 'active' if d == r.days }}" href="/reports?days={{ d }}">{{ t("{n} days", n=d) }}</a>{% endfor %}</div>
+<button type="button" class="primary no-print" onclick="window.print()"><svg class="icon"><use href="#i-download"/></svg>{{ t("Print / Save as PDF") }}</button>
 {% endblock %}
 {% block content %}
 {% from "_ai.html" import ai_meta, ai_badge %}
 {% if ai_summary or ai_ready %}
 <div class="card mb">
-  <div class="card-head"><h2>{{ ai_badge() }} Summary</h2>
-    {% if ai_ready %}<form method="post" action="/ai/reports/summary" class="no-print" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="days" value="{{ r.days }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>{{ 'Rewrite' if ai_summary else 'Write' }} summary with AI</button></form>{% endif %}</div>
+  <div class="card-head"><h2>{{ ai_badge() }} {{ t("Summary") }}</h2>
+    {% if ai_ready %}<form method="post" action="/ai/reports/summary" class="no-print" data-loading><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="days" value="{{ r.days }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-spark"/></svg>{{ t('Rewrite summary with AI') if ai_summary else t('Write summary with AI') }}</button></form>{% endif %}</div>
   {% if ai_summary %}<div class="card-body md">{{ ai_summary.content|mdlite }}<div class="no-print">{{ ai_meta(ai_summary) }}</div></div>{% endif %}
 </div>
 {% endif %}
 <div class="grid grid-4 mb">
-  <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">Open issues</div><div class="kpi-value">{{ r.open_total }}</div><div class="kpi-sub">{{ r.open_by_severity.critical }} critical · {{ r.open_by_severity.high }} high · {{ r.open_by_severity.medium }} medium · {{ r.open_by_severity.low }} low</div></div></div>
-  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">Overdue</div><div class="kpi-value">{{ r.overdue }}</div><div class="kpi-sub">{{ r.awaiting_verification }} fixed, awaiting verification</div></div></div>
-  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-activity"/></svg></div><div><div class="kpi-label">Mean time to remediate</div><div class="kpi-value">{{ '%.1f'|format(r.mttr_days) ~ ' d' if r.mttr_days is not none else '—' }}</div><div class="kpi-sub">first seen → fixed, this period</div></div></div>
-  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div><div class="kpi-label">SLA compliance</div><div class="kpi-value">{{ (r.sla_pct ~ '%') if r.sla_pct is not none else '—' }}</div><div class="kpi-sub">fixed within the due date</div></div></div>
+  <div class="card kpi"><div class="kpi-icon danger"><svg class="icon"><use href="#i-target"/></svg></div><div><div class="kpi-label">{{ t("Open issues") }}</div><div class="kpi-value">{{ r.open_total }}</div><div class="kpi-sub">{{ r.open_by_severity.critical }} critical · {{ r.open_by_severity.high }} high · {{ r.open_by_severity.medium }} medium · {{ r.open_by_severity.low }} low</div></div></div>
+  <div class="card kpi"><div class="kpi-icon warn"><svg class="icon"><use href="#i-clock"/></svg></div><div><div class="kpi-label">{{ t("Overdue") }}</div><div class="kpi-value">{{ r.overdue }}</div><div class="kpi-sub">{{ t("{n} fixed, awaiting verification", n=r.awaiting_verification) }}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon"><svg class="icon"><use href="#i-activity"/></svg></div><div><div class="kpi-label">{{ t("Mean time to remediate") }}</div><div class="kpi-value">{{ t('{n} d', n='%.1f'|format(r.mttr_days)) if r.mttr_days is not none else '—' }}</div><div class="kpi-sub">{{ t("first seen → fixed, this period") }}</div></div></div>
+  <div class="card kpi"><div class="kpi-icon ok"><svg class="icon"><use href="#i-check-circle"/></svg></div><div><div class="kpi-label">{{ t("SLA compliance") }}</div><div class="kpi-value">{{ (r.sla_pct ~ '%') if r.sla_pct is not none else '—' }}</div><div class="kpi-sub">{{ t("fixed within the due date") }}</div></div></div>
 </div>
 {% from "_chart_macros.html" import chart %}
 <section class="card mb" id="trends-card" aria-labelledby="trends-title">
-  <div class="card-head"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>Trends</h2>{% set first = trend.points[0].start %}<span class="small text-2">Charts cover {{ first.strftime('%b') }} {{ first.day }}{% if first.year != trend.points[-1].end.year %}, {{ first.year }}{% endif %} – {{ trend.points[-1].label }}{% if first.year != trend.points[-1].end.year %}, {{ trend.points[-1].end.year }}{% endif %}{% if trend.days != r.days %} (nearest chart period to {{ r.days }} days){% endif %}</span></div>
+  <div class="card-head"><h2 id="trends-title"><svg class="icon"><use href="#i-activity"/></svg>{{ t("Trends") }}</h2>{% set first = trend.points[0].start %}<span class="small text-2">{{ t("Charts cover") }} {{ first.strftime('%b') }} {{ first.day }}{% if first.year != trend.points[-1].end.year %}, {{ first.year }}{% endif %} – {{ trend.points[-1].label }}{% if first.year != trend.points[-1].end.year %}, {{ trend.points[-1].end.year }}{% endif %}{% if trend.days != r.days %} {{ t("(nearest chart period to {n} days)", n=r.days) }}{% endif %}</span></div>
   <div class="card-body"><div class="chart-grid-2">{% for c in trend_charts %}{{ chart(c) }}{% endfor %}</div></div>
 </section>
 <div class="card mb">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-layers"/></svg>By scope</h2></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-layers"/></svg>{{ t("By scope") }}</h2></div>
   <div class="table-wrap"><table class="data">
-    <thead><tr><th>Scope</th><th>Open</th><th>Critical</th><th>Overdue</th><th class="no-print"></th></tr></thead>
-    <tbody>{% for s in r.scopes %}<tr><td>{{ s.name }} {% if s.criticality %}<span class="badge crit-{{ s.criticality }}">{{ s.criticality }}</span>{% endif %}</td><td class="num">{{ s.open }}</td><td class="num">{{ s.critical }}</td><td class="num {{ 'text-danger' if s.overdue }}">{{ s.overdue }}</td><td class="no-print">{% if s.id %}<a class="small" href="/reports/scopes/{{ s.id }}">report</a>{% endif %}</td></tr>
-    {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><b>No open issues</b></div></td></tr>{% endfor %}</tbody>
+    <thead><tr><th>{{ t("Scope") }}</th><th>{{ t("Open") }}</th><th>{{ t("Critical") }}</th><th>{{ t("Overdue") }}</th><th class="no-print"></th></tr></thead>
+    <tbody>{% for s in r.scopes %}<tr><td>{{ s.name if s.id else t(s.name) }} {% if s.criticality %}<span class="badge crit-{{ s.criticality }}">{{ s.criticality }}</span>{% endif %}</td><td class="num">{{ s.open }}</td><td class="num">{{ s.critical }}</td><td class="num {{ 'text-danger' if s.overdue }}">{{ s.overdue }}</td><td class="no-print">{% if s.id %}<a class="small" href="/reports/scopes/{{ s.id }}">{{ t("report") }}</a>{% endif %}</td></tr>
+    {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><b>{{ t("No open issues") }}</b></div></td></tr>{% endfor %}</tbody>
   </table></div>
 </div>
 <div class="card mb">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-server"/></svg>Riskiest assets</h2><span class="small text-2">weighted: critical 10 · high 5 · medium 2 · low 1</span></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-server"/></svg>{{ t("Riskiest assets") }}</h2><span class="small text-2">{{ t("weighted:") }} critical 10 · high 5 · medium 2 · low 1</span></div>
   <div class="table-wrap"><table class="data">
-    <thead><tr><th>Asset</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th><th>Overdue</th><th>Risk score</th></tr></thead>
+    <thead><tr><th>{{ t("Asset") }}</th><th>{{ t("Critical") }}</th><th>{{ t("High") }}</th><th>{{ t("Medium") }}</th><th>{{ t("Low") }}</th><th>{{ t("Overdue") }}</th><th>{{ t("Risk score") }}</th></tr></thead>
     <tbody>{% for a in r.top_assets %}<tr><td class="cell-mono">{{ a.asset }}{% if a.hostname %} <span class="text-2">{{ a.hostname }}</span>{% endif %}</td><td class="num">{{ a.critical }}</td><td class="num">{{ a.high }}</td><td class="num">{{ a.medium }}</td><td class="num">{{ a.low }}</td><td class="num {{ 'text-danger' if a.overdue }}">{{ a.overdue }}</td><td class="num"><b>{{ a.score }}</b></td></tr>
-    {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><b>No open issues</b></div></td></tr>{% endfor %}</tbody>
+    {% else %}<tr data-empty="1"><td colspan="7"><div class="empty"><b>{{ t("No open issues") }}</b></div></td></tr>{% endfor %}</tbody>
   </table></div>
 </div>
 <div class="card">
-  <div class="card-head"><h2><svg class="icon"><use href="#i-flag"/></svg>Active campaigns</h2></div>
+  <div class="card-head"><h2><svg class="icon"><use href="#i-flag"/></svg>{{ t("Active campaigns") }}</h2></div>
   <div class="table-wrap"><table class="data">
-    <thead><tr><th>Campaign</th><th>Exposed</th><th>Open</th><th>Remediation</th><th class="no-print"></th></tr></thead>
-    <tbody>{% for c, p in campaigns %}<tr><td>{{ c.name }} <span class="badge sev-{{ c.severity }}">{{ c.severity }}</span> {{ kev_badge(c) }}</td><td class="num">{{ p.total }}</td><td class="num">{{ p.open }}</td><td style="min-width:180px">{{ progress_bar(p) }}<span class="small text-2">{{ p.remediated_pct }}%</span></td><td class="no-print"><a class="small" href="/reports/campaigns/{{ c.id }}">report</a></td></tr>
-    {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><b>No active campaigns</b></div></td></tr>{% endfor %}</tbody>
+    <thead><tr><th>{{ t("Campaign") }}</th><th>{{ t("Exposed") }}</th><th>{{ t("Open") }}</th><th>{{ t("Remediation") }}</th><th class="no-print"></th></tr></thead>
+    <tbody>{% for c, p in campaigns %}<tr><td>{{ c.name }} <span class="badge sev-{{ c.severity }}">{{ c.severity }}</span> {{ kev_badge(c) }}</td><td class="num">{{ p.total }}</td><td class="num">{{ p.open }}</td><td style="min-width:180px">{{ progress_bar(p) }}<span class="small text-2">{{ p.remediated_pct }}%</span></td><td class="no-print"><a class="small" href="/reports/campaigns/{{ c.id }}">{{ t("report") }}</a></td></tr>
+    {% else %}<tr data-empty="1"><td colspan="5"><div class="empty"><b>{{ t("No active campaigns") }}</b></div></td></tr>{% endfor %}</tbody>
   </table></div>
 </div>
-<p class="small text-2 print-only">Generated {{ r.now.strftime('%Y-%m-%d %H:%M') }} UTC by 0-Day Rapid Scanner.</p>
+<p class="small text-2 print-only">{{ t("Generated {when} UTC by 0-Day Rapid Scanner.", when=r.now.strftime('%Y-%m-%d %H:%M')) }}</p>
 {% endblock %}

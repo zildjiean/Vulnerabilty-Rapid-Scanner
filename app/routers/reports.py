@@ -13,6 +13,7 @@ from .. import reports as rep
 from ..audit import audit
 from ..db import Campaign, Issue, Scope, utcnow
 from ..deps import get_db
+from ..i18n import request_lang
 from ..issues import ACTIVE
 from ..notifications import get_base_url
 from ..render import render
@@ -38,7 +39,7 @@ def executive_report(request: Request, days: str = str(rep.DEFAULT_DAYS), db: Se
     t = trends.trends(db, trends.nearest_days(d))
     return render(request, "report_executive.html", active="reports", r=rep.executive(db, d), periods=rep.PERIODS,
                   campaigns=campaigns, ai_summary=latest_note(db, "summary", "report", d), trend=t,
-                  trend_charts=trend_charts(t, surface=False))
+                  trend_charts=trend_charts(t, surface=False, lang=request_lang(request)))
 
 
 def _proof_on(value: str) -> bool:

@@ -1,12 +1,12 @@
 <input type="hidden" name="csrf" value="{{ csrf }}">
-<div class="field"><label for="name">Rule name</label><input id="name" name="name" value="{{ form.name }}" required placeholder="PHP < 8.3.15 use-after-free"></div>
+<div class="field"><label for="name">{{ t("Rule name") }}</label><input id="name" name="name" value="{{ form.name }}" required placeholder="PHP < 8.3.15 use-after-free"></div>
 <div class="row">
-  <div class="field" style="flex:2;min-width:220px"><label for="product_pattern">Product pattern (regex)</label><input id="product_pattern" name="product_pattern" value="{{ form.product_pattern }}" required placeholder="php|apache:http_server" class="mono" aria-describedby="pp-hint"><span class="hint" id="pp-hint">Case-insensitive, matched against product, service name and CPE.</span></div>
-  <div class="field" style="flex:1;min-width:180px"><label for="version_constraint">Version constraint</label><input id="version_constraint" name="version_constraint" value="{{ form.version_constraint }}" required placeholder=">=8.0, <8.3.15" class="mono" aria-describedby="vc-hint"><span class="hint" id="vc-hint">Comma-separated clauses: &lt; &lt;= &gt; &gt;= == !=</span></div>
+  <div class="field" style="flex:2;min-width:220px"><label for="product_pattern">{{ t("Product pattern (regex)") }}</label><input id="product_pattern" name="product_pattern" value="{{ form.product_pattern }}" required placeholder="php|apache:http_server" class="mono" aria-describedby="pp-hint"><span class="hint" id="pp-hint">{{ t("Case-insensitive, matched against product, service name and CPE.") }}</span></div>
+  <div class="field" style="flex:1;min-width:180px"><label for="version_constraint">{{ t("Version constraint") }}</label><input id="version_constraint" name="version_constraint" value="{{ form.version_constraint }}" required placeholder=">=8.0, <8.3.15" class="mono" aria-describedby="vc-hint"><span class="hint" id="vc-hint">{{ t("Comma-separated clauses:") }} &lt; &lt;= &gt; &gt;= == !=</span></div>
 </div>
 <div class="row">
-  <div class="field" style="flex:1"><label for="cve_id">CVE id</label><input id="cve_id" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-109619" class="mono"></div>
-  <div class="field w-md"><label for="severity">Severity</label><select id="severity" name="severity">{% for s in severities if s != 'unknown' %}<option value="{{ s }}" {{ 'selected' if s == form.severity }}>{{ s }}</option>{% endfor %}</select></div>
-  <label class="check"><input type="checkbox" name="enabled" value="true" {{ 'checked' if form.enabled }}> Enabled</label>
+  <div class="field" style="flex:1"><label for="cve_id">{{ t("CVE id") }}</label><input id="cve_id" name="cve_id" value="{{ form.cve_id }}" placeholder="CVE-2026-109619" class="mono"></div>
+  <div class="field w-md"><label for="severity">{{ t("Severity") }}</label><select id="severity" name="severity">{% for s in severities if s != 'unknown' %}<option value="{{ s }}" {{ 'selected' if s == form.severity }}>{{ s }}</option>{% endfor %}</select></div>
+  <label class="check"><input type="checkbox" name="enabled" value="true" {{ 'checked' if form.enabled }}> {{ t("Enabled") }}</label>
 </div>
-<div class="field"><label for="description">Description</label><textarea id="description" name="description" rows="2" style="font-family:var(--font-sans)">{{ form.description }}</textarea></div>
+<div class="field"><label for="description">{{ t("Description") }}</label><textarea id="description" name="description" rows="2" style="font-family:var(--font-sans)">{{ form.description }}</textarea></div>
