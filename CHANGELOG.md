@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Published container image** on GitHub Container Registry: `ghcr.io/zildjiean/vulnerabilty-rapid-scanner`
+  (linux/amd64 + linux/arm64, tags `latest`, `X.Y`, `X.Y.Z`) with an SBOM and signed build provenance, built by the
+  new *Release image* workflow on every version tag.
+
+### Changed
+- `docker-compose.yml` now runs the published image (`ZDRS_VERSION` pins a version); building from source uses the
+  new `docker-compose.build.yml` override.
+
 ## [2.1.0] - 2026-11-03
 
 ### Added

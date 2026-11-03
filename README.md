@@ -122,11 +122,38 @@ Everything runs in one container. No external services, no accounts, works offli
 
 > 🇹🇭 คู่มือภาษาไทย: [docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md)
 
+Run the published image (linux/amd64 and linux/arm64) — no clone or build needed:
+
+```bash
+mkdir zdrs && cd zdrs
+curl -fsSLO https://raw.githubusercontent.com/zildjiean/Vulnerabilty-Rapid-Scanner/master/docker-compose.yml
+docker compose up -d
+```
+
+Or with plain Docker:
+
+```bash
+docker run -d --name zero-day-rapid-scanner -p 8000:8000 -v scanner-data:/data \
+  --cap-add NET_RAW --cap-add NET_ADMIN -e HTTPS=0 --restart unless-stopped \
+  ghcr.io/zildjiean/vulnerabilty-rapid-scanner:latest
+```
+
+Image: `ghcr.io/zildjiean/vulnerabilty-rapid-scanner` with tags `latest`, `2.1` and `2.1.0` (pin one with
+`ZDRS_VERSION=2.1.0` in a `.env` file). Each image carries an SBOM and a signed build-provenance attestation:
+`gh attestation verify oci://ghcr.io/zildjiean/vulnerabilty-rapid-scanner:2.1.0 --owner zildjiean`.
+
+Upgrade: `docker compose pull && docker compose up -d` — data in the `scanner-data` volume is kept.
+
+To build from source instead:
+
 ```bash
 git clone https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner.git
 cd Vulnerabilty-Rapid-Scanner
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
+
+Port 8000 is published on all interfaces. Outside a lab, put the scanner behind a TLS reverse proxy and set
+`HTTPS=1`, or publish it on `127.0.0.1:8000:8000` only.
 
 Open <http://localhost:8000> and sign in with **admin / changeme**. You must set a new password
 (12+ characters) before anything else works. The first start downloads the official nuclei-templates into the
@@ -153,7 +180,8 @@ Step-by-step user guide in Thai: **[docs/USER_GUIDE.th.md](docs/USER_GUIDE.th.md
 7. **Reports** – share the executive summary or a campaign report; export issues to CSV / JSON or pull them over
    the REST API.
 8. **Updates** – refresh templates whenever needed. The nmap binary and the pinned nuclei version are updated by
-   rebuilding the image: `docker compose build --pull --no-cache && docker compose up -d`.
+   pulling a newer image: `docker compose pull && docker compose up -d` (from source: `git pull`, then rebuild with
+   `docker compose -f docker-compose.yml -f docker-compose.build.yml build --pull --no-cache` and `up -d`).
 
 ## Users and roles
 
@@ -236,4 +264,10 @@ test.** The authors accept no liability for misuse. See [LICENSE](LICENSE).
 
 ## License
 
-[MIT](LICENSE) © 2026 zildjiean. nmap and nuclei are distributed under their own licenses.
+[MIT](LICENSE) © 2026 zildjiean.
+
+The container image also bundles third-party tools under their own licenses: [nmap](https://nmap.org/npsl/)
+(Nmap Public Source License), [nuclei](https://github.com/projectdiscovery/nuclei),
+[subfinder](https://github.com/projectdiscovery/subfinder) and [httpx](https://github.com/projectdiscovery/httpx)
+(MIT), on a Debian-based `python:3.12-slim` base. nuclei-templates are downloaded at first start, not shipped in the
+image.

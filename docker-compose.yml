@@ -1,7 +1,11 @@
+# Runs the published image from GitHub Container Registry.
+#   docker compose up -d            start (pulls the image the first time)
+#   docker compose pull && docker compose up -d     upgrade
+# Pin a version with ZDRS_VERSION=2.1.0 in a .env file next to this file.
+# To build from source instead: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   scanner:
-    build: .
-    image: zero-day-rapid-scanner:latest
+    image: ghcr.io/zildjiean/vulnerabilty-rapid-scanner:${ZDRS_VERSION:-latest}
     container_name: zero-day-rapid-scanner
     ports:
       - "8000:8000"
