@@ -37,7 +37,10 @@ curl -fsSLO https://raw.githubusercontent.com/zildjiean/Vulnerabilty-Rapid-Scann
 docker compose up -d
 ```
 
-- image คือ `ghcr.io/zildjiean/vulnerabilty-rapid-scanner` มี tag `latest`, `2.1`, `2.1.0` ถ้าต้องการล็อกเวอร์ชัน ให้สร้างไฟล์ `.env` ข้างๆ ไฟล์ compose แล้วใส่ `ZDRS_VERSION=2.1.0`
+- image เดียวกันมีให้ดึงสองที่ tag `latest`, `2.1`, `2.1.0` เหมือนกัน
+  - GitHub Container Registry (ค่าเริ่มต้น): `ghcr.io/zildjiean/vulnerabilty-rapid-scanner`
+  - Docker Hub: `zildjiean/vulnerability-rapid-scanner`
+- ตั้งค่าในไฟล์ `.env` ข้างๆ ไฟล์ compose: ล็อกเวอร์ชันด้วย `ZDRS_VERSION=2.1.0` และถ้าอยากดึงจาก Docker Hub ใส่ `ZDRS_IMAGE=zildjiean/vulnerability-rapid-scanner`
 - ถ้าต้องการ build เองจาก source:
 
 ```bash

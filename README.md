@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Image](https://img.shields.io/badge/ghcr.io-vulnerabilty--rapid--scanner-2496ED.svg?logo=docker&logoColor=white)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/pkgs/container/vulnerabilty-rapid-scanner)
+[![Docker Hub](https://img.shields.io/docker/pulls/zildjiean/vulnerability-rapid-scanner.svg?logo=docker&logoColor=white&label=docker%20hub)](https://hub.docker.com/r/zildjiean/vulnerability-rapid-scanner)
 [![Release image](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/release-image.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/release-image.yml)
 
 A small, self-hosted web console around **nmap** and **nuclei** for reacting to new vulnerabilities fast.
@@ -139,8 +140,15 @@ docker run -d --name zero-day-rapid-scanner -p 8000:8000 -v scanner-data:/data \
   ghcr.io/zildjiean/vulnerabilty-rapid-scanner:latest
 ```
 
-Image: `ghcr.io/zildjiean/vulnerabilty-rapid-scanner` with tags `latest`, `2.1` and `2.1.0` (pin one with
-`ZDRS_VERSION=2.1.0` in a `.env` file). Each image carries an SBOM and a signed build-provenance attestation:
+The same image is published to two registries with tags `latest`, `2.1` and `2.1.0`:
+
+| Registry | Image |
+|---|---|
+| GitHub Container Registry (default in `docker-compose.yml`) | `ghcr.io/zildjiean/vulnerabilty-rapid-scanner` |
+| Docker Hub | `zildjiean/vulnerability-rapid-scanner` |
+
+Pin a version with `ZDRS_VERSION=2.1.0` in a `.env` file; use Docker Hub with
+`ZDRS_IMAGE=zildjiean/vulnerability-rapid-scanner` in the same file. Each image carries an SBOM and a signed build-provenance attestation:
 `gh attestation verify oci://ghcr.io/zildjiean/vulnerabilty-rapid-scanner:2.1.0 --owner zildjiean`.
 
 Upgrade: `docker compose pull && docker compose up -d` — data in the `scanner-data` volume is kept.
