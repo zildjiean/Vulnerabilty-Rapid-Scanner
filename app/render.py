@@ -71,6 +71,10 @@ def render(request: Request, name: str, status_code: int = 200, **ctx):
     ctx.setdefault("lang_back", i18n.switch_back(request) if ctx.get("user") is not None else "/")
     token = i18n.use_lang(lang)
     try:  # the template is rendered here, so t() inside it (and its macros) sees this request's language
+        if user is not None and hasattr(user, "tours_done"):  # guided tours (base.html), in this request's language
+            from . import tours
+            ctx.setdefault("tours", tours.payload(user, tours.done_keys(user)))
+            ctx.setdefault("tour_prompt", tours.show_prompt(user))
         return templates.TemplateResponse(request, name, ctx, status_code=status_code)
     finally:
         i18n.reset_lang(token)

@@ -1985,4 +1985,91 @@ CATALOG_TH: dict[str, str] = {
     'issues|Active': 'ยังไม่ปิด',
     'issues|Closed': 'ที่ปิดแล้ว (ทั้งหมด)',
     'issue|Owner': 'ผู้รับผิดชอบ',
+    # ------------------------------------------------------------- guided tours: app/tours.py, base.html Guide menu,
+    # Dashboard prompt, Profile; JS (i18n.JS_STRINGS). Step titles reuse the menu / button labels above.
+    'Guide': 'ทัวร์แนะนำ',
+    'Guided tours': 'ทัวร์แนะนำการใช้งาน',
+    'New here? Take a 1-minute tour': 'เพิ่งเริ่มใช้? ลองทัวร์ 1 นาที',
+    'See where the menus, the language switch and your profile are.': 'ดูว่าเมนู ปุ่มสลับภาษา และโปรไฟล์ของคุณอยู่ตรงไหน',
+    'Start tour': 'เริ่มทัวร์',
+    'No thanks': 'ไม่เป็นไร',
+    'Reset tours': 'รีเซ็ตทัวร์',
+    'Short walkthroughs that point at menus and buttons. They never change anything.':
+        'ทัวร์สั้นๆ ที่ชี้ให้ดูเมนูและปุ่มต่างๆ โดยไม่เปลี่ยนแปลงอะไร',
+    'Reset tours marks every tour as not done and shows the Dashboard prompt again.':
+        '"รีเซ็ตทัวร์" จะทำให้ทุกทัวร์กลับเป็นยังไม่ได้ดู และแสดงคำชวนบนแดชบอร์ดอีกครั้ง',
+    'Not taken yet': 'ยังไม่ได้ดู',
+    'Start': 'เริ่ม',
+    'Tours reset': 'รีเซ็ตทัวร์แล้ว',
+    'Skip tour': 'ข้ามทัวร์',
+    'Step {n} of {total}': 'ขั้นที่ {n} จาก {total}',
+    'Nothing more to show here yet': 'ยังไม่มีอะไรให้ดูเพิ่มที่นี่',
+    # tour: menus
+    'Get to know the menus': 'ทำความรู้จักเมนู',
+    'A quick look at where everything is.': 'ดูภาพรวมว่าแต่ละอย่างอยู่ตรงไหน',
+    'Welcome to 0-Day Rapid Scanner': 'ยินดีต้อนรับสู่ 0-Day Rapid Scanner',
+    'This tour shows where things are. It only points; it never clicks or changes anything.':
+        'ทัวร์นี้ชี้ให้ดูว่าแต่ละอย่างอยู่ตรงไหน แค่ชี้ให้ดูเท่านั้น ไม่กดหรือเปลี่ยนแปลงอะไรให้',
+    'Your overview: active issues, overdue work, trends and recent jobs.':
+        'ภาพรวมของคุณ: issue ที่ยังไม่ปิด งานที่เกินกำหนด แนวโน้ม และ job ล่าสุด',
+    'Every vulnerability found, ordered by risk. Triage, assign and close them here.':
+        'ช่องโหว่ทั้งหมดที่พบ เรียงตามความเสี่ยง คัดกรอง มอบหมาย และปิด issue ได้ที่นี่',
+    'Track one 0-day across your assets. 0-day watch suggests new campaigns.':
+        'ติดตาม 0-day หนึ่งตัวในทุก asset ของคุณ การเฝ้าระวัง 0-day จะเสนอ campaign ใหม่ให้',
+    'Hosts, ports and services that scans found, and what changed.':
+        'host, port และ service ที่ scan พบ พร้อมสิ่งที่เปลี่ยนแปลง',
+    'Executive, scope and campaign reports to share or print.':
+        'รายงานสำหรับผู้บริหาร รายงาน scope และ campaign สำหรับแชร์หรือพิมพ์',
+    'New scan starts a scan; Jobs shows its progress and log.':
+        'เริ่ม scan ได้ที่ "สแกนใหม่" ส่วน "Jobs" แสดงความคืบหน้าและ log',
+    'Updates, API keys and, for admins, users, settings and the audit log.':
+        'อัปเดต API key และสำหรับผู้ดูแลระบบ: ผู้ใช้ ตั้งค่า และ audit log',
+    'Switch between Thai and English. Your choice is saved to your profile.':
+        'สลับระหว่างภาษาไทยกับอังกฤษ ภาษาที่เลือกจะบันทึกไว้ในโปรไฟล์ของคุณ',
+    'Your details, role, language and menu preferences.': 'ข้อมูลของคุณ บทบาท ภาษา และการตั้งค่าเมนู',
+    'Reopen tours here at any time.': 'เปิดทัวร์อีกครั้งได้ที่นี่ทุกเมื่อ',
+    # tour: first-scan
+    'Start a Quick scan and follow it to the results.': 'เริ่ม Quick scan แล้วติดตามไปจนถึงผลลัพธ์',
+    'Scans start here. Quick scan is the simplest way.': 'เริ่ม scan ได้ที่นี่ Quick scan เป็นวิธีที่ง่ายที่สุด',
+    'Enter one IP address, network, range or hostname per line. Only scan systems you are allowed to test.':
+        'ใส่ IP address เครือข่าย ช่วง IP หรือ hostname บรรทัดละหนึ่งรายการ สแกนเฉพาะระบบที่คุณได้รับอนุญาตให้ทดสอบ',
+    'Pick how many ports to check and how thorough the vulnerability checks are.':
+        'เลือกจำนวน port ที่จะตรวจ และความละเอียดของการตรวจหาช่องโหว่',
+    'Nothing runs until you press Start quick scan.': 'ยังไม่มีอะไรรันจนกว่าจะกด "เริ่ม Quick scan"',
+    'More scan types': 'การสแกนแบบอื่น',
+    'Nmap, Nuclei and Discovery give full control for advanced use.':
+        'Nmap, Nuclei และ Discovery ปรับได้ละเอียดสำหรับการใช้งานขั้นสูง',
+    'Every scan runs as a job. Open one to watch its live log.': 'ทุก scan ทำงานเป็น job เปิด job เพื่อดู log แบบสด',
+    'Job list': 'รายการ job',
+    'Status, duration and summary of each scan and update.': 'สถานะ ระยะเวลา และสรุปของแต่ละ scan และการอัปเดต',
+    'When a scan finishes, results land in Issues.': 'เมื่อ scan เสร็จ ผลลัพธ์จะไปอยู่ที่ "Issues"',
+    # tour: triage
+    'Handle an issue': 'จัดการ issue',
+    'Filter issues, open one and decide what to do with it.': 'กรอง issue เปิดดูทีละรายการ แล้วตัดสินใจว่าจะทำอย่างไร',
+    'Filters': 'ตัวกรอง',
+    'Narrow the list by status, severity, owner or text.': 'จำกัดรายการตามสถานะ ความรุนแรง ผู้รับผิดชอบ หรือข้อความ',
+    'Issue list': 'รายการ issue',
+    'Ordered by risk, highest first. Select rows for bulk actions.': 'เรียงตามความเสี่ยง สูงสุดก่อน เลือกหลายแถวเพื่อทำพร้อมกัน',
+    'Open an issue': 'เปิด issue',
+    'Click a title to see its details, evidence and history.': 'คลิกชื่อ issue เพื่อดูรายละเอียด หลักฐาน และประวัติ',
+    "The suggested action for the issue's current status.": 'สิ่งที่แนะนำให้ทำต่อ ตามสถานะปัจจุบันของ issue',
+    'Move the issue along: Triaged, In progress, Fixed. False positive and Accepted risk need a reason.':
+        'เลื่อนสถานะ issue: คัดกรองแล้ว กำลังแก้ แก้แล้ว ส่วน False positive และยอมรับความเสี่ยงต้องระบุเหตุผล',
+    'Verify the fix': 'ตรวจซ้ำว่าแก้แล้ว',
+    'Re-run the check against the asset to prove the fix, and keep the proof.':
+        'รันการตรวจกับ asset อีกครั้งเพื่อพิสูจน์ว่าแก้แล้ว และเก็บ proof ไว้',
+    'What the scanner sent and received when it found the problem.': 'สิ่งที่ scanner ส่งและได้รับกลับมาตอนที่พบปัญหา',
+    # tour: admin
+    'Set up for your team': 'ตั้งค่าสำหรับทีมของคุณ',
+    'Where to set up scopes, schedules, users and integrations.': 'จุดที่ใช้ตั้งค่า scope ตารางสแกน ผู้ใช้ และการเชื่อมต่อ',
+    'Group assets with an owner and criticality. Issues inherit them.':
+        'จัดกลุ่ม asset พร้อมเจ้าของและความสำคัญ issue จะได้ค่าเหล่านี้ไปด้วย',
+    'Re-scan scopes automatically, daily or weekly.': 'สแกน scope ซ้ำอัตโนมัติ รายวันหรือรายสัปดาห์',
+    'Add people and give each a role: Admin, Analyst or Viewer.':
+        'เพิ่มผู้ใช้และกำหนดบทบาท: ผู้ดูแลระบบ นักวิเคราะห์ หรือผู้ดู',
+    'Remediation SLAs and other platform settings.': 'SLA การแก้ไขและการตั้งค่าอื่นของแพลตฟอร์ม',
+    'Send new issues to Slack, Microsoft Teams, email or a webhook.':
+        'ส่ง issue ใหม่ไปที่ Slack, Microsoft Teams, อีเมล หรือ webhook',
+    'Keep nmap, nuclei and the templates up to date.': 'อัปเดต nmap, nuclei และ template ให้เป็นปัจจุบัน',
+    'Who did what, and when.': 'ใครทำอะไร เมื่อไร',
 }
