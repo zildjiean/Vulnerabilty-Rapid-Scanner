@@ -480,4 +480,287 @@
     $$('input[name="level"]', qform).forEach((r) => r.addEventListener("change", later));
     update();  // restored form values (back button) differ from the server-rendered text
   }
+
+  // ---------- Guided tours: spotlight one element per step (app/tours.py). Only points: never clicks, submits or
+  // fills anything, and the page underneath ignores clicks (and is inert) while a tour is open. ----------
+  (() => {
+    const src = document.getElementById("tours");
+    let TOURS = [];
+    try { TOURS = src ? JSON.parse(src.textContent) : []; } catch (e) { TOURS = []; }
+    if (!Array.isArray(TOURS)) TOURS = [];
+    TOURS = TOURS.filter((x) => x && typeof x.key === "string" && Array.isArray(x.steps) && x.steps.length);
+    if (!TOURS.length) return;
+    const KEY = "zdrs-tour", FOLLOW = "@follow";
+    const guide = $("#guide"), guideBtn = guide ? $("summary", guide) : null, shellEl = $("#shell");
+    const find = (key) => TOURS.find((x) => x.key === key) || null;
+    const mq = (q) => window.matchMedia(q).matches;
+    const mobile = () => mq("(max-width: 520px)");
+    const reduced = () => mq("(prefers-reduced-motion: reduce)");
+    const ss = {
+      get: () => { try { const v = JSON.parse(sessionStorage.getItem(KEY) || "null"); return v && typeof v === "object" ? v : null; } catch (e) { return null; } },
+      set: (v) => { try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} },
+      clear: () => { try { sessionStorage.removeItem(KEY); } catch (e) {} },
+    };
+    const csrf = () => { const el = $('input[name="csrf"]'); return el ? el.value : ""; };
+    const post = (url) => {   // fire and forget: failures are ignored, the tour closes anyway
+      try {
+        const fd = new FormData(); fd.append("csrf", csrf());
+        fetch(url, { method: "POST", body: fd, credentials: "same-origin", headers: { "X-CSRF": csrf(), "X-Requested-With": "fetch" } }).catch(() => {});
+      } catch (e) {}
+    };
+    let promptPending = !!(src && src.dataset.prompt);
+    const dismissPrompt = () => {
+      if (!promptPending) return;
+      promptPending = false;
+      post("/tours/prompt/dismiss");
+      $("#tour-prompt")?.remove();
+    };
+
+    // ----- Guide menu (a <details> in the top bar) -----
+    if (guide) {
+      document.addEventListener("click", (e) => { if (guide.open && !guide.contains(e.target)) guide.open = false; });
+      guide.addEventListener("keydown", (e) => { if (e.key === "Escape" && guide.open) { e.stopPropagation(); guide.open = false; guideBtn?.focus(); } });
+    }
+    $$("[data-tour-start]").forEach((b) => {
+      if (!find(b.dataset.tourStart)) return;
+      b.hidden = false;   // the prompt's Start button exists only with JS
+      b.addEventListener("click", (e) => { e.preventDefault(); if (guide) guide.open = false; start(b.dataset.tourStart); });
+    });
+
+    // ----- state -----
+    let cur = null;      // { tour, i, follow, dir, el }
+    let ui = null;       // { blocker, spot, pop, live, count, title, body, back, next, skip }
+    let undo = [];       // closes what the tour opened (nav groups, the mobile drawer, <details>)
+    let drawerOpened = false;
+    let raf = 0;
+
+    const build = () => {
+      const blocker = document.createElement("div");
+      blocker.className = "tour-blocker";
+      ["click", "mousedown", "mouseup", "pointerdown", "pointerup", "touchstart", "dblclick", "contextmenu"].forEach((ev) =>
+        blocker.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false }));
+      const spot = document.createElement("div");
+      spot.className = "tour-spot"; spot.setAttribute("aria-hidden", "true"); spot.hidden = true;
+      const pop = document.createElement("div");
+      pop.className = "tour-pop"; pop.tabIndex = -1;
+      pop.setAttribute("role", "dialog"); pop.setAttribute("aria-modal", "false"); pop.setAttribute("aria-labelledby", "tour-title");
+      pop.innerHTML = '<p class="tour-count"></p><h2 id="tour-title"></h2><p class="tour-body"></p>' +
+        '<div class="tour-actions"><button type="button" class="ghost sm tour-skip"></button><span class="spacer"></span>' +
+        '<button type="button" class="sm tour-back"></button><button type="button" class="primary sm tour-next"></button></div>';
+      const live = document.createElement("div");
+      live.className = "sr-only"; live.setAttribute("aria-live", "polite");
+      document.body.append(blocker, spot, pop, live);
+      const r = { blocker, spot, pop, live, count: $(".tour-count", pop), title: $("#tour-title", pop), body: $(".tour-body", pop),
+        back: $(".tour-back", pop), next: $(".tour-next", pop), skip: $(".tour-skip", pop) };
+      r.skip.textContent = t("Skip tour"); r.back.textContent = t("Back");
+      r.skip.addEventListener("click", () => end(false));
+      r.back.addEventListener("click", () => back());
+      r.next.addEventListener("click", () => next());
+      if (shellEl) shellEl.inert = true;
+      document.addEventListener("keydown", onKey, true);
+      window.addEventListener("resize", schedule);
+      window.addEventListener("scroll", schedule, true);
+      return r;
+    };
+
+    const onKey = (e) => {
+      if (!cur) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); end(false); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); next(); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); back(); }
+    };
+
+    const end = (done) => {
+      const tour = cur && cur.tour;
+      cur = null;
+      ss.clear();
+      if (done && tour) { post("/tours/" + encodeURIComponent(tour.key) + "/done"); tour.done = true; }
+      if (ui) {
+        document.removeEventListener("keydown", onKey, true);
+        window.removeEventListener("resize", schedule);
+        window.removeEventListener("scroll", schedule, true);
+        ui.blocker.remove(); ui.spot.remove(); ui.pop.remove(); ui.live.remove();
+        ui = null;
+      }
+      if (shellEl) shellEl.inert = false;
+      closeDrawer();
+      undo.reverse().forEach((f) => { try { f(); } catch (e) {} });
+      undo = [];
+      guideBtn?.focus();
+    };
+
+    // ----- making a target visible (display only: open its nav group / the mobile drawer / a closed <details>) -----
+    const openDrawer = () => {
+      if (!shellEl || drawerOpened || shellEl.classList.contains("nav-open")) return;
+      const tog = $("#nav-toggle");
+      if (!tog || getComputedStyle(tog).display === "none") return;   // the drawer exists only when the hamburger shows
+      shellEl.classList.add("nav-open"); tog.setAttribute("aria-expanded", "true"); drawerOpened = true;
+      setTimeout(schedule, 280);   // the drawer slides in: measure again once it has arrived
+    };
+    const closeDrawer = () => {
+      if (!drawerOpened || !shellEl) return;
+      shellEl.classList.remove("nav-open"); $("#nav-toggle")?.setAttribute("aria-expanded", "false"); drawerOpened = false;
+    };
+    const prepare = (el) => {
+      if (el.closest(".sidebar")) {
+        openDrawer();
+        const g = el.closest("[data-nav-group]");
+        if (g && g.classList.contains("closed") && !el.matches(".nav-group-label")) {
+          const btn = $(".nav-group-label", g);
+          g.classList.remove("closed"); btn?.setAttribute("aria-expanded", "true");
+          undo.push(() => { g.classList.add("closed"); btn?.setAttribute("aria-expanded", "false"); });
+        }
+      } else closeDrawer();
+      for (let d = el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) {
+        if (d === guide || d.open) continue;
+        d.open = true;
+        const dd = d; undo.push(() => { dd.open = false; });
+      }
+    };
+    const visible = (el) => { const r = el.getBoundingClientRect(); return el.getClientRects().length > 0 && (r.width > 0 || r.height > 0); };
+    const targetEl = (step) => {
+      let el = null;
+      try { el = document.querySelector('[data-tour="' + CSS.escape(step.target) + '"]'); } catch (e) { el = null; }
+      if (!el) return null;
+      prepare(el);
+      return visible(el) ? el : null;
+    };
+
+    // ----- which page a step lives on -----
+    const linkOf = (el) => { const a = el && (el.matches("a[href]") ? el : el.querySelector("a[href]")); return a ? a.getAttribute("href") : null; };
+    const pageFor = (j) => {
+      const steps = cur.tour.steps, s = steps[j];
+      if (s.path !== FOLLOW) return s.path;
+      const prev = steps[j - 1];
+      if (prev && prev.path !== FOLLOW && prev.path === location.pathname) {
+        let href = null;
+        try { href = linkOf(document.querySelector('[data-tour="' + CSS.escape(prev.target) + '"]')); } catch (e) { href = null; }
+        if (href) {
+          try { const u = new URL(href, location.href); if (u.origin === location.origin) cur.follow = u.pathname; } catch (e) {}
+        }
+      }
+      return cur.follow || null;
+    };
+
+    const go = (j, page) => {
+      ss.set({ key: cur.tour.key, step: j, follow: cur.follow, dir: cur.dir, at: page });
+      location.href = page + "?tour=" + encodeURIComponent(cur.tour.key) + "&step=" + j;
+    };
+
+    // Show step i or the nearest reachable one in direction dir; navigate when it lives on another page.
+    const show = (i, dir) => {
+      const steps = cur.tour.steps;
+      cur.dir = dir;
+      for (let j = i; j >= 0 && j < steps.length; j += dir) {
+        const page = pageFor(j);
+        if (!page) continue;
+        if (page !== location.pathname) { go(j, page); return; }
+        if (!steps[j].target) { render(j, null); return; }
+        const el = targetEl(steps[j]);
+        if (el) { render(j, el); return; }
+      }
+      if (dir > 0) note();
+      else if (cur.i !== undefined && cur.i >= 0) render(cur.i, cur.el);   // nothing earlier: stay on this step
+      else show(i, 1);
+    };
+    const next = () => {
+      if (!cur) return;
+      if (cur.i === undefined || cur.i < 0) return end(false);   // the "nothing more" note
+      if (cur.i >= cur.tour.steps.length - 1) return end(true);
+      show(cur.i + 1, 1);
+    };
+    const back = () => { if (cur && cur.i > 0) show(cur.i - 1, -1); };
+
+    const render = (j, el) => {
+      if (!ui) ui = build();
+      const steps = cur.tour.steps, s = steps[j], n = steps.length;
+      cur.i = j; cur.el = el;
+      ss.set({ key: cur.tour.key, step: j, follow: cur.follow, dir: 1, at: location.pathname });
+      ui.count.hidden = false; ui.count.textContent = (j + 1) + " / " + n;
+      ui.title.textContent = s.title || "";
+      ui.body.textContent = s.body || ""; ui.body.hidden = !s.body;
+      ui.back.hidden = false; ui.back.disabled = j === 0; ui.skip.hidden = false;
+      ui.next.textContent = j === n - 1 ? t("Done") : t("Next");
+      ui.live.textContent = t("Step {n} of {total}", { n: j + 1, total: n }) + ": " + (s.title || "");
+      // sticky top bar / sidebar items are already on screen: "nearest" keeps the page from jumping
+      if (el) el.scrollIntoView({ block: el.closest(".sidebar, .topbar") ? "nearest" : "center", inline: "nearest", behavior: reduced() ? "auto" : "smooth" });
+      place();
+      ui.pop.focus({ preventScroll: true });
+    };
+    const note = () => {
+      if (!ui) ui = build();
+      closeDrawer();
+      cur.i = -1; cur.el = null;
+      ss.clear();
+      ui.count.hidden = true; ui.body.hidden = true; ui.back.hidden = true; ui.skip.hidden = true;
+      ui.title.textContent = t("Nothing more to show here yet");
+      ui.next.textContent = t("Done");
+      ui.live.textContent = ui.title.textContent;
+      place();
+      ui.pop.focus({ preventScroll: true });
+    };
+
+    // ----- spotlight + popover geometry -----
+    const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; place(); }); };
+    const place = () => {
+      if (!ui || !cur) return;
+      const { spot, pop, blocker } = ui, el = cur.el;
+      pop.classList.remove("center", "sheet-top");
+      pop.style.left = pop.style.top = "";
+      if (!el || !el.isConnected || !visible(el)) {
+        spot.hidden = true; blocker.classList.add("dim"); pop.classList.add("center");
+        return;
+      }
+      blocker.classList.remove("dim");
+      const r = el.getBoundingClientRect(), pad = 6, vw = window.innerWidth, vh = window.innerHeight;
+      spot.hidden = false;
+      spot.style.left = (r.left - pad) + "px"; spot.style.top = (r.top - pad) + "px";
+      spot.style.width = (r.width + 2 * pad) + "px"; spot.style.height = (r.height + 2 * pad) + "px";
+      if (mobile()) {   // bottom sheet (CSS); moved to the top when the target sits in the lower half
+        if (r.top + r.height / 2 > vh / 2) pop.classList.add("sheet-top");
+        return;
+      }
+      const pw = pop.offsetWidth, ph = pop.offsetHeight, gap = 12, m = 8;
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+      let left, top;
+      const below = r.bottom + pad + gap, above = r.top - pad - gap - ph, right = r.right + pad + gap;
+      const sideFirst = !!el.closest(".sidebar");
+      if (sideFirst && right + pw <= vw - m) { left = right; top = clamp(r.top, m, vh - ph - m); }
+      else if (below + ph <= vh - m) { top = below; left = clamp(r.left, m, vw - pw - m); }
+      else if (above >= m) { top = above; left = clamp(r.left, m, vw - pw - m); }
+      else if (right + pw <= vw - m) { left = right; top = clamp(r.top, m, vh - ph - m); }
+      else if (r.left - pad - gap - pw >= m) { left = r.left - pad - gap - pw; top = clamp(r.top, m, vh - ph - m); }
+      else { left = clamp((vw - pw) / 2, m, vw - pw - m); top = clamp(vh - ph - m, m, vh - ph - m); }
+      pop.style.left = left + "px"; pop.style.top = top + "px";
+    };
+
+    const start = (key, step = 0, follow = null, dir = 1) => {
+      const tour = find(key);
+      if (!tour || step < 0 || step >= tour.steps.length) return;
+      if (cur) end(false);
+      dismissPrompt();
+      cur = { tour, i: undefined, el: undefined, follow: follow || null, dir };
+      if (tour.steps[step].path === FOLLOW && !cur.follow) cur.follow = location.pathname;   // arrived by following
+      show(step, dir === -1 ? -1 : 1);
+    };
+
+    // ----- resume: ?tour=<key>&step=<n> after a navigation, or the saved state after a reload of the same page -----
+    let qKey = null, qStep = null;
+    try {
+      const u = new URL(location.href);
+      qKey = u.searchParams.get("tour"); qStep = u.searchParams.get("step");
+      if (qKey !== null || qStep !== null) {
+        u.searchParams.delete("tour"); u.searchParams.delete("step");
+        if (history.replaceState) history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      }
+    } catch (e) {}
+    const saved = ss.get();
+    if (qKey && find(qKey) && /^\d{1,3}$/.test(qStep || "")) {
+      const n = parseInt(qStep, 10);
+      const st = saved && saved.key === qKey && saved.step === n ? saved : null;
+      start(qKey, n, st && typeof st.follow === "string" ? st.follow : null, st && st.dir === -1 ? -1 : 1);
+    } else if (saved && typeof saved.key === "string" && find(saved.key) && Number.isInteger(saved.step) && saved.at === location.pathname) {
+      start(saved.key, saved.step, typeof saved.follow === "string" ? saved.follow : null, 1);
+    } else if (saved) ss.clear();
+  })();
 })();
