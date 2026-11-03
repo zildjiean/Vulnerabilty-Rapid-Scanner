@@ -4,7 +4,8 @@
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg?logo=docker&logoColor=white)](docker-compose.yml)
+[![Image](https://img.shields.io/badge/ghcr.io-vulnerabilty--rapid--scanner-2496ED.svg?logo=docker&logoColor=white)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/pkgs/container/vulnerabilty-rapid-scanner)
+[![Release image](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/release-image.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/release-image.yml)
 
 A small, self-hosted web console around **nmap** and **nuclei** for reacting to new vulnerabilities fast.
 Scan a network, build a host / software / version inventory, run nuclei templates (official or your own
