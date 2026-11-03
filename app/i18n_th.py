@@ -2015,7 +2015,7 @@ CATALOG_TH: dict[str, str] = {
     'Every vulnerability found, ordered by risk. Triage, assign and close them here.':
         'ช่องโหว่ทั้งหมดที่พบ เรียงตามความเสี่ยง คัดกรอง มอบหมาย และปิด issue ได้ที่นี่',
     'Track one 0-day across your assets. 0-day watch suggests new campaigns.':
-        'ติดตาม 0-day หนึ่งตัวในทุก asset ของคุณ การเฝ้าระวัง 0-day จะเสนอ campaign ใหม่ให้',
+        'ติดตาม 0-day หนึ่งตัวในทุก asset ของคุณ "เฝ้าระวัง 0-day" จะเสนอ campaign ใหม่ให้',
     'Hosts, ports and services that scans found, and what changed.':
         'host, port และ service ที่ scan พบ พร้อมสิ่งที่เปลี่ยนแปลง',
     'Executive, scope and campaign reports to share or print.':
@@ -2023,7 +2023,7 @@ CATALOG_TH: dict[str, str] = {
     'New scan starts a scan; Jobs shows its progress and log.':
         'เริ่ม scan ได้ที่ "สแกนใหม่" ส่วน "Jobs" แสดงความคืบหน้าและ log',
     'Updates, API keys and, for admins, users, settings and the audit log.':
-        'อัปเดต API key และสำหรับผู้ดูแลระบบ: ผู้ใช้ ตั้งค่า และ audit log',
+        '"อัปเดต", "API" และ (สำหรับผู้ดูแลระบบ) "ผู้ใช้", "ตั้งค่า", "Audit log"',
     'Switch between Thai and English. Your choice is saved to your profile.':
         'สลับระหว่างภาษาไทยกับอังกฤษ ภาษาที่เลือกจะบันทึกไว้ในโปรไฟล์ของคุณ',
     'Your details, role, language and menu preferences.': 'ข้อมูลของคุณ บทบาท ภาษา และการตั้งค่าเมนู',
