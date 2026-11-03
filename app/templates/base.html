@@ -48,7 +48,7 @@
         <summary class="btn ghost sm guide-btn" data-tour="guide-button" aria-label="{{ t('Guide') }}" title="{{ t('Guided tours') }}"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg><span class="guide-label">{{ t("Guide") }}</span></summary>
         <div class="guide-pop">
           <p class="guide-head">{{ t("Guided tours") }}</p>
-          <ul class="guide-list">{% for tr in tours %}<li><a href="{{ tr.steps[0].path if tr.steps[0].path != '@follow' else '/' }}?tour={{ tr.key }}&amp;step=0" data-tour-start="{{ tr.key }}"><span class="guide-txt"><b>{{ tr.title }}</b><span>{{ tr.summary }}</span></span>{% if tr.done %}<svg class="icon sm guide-done" aria-hidden="true"><use href="#i-check"/></svg><span class="sr-only">{{ t("Done") }}</span>{% endif %}</a></li>{% endfor %}</ul>
+          <ul class="guide-list">{% for tr in tours %}<li><a href="{{ tr.href }}" data-tour-start="{{ tr.key }}"><span class="guide-txt"><b>{{ tr.title }}</b><span>{{ tr.summary }}</span></span>{% if tr.done %}<svg class="icon sm guide-done" aria-hidden="true"><use href="#i-check"/></svg><span class="sr-only">{{ t("Done") }}</span>{% endif %}</a></li>{% endfor %}</ul>
         </div>
       </details>
       {% endif %}
@@ -89,5 +89,7 @@
 {% if tours and user and not auth_page %}<script type="application/json" id="tours"{% if tour_prompt %} data-prompt="1"{% endif %}>{{ tours|tojson }}</script>
 {% endif %}{% if js_i18n %}<script type="application/json" id="i18n">{{ js_i18n|tojson }}</script>
 {% endif %}<script src="/static/app.js?v={{ static_v }}"></script>
+{% if tours and user and not auth_page %}<script src="/static/tours.js?v={{ static_v }}"></script>
+{% endif %}
 </body>
 </html>

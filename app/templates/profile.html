@@ -48,7 +48,7 @@
         <span class="mark" aria-hidden="true">{% if tr.done %}<svg class="icon sm"><use href="#i-check"/></svg>{% else %}{{ loop.index }}{% endif %}</span>
         <div class="txt"><b>{{ tr.title }}</b><span>{{ tr.summary }}</span></div>
         <span class="status {{ 'st-done' if tr.done else 'st-queued' }}"><span class="sr-only">{{ tr.title }}: </span>{{ t("Done") if tr.done else t("Not taken yet") }}</span>
-        <a class="btn sm" href="{{ tr.steps[0].path if tr.steps[0].path != '@follow' else '/' }}?tour={{ tr.key }}&amp;step=0" data-tour-start="{{ tr.key }}"><svg class="icon sm"><use href="#i-play"/></svg>{{ t("Start") }}<span class="sr-only">: {{ tr.title }}</span></a>
+        <a class="btn sm" href="{{ tr.href }}" data-tour-start="{{ tr.key }}"><svg class="icon sm"><use href="#i-play"/></svg>{{ t("Start") }}<span class="sr-only">: {{ tr.title }}</span></a>
       </li>
       {% endfor %}
     </ul>

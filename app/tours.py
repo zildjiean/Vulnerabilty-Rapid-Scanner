@@ -128,11 +128,13 @@ def done_keys(user) -> set[str]:
     return {k for k in raw.split(",") if k in _BY_KEY}
 
 
-def payload(user, done: set[str]) -> list[dict]:
-    """JSON-ready tours for the page being rendered, translated with t() (current request language)."""
+def payload(user, done: set[str], tours: list[Tour] | None = None) -> list[dict]:
+    """JSON-ready tours for the page being rendered, translated with t() (current request language).
+    ``tours`` is ``available(user)`` when the caller already has it."""
     return [{"key": tr.key, "title": t(tr.title), "summary": t(tr.summary), "done": tr.key in done,
+             "href": start_href(tr),
              "steps": [{"path": s.path, "target": s.target, "title": t(s.title), "body": t(s.body)} for s in tr.steps]}
-            for tr in available(user)]
+            for tr in (available(user) if tours is None else tours)]
 
 
 def start_href(tour: Tour) -> str:
@@ -141,10 +143,11 @@ def start_href(tour: Tour) -> str:
     return f"{path}?tour={tour.key}&step=0"
 
 
-def show_prompt(user) -> bool:
+def show_prompt(user, done: set[str] | None = None, tours: list[Tour] | None = None) -> bool:
     """The Dashboard "New here?" card: until the user dismisses it, starts a tour or finishes one."""
-    return (user is not None and getattr(user, "tour_prompt_dismissed_at", None) is None
-            and not done_keys(user) and bool(available(user)))
+    if user is None or getattr(user, "tour_prompt_dismissed_at", None) is not None:
+        return False
+    return not (done_keys(user) if done is None else done) and bool(available(user) if tours is None else tours)
 
 
 def strings() -> set[str]:
