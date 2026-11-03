@@ -36,6 +36,25 @@
     </div>
   </div>
 </div>
+{% if tours %}
+<section class="card mb" id="guided-tours" aria-labelledby="guided-tours-title">
+  <div class="card-head wrap"><h2 id="guided-tours-title"><svg class="icon"><use href="#i-help"/></svg>{{ t("Guided tours") }}</h2>
+    <form method="post" action="/profile/tours/reset"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="sm"><svg class="icon sm"><use href="#i-refresh"/></svg>{{ t("Reset tours") }}</button></form></div>
+  <div class="card-body">
+    <p class="small text-2" style="margin:0 0 6px">{{ t("Short walkthroughs that point at menus and buttons. They never change anything.") }} {{ t("Reset tours marks every tour as not done and shows the Dashboard prompt again.") }}</p>
+    <ul class="checklist">
+      {% for tr in tours %}
+      <li class="{{ 'done' if tr.done }}" data-tour-key="{{ tr.key }}" data-done="{{ '1' if tr.done else '0' }}">
+        <span class="mark" aria-hidden="true">{% if tr.done %}<svg class="icon sm"><use href="#i-check"/></svg>{% else %}{{ loop.index }}{% endif %}</span>
+        <div class="txt"><b>{{ tr.title }}</b><span>{{ tr.summary }}</span></div>
+        <span class="status {{ 'st-done' if tr.done else 'st-queued' }}"><span class="sr-only">{{ tr.title }}: </span>{{ t("Done") if tr.done else t("Not taken yet") }}</span>
+        <a class="btn sm" href="{{ tr.steps[0].path if tr.steps[0].path != '@follow' else '/' }}?tour={{ tr.key }}&amp;step=0" data-tour-start="{{ tr.key }}"><svg class="icon sm"><use href="#i-play"/></svg>{{ t("Start") }}<span class="sr-only">: {{ tr.title }}</span></a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
 <div class="card">
   <div class="card-head"><h2><svg class="icon"><use href="#i-scroll"/></svg>{{ t("Your recent activity") }}</h2></div>
   <div class="table-wrap">

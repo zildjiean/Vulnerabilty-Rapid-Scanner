@@ -8,6 +8,18 @@
 <a class="btn" href="/nuclei"><svg class="icon"><use href="#i-bug"/></svg>{{ t("New nuclei scan") }}</a>{% endif %}
 {% endblock %}
 {% block content %}
+{% if tour_prompt %}
+<section class="card mb tour-prompt" id="tour-prompt" aria-labelledby="tour-prompt-title">
+  <div class="card-body tour-prompt-body">
+    <div class="tour-prompt-text"><h2 id="tour-prompt-title"><svg class="icon"><use href="#i-help"/></svg>{{ t("New here? Take a 1-minute tour") }}</h2>
+      <p class="small text-2">{{ t("See where the menus, the language switch and your profile are.") }}</p></div>
+    <div class="row center tour-prompt-actions">
+      <button type="button" class="primary sm" data-tour-start="menus" hidden><svg class="icon sm"><use href="#i-play"/></svg>{{ t("Start tour") }}</button>
+      <form method="post" action="/tours/prompt/dismiss"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="next" value="/"><button type="submit" class="ghost sm">{{ t("No thanks") }}</button></form>
+    </div>
+  </div>
+</section>
+{% endif %}
 {% if get_started %}
 {% set n_done = get_started|selectattr('done')|list|length %}
 {% set first_todo = (get_started|rejectattr('done')|first).key %}
