@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-03
+
 ### Added
 - **Published container image** on GitHub Container Registry: `ghcr.io/zildjiean/vulnerabilty-rapid-scanner`
   (linux/amd64 + linux/arm64, tags `latest`, `X.Y`, `X.Y.Z`) with an SBOM and signed build provenance, built by the
@@ -15,6 +17,8 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 - `docker-compose.yml` now runs the published image (`ZDRS_VERSION` pins a version, `ZDRS_IMAGE` picks Docker Hub); building from source uses the
   new `docker-compose.build.yml` override.
+
+No application changes since 2.1.0.
 
 ## [2.1.0] - 2026-11-03
 
@@ -358,7 +362,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.10.0...v2.0.0
 [1.10.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.9.0...v1.10.0

@@ -3,7 +3,7 @@
 คู่มือนี้อธิบายการใช้งานตั้งแต่ติดตั้งจนถึงรับมือ 0-day ตัวใหม่ เรียงตามเมนูด้านซ้ายของระบบ
 (English overview: [README](../README.md))
 
-คู่มือนี้ตรงกับ **เวอร์ชัน 2.1.0** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
+คู่มือนี้ตรงกับ **เวอร์ชัน 2.1.1** ดูเวอร์ชันที่รันอยู่ได้ที่มุมล่างของเมนูด้านซ้าย (คลิกเพื่อเปิด
 [CHANGELOG](../CHANGELOG.md)) หรือ `curl http://localhost:8000/healthz`
 
 > **ใช้กับระบบที่คุณเป็นเจ้าของหรือได้รับอนุญาตให้ทดสอบเท่านั้น** เครื่องมือนี้ส่งแพ็กเก็ตไปยังเป้าหมายจริง
@@ -37,10 +37,10 @@ curl -fsSLO https://raw.githubusercontent.com/zildjiean/Vulnerabilty-Rapid-Scann
 docker compose up -d
 ```
 
-- image เดียวกันมีให้ดึงสองที่ tag `latest`, `2.1`, `2.1.0` เหมือนกัน
+- image เดียวกันมีให้ดึงสองที่ tag `latest`, `2.1`, `2.1.1` เหมือนกัน
   - GitHub Container Registry (ค่าเริ่มต้น): `ghcr.io/zildjiean/vulnerabilty-rapid-scanner`
   - Docker Hub: `zildjiean/vulnerability-rapid-scanner`
-- ตั้งค่าในไฟล์ `.env` ข้างๆ ไฟล์ compose: ล็อกเวอร์ชันด้วย `ZDRS_VERSION=2.1.0` และถ้าอยากดึงจาก Docker Hub ใส่ `ZDRS_IMAGE=zildjiean/vulnerability-rapid-scanner`
+- ตั้งค่าในไฟล์ `.env` ข้างๆ ไฟล์ compose: ล็อกเวอร์ชันด้วย `ZDRS_VERSION=2.1.1` และถ้าอยากดึงจาก Docker Hub ใส่ `ZDRS_IMAGE=zildjiean/vulnerability-rapid-scanner`
 - ถ้าต้องการ build เองจาก source:
 
 ```bash
@@ -592,7 +592,7 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d
 docker exec zero-day-rapid-scanner python -c "import sqlite3; s=sqlite3.connect('/data/scanner.db'); d=sqlite3.connect('/data/scanner.db.bak'); s.backup(d)"
 ```
 
-เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"2.1.0"}`
+เช็กเวอร์ชันหลังอัปเกรด: `curl http://localhost:8000/healthz` จะได้ `{"status":"ok","version":"2.1.1"}`
 
 ## 14. แก้ปัญหาที่พบบ่อย
 
