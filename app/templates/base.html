@@ -18,7 +18,7 @@
       <span class="logo"><svg class="icon"><use href="#i-shield"/></svg></span>
       <span class="name">0-Day Rapid Scanner<small>{{ t("Enterprise exposure platform") }}</small></span>
     </a>
-    {% macro item(i) %}{% set on = active in i.active %}<a href="{{ i.href }}" class="{{ 'active' if on }}" {% if on %}aria-current="page"{% endif %} title="{{ t(i.label) }}"><svg class="icon"><use href="#i-{{ i.icon }}"/></svg><span>{{ t(i.label) }}</span></a>{% endmacro %}
+    {% macro item(i) %}{% set on = active in i.active %}<a href="{{ i.href }}" class="{{ 'active' if on }}" {% if on %}aria-current="page"{% endif %} title="{{ t(i.label) }}" data-tour="nav-{{ i.key }}"><svg class="icon"><use href="#i-{{ i.icon }}"/></svg><span>{{ t(i.label) }}</span></a>{% endmacro %}
     <nav class="nav">
       {% for g in nav %}
       {% if g.key == 'core' %}
@@ -26,7 +26,7 @@
       {% else %}
       {% set has_active = active in g.keys %}{% set closed = g.closed_by_default and not has_active %}
       <div class="nav-group{{ ' closed' if closed }}" data-nav-group="{{ g.key }}"{% if has_active %} data-has-active{% endif %}>
-        <button type="button" class="nav-group-label" aria-expanded="{{ 'false' if closed else 'true' }}" aria-controls="nav-{{ g.key }}"><span>{{ t(g.label) }}</span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></button>
+        <button type="button" class="nav-group-label" aria-expanded="{{ 'false' if closed else 'true' }}" aria-controls="nav-{{ g.key }}" data-tour="nav-group-{{ g.key }}"><span>{{ t(g.label) }}</span><svg class="icon sm chev"><use href="#i-chevron-down"/></svg></button>
         <div class="nav-items" id="nav-{{ g.key }}">{% for i in g.items %}{{ item(i) }}{% endfor %}</div>
       </div>
       {% endif %}
@@ -43,9 +43,18 @@
       <button type="button" class="hamburger icon-btn ghost" id="nav-toggle" aria-label="{{ t('Open navigation') }}" aria-controls="shell" aria-expanded="false"><svg class="icon"><use href="#i-menu"/></svg></button>
       <div class="crumbs" aria-label="{{ t('Breadcrumb') }}"><span>{{ section or t('Scanner') }}</span><svg class="icon sm"><use href="#i-chevron-right"/></svg><b>{{ page_title or '' }}</b></div>
       <div class="spacer"></div>
+      {% if tours %}
+      <details class="guide" id="guide">
+        <summary class="btn ghost sm guide-btn" data-tour="guide-button" aria-label="{{ t('Guide') }}" title="{{ t('Guided tours') }}"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg><span class="guide-label">{{ t("Guide") }}</span></summary>
+        <div class="guide-pop">
+          <p class="guide-head">{{ t("Guided tours") }}</p>
+          <ul class="guide-list">{% for tr in tours %}<li><a href="{{ tr.href }}" data-tour-start="{{ tr.key }}"><span class="guide-txt"><b>{{ tr.title }}</b><span>{{ tr.summary }}</span></span>{% if tr.done %}<svg class="icon sm guide-done" aria-hidden="true"><use href="#i-check"/></svg><span class="sr-only">{{ t("Done") }}</span>{% endif %}</a></li>{% endfor %}</ul>
+        </div>
+      </details>
+      {% endif %}
       {{ lang_switch() }}
       <button type="button" class="icon-btn ghost theme-toggle" id="theme-toggle" aria-label="{{ t('Toggle dark mode') }}" title="{{ t('Toggle theme') }}"><svg class="icon sun"><use href="#i-sun"/></svg><svg class="icon moon"><use href="#i-moon"/></svg></button>
-      <a class="user-chip" href="/profile" title="{{ t('Your profile') }}"><span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span><span class="stack" style="gap:0"><span class="small">{{ user.display_name or user.username }}</span><span class="role">{{ t(role_labels.get(user.role, user.role)) }}</span></span></a>
+      <a class="user-chip" href="/profile" title="{{ t('Your profile') }}" data-tour="user-chip"><span class="avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span><span class="stack" style="gap:0"><span class="small">{{ user.display_name or user.username }}</span><span class="role">{{ t(role_labels.get(user.role, user.role)) }}</span></span></a>
       <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="ghost sm" type="submit"><svg class="icon sm"><use href="#i-logout"/></svg>{{ t("Logout") }}</button></form>
     </header>
     <main class="content" id="main" tabindex="-1">
@@ -77,7 +86,10 @@
     <div class="actions"><button type="button" id="confirm-cancel">{{ t("Cancel") }}</button><button type="button" class="danger" id="confirm-ok">{{ t("Confirm") }}</button></div>
   </div>
 </dialog>
-{% if js_i18n %}<script type="application/json" id="i18n">{{ js_i18n|tojson }}</script>
+{% if tours and user and not auth_page %}<script type="application/json" id="tours"{% if tour_prompt %} data-prompt="1"{% endif %}>{{ tours|tojson }}</script>
+{% endif %}{% if js_i18n %}<script type="application/json" id="i18n">{{ js_i18n|tojson }}</script>
 {% endif %}<script src="/static/app.js?v={{ static_v }}"></script>
+{% if tours and user and not auth_page %}<script src="/static/tours.js?v={{ static_v }}"></script>
+{% endif %}
 </body>
 </html>

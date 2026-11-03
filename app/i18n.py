@@ -213,6 +213,8 @@ JS_STRINGS: tuple[str, ...] = (
     "Search failed; try again.", "Job #{id} {status}", "Remove {name}", "1 result", "{n} results", "Add all",
     "nmap {n} target(s) ({ports}) → nuclei ({preset}) on the services found",
     "queued", "running", "done", "failed", "cancelled",
+    # guided tours
+    "Back", "Next", "Done", "Skip tour", "Step {n} of {total}", "Nothing more to show here yet",
 )
 
 
@@ -246,7 +248,7 @@ def dynamic_keys() -> set[str]:
             add(i.label, *(tb.label for tb in i.tabs))
     from .authz import PERMISSIONS, ROLE_DESCRIPTIONS, ROLE_LABELS
     add(ROLE_LABELS, ROLE_DESCRIPTIONS, PERMISSIONS)
-    for f in (_dyn_dashboard, _dyn_issues, _dyn_scanning, _dyn_inventory, _dyn_reports, _dyn_system):
+    for f in (_dyn_dashboard, _dyn_issues, _dyn_scanning, _dyn_inventory, _dyn_reports, _dyn_system, _dyn_tours):
         add(f())
     return keys
 
@@ -341,3 +343,8 @@ def _dyn_system():
     out += [label for label, _fmt, _pair in PROVIDERS.values()]   # settings.html discovery source names
     out += ["Custom (0-day) templates"]   # templates_index group label (nuclei.html)
     return out
+
+
+def _dyn_tours():
+    from .tours import strings
+    return sorted(strings())

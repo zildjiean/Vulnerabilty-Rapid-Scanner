@@ -12,7 +12,7 @@
 </div>
 {% from "_ai.html" import ask_bar with context %}
 {{ ask_bar('/issues', t('Ask in plain language, e.g. "overdue critical issues in the DMZ assigned to nobody"')) }}
-<form method="get" action="/issues" class="card mb">
+<form method="get" action="/issues" class="card mb" data-tour="issues-filters">
   <div class="card-body row" style="align-items:flex-end">
     <div class="field" style="flex:2;min-width:200px"><label for="q">{{ t("Search") }}</label><div class="input-icon"><svg class="icon"><use href="#i-search"/></svg><input id="q" name="q" placeholder="{{ t('CVE, title, asset, hostname') }}" value="{{ f.q }}"></div></div>
     <div class="field"><label for="view">{{ t("View") }}</label><select id="view" name="view">{% for k, label in [('active',tp('issues', 'Active')),('closed',tp('issues', 'Closed')),('all',t('All'))] %}<option value="{{ k }}" {{ 'selected' if f.view == k }}>{{ label }}</option>{% endfor %}</select></div>
@@ -30,7 +30,7 @@
 {% set playcol = can('scan.run') %}
 {% set back = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
 {% set selectable = manage or playcol %}
-<form method="post" action="/issues/bulk" class="card">
+<form method="post" action="/issues/bulk" class="card" data-tour="issues-table">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="back" value="{{ back }}">
   <div class="table-toolbar">
@@ -59,7 +59,7 @@
       {% if selectable %}<td><input type="checkbox" name="issue_ids" value="{{ i.id }}" aria-label="{{ t('Select issue {id}', id=i.id) }}"></td>{% endif %}
       <td data-value="{{ {'critical':0,'high':1,'medium':2,'low':3}.get(i.severity, 9) }}"><span class="badge sev-{{ i.severity }}">{{ i.severity }}</span></td>
       {% set rs = risk[i.id] %}<td data-value="{{ 100 - rs.total }}">{{ risk_pill(rs) }}</td>
-      <td><a href="/issues/{{ i.id }}" class="issue-title">{{ i.title or i.vuln_id }}</a><div class="small text-2 cell-mono">{{ i.vuln_id }}{% if i.occurrences > 1 %} · {{ t("seen {n}×", n=i.occurrences) }}{% endif %}</div></td>
+      <td><a href="/issues/{{ i.id }}" class="issue-title"{% if loop.first %} data-tour="issue-link"{% endif %}>{{ i.title or i.vuln_id }}</a><div class="small text-2 cell-mono">{{ i.vuln_id }}{% if i.occurrences > 1 %} · {{ t("seen {n}×", n=i.occurrences) }}{% endif %}</div></td>
       <td class="cell-mono small">{{ i.asset }}{% if i.hostname and i.hostname != i.address %}<div class="text-2">{{ i.hostname }}</div>{% endif %}</td>
       <td class="small">{% if i.scope %}<a href="/scopes/{{ i.scope.id }}">{{ i.scope.name }}</a> <span class="badge crit-{{ i.scope.criticality }}" title="{{ t('Scope criticality') }}">{{ i.scope.criticality }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td>{{ confidence_badge(i.confidence, i) }}</td>

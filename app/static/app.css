@@ -616,3 +616,60 @@ html[lang=th] .field label,html[lang=th] .hint,html[lang=th] .kv dt{line-height:
   .topbar .crumbs>span,.topbar .crumbs>svg{display:none}
   .topbar .crumbs b{min-width:0}
 }
+
+/* ---------- Guided tours: Guide menu, Dashboard prompt, spotlight + popover (tours.js) ---------- */
+/* scrim around the spotlight: the dark page is already dark, so dark mode needs a much stronger dim */
+:root{--tour-scrim:rgba(2,6,23,.55)}
+[data-theme=dark]{--tour-scrim:rgba(0,0,0,.62)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--tour-scrim:rgba(0,0,0,.62)}}
+.guide{position:relative;flex-shrink:0}
+.guide>summary{list-style:none}
+.guide>summary::-webkit-details-marker{display:none}
+.guide>summary:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.guide[open]>summary{background:var(--surface-3);color:var(--text)}
+.guide-pop{position:absolute;right:0;top:calc(100% + 8px);width:min(320px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:8px;z-index:50}
+.guide-head{margin:4px 8px 6px;font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em}
+html[lang=th] .guide-head{text-transform:none;letter-spacing:0}
+.guide-list{list-style:none;margin:0;padding:0}
+.guide-list a{display:flex;gap:10px;align-items:flex-start;padding:8px;border-radius:var(--radius-sm);color:var(--text);text-decoration:none}
+.guide-list a:hover{background:var(--surface-3);text-decoration:none}
+.guide-list a:focus-visible{outline:2px solid var(--ring);outline-offset:-2px}
+.guide-txt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.guide-txt b{font-weight:600;font-size:13.5px}
+.guide-txt span{font-size:12.5px;color:var(--text-2);overflow-wrap:anywhere}
+.guide-done{color:var(--success);margin-top:3px;flex:none}
+.tour-prompt{border-color:color-mix(in srgb,var(--primary) 35%,var(--border));background:var(--primary-soft)}
+.tour-prompt-body{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap}
+.tour-prompt-text{min-width:0;flex:1 1 260px}
+.tour-prompt-text h2{display:flex;align-items:center;gap:8px;margin:0 0 2px}
+.tour-prompt-text h2 .icon{color:var(--primary)}
+.tour-prompt-text p{margin:0}
+.tour-prompt-actions{gap:8px;flex-wrap:wrap}
+.tour-prompt-actions form{margin:0}
+.tour-blocker{position:fixed;inset:0;z-index:1000;background:transparent;cursor:default}
+.tour-blocker.dim{background:var(--tour-scrim)}
+.tour-spot{position:fixed;z-index:1001;pointer-events:none;border-radius:var(--radius-sm);box-shadow:0 0 0 3px var(--ring),0 0 0 200vmax var(--tour-scrim)}
+.tour-spot[hidden]{display:none}
+.tour-pop{position:fixed;z-index:1002;width:min(360px,calc(100vw - 32px));max-height:calc(100dvh - 16px);overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:16px 18px}
+.tour-pop:focus{outline:none}
+.tour-pop:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.tour-pop.center{left:50%;top:50%;transform:translate(-50%,-50%)}
+.tour-count{margin:0 0 4px;font-size:12px;color:var(--text-3)}
+.tour-pop h2{font-size:16px;margin:0 0 6px;overflow-wrap:anywhere}
+.tour-body{margin:0 0 14px;color:var(--text-2);font-size:13.5px;line-height:1.5;overflow-wrap:anywhere}
+html[lang=th] .tour-body{line-height:1.65}
+.tour-body[hidden]+.tour-actions{margin-top:12px}
+.tour-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tour-actions .spacer{flex:1}
+@media (prefers-reduced-motion:no-preference){
+  .tour-spot{transition:left var(--t-base) var(--ease),top var(--t-base) var(--ease),width var(--t-base) var(--ease),height var(--t-base) var(--ease)}
+}
+@media (max-width:520px){
+  .guide-label{display:none}
+  .guide-btn{padding:0 8px}
+  .guide-pop{position:fixed;left:16px;right:16px;top:calc(var(--topbar-h) + 6px);width:auto}
+  .tour-pop,.tour-pop.center{left:0;right:0;top:auto;bottom:0;width:auto;max-height:60dvh;transform:none;border-radius:var(--radius-lg) var(--radius-lg) 0 0;border-bottom:0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+  .tour-pop.sheet-top{top:0;bottom:auto;border-radius:0 0 var(--radius-lg) var(--radius-lg);border-bottom:1px solid var(--border);border-top:0;padding-top:calc(16px + env(safe-area-inset-top))}
+}
+@media (forced-colors:active){.tour-spot{outline:3px solid Highlight}.tour-pop{border:2px solid CanvasText}}
+@media print{.guide,.tour-prompt,.tour-blocker,.tour-spot,.tour-pop{display:none!important}}

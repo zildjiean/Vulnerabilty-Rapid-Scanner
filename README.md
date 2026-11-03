@@ -1,6 +1,6 @@
 # 0-Day Rapid Scanner
 
-[![Version](https://img.shields.io/badge/version-2.0.0-2563EB.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.1.0-2563EB.svg)](CHANGELOG.md)
 [![CI](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -18,6 +18,8 @@ Everything runs in one container. No external services, no accounts, works offli
 
 - **Quick scan**: enter targets, press Start — nmap finds open services, then nuclei checks them with the
   *Recommended* preset (or *Thorough*: all ports + every check). Nothing to configure; also via `POST /api/v1/scans/quick`.
+- **Guided tours**: a Guide button in the top bar walks new users through the menus, their first scan, handling
+  an issue and admin setup, one highlighted control at a time, in English or Thai. Tours only point; they never act.
 - **Thai and English interface**: each user picks ไทย / English (top-bar switch or Profile); new users start in
   English and the sign-in page follows the browser language. Scanner data, API, exports, notifications and the audit
   log stay English. Bundled IBM Plex Sans Thai font, no external requests.
@@ -109,6 +111,8 @@ Everything runs in one container. No external services, no accounts, works offli
 | ![Quick scan](docs/screenshots/quick-scan.png) | ![Get started](docs/screenshots/get-started.png) |
 | **Issue Next step** | **Thai interface** |
 | ![Next step](docs/screenshots/next-step.png) | ![Thai UI](docs/screenshots/thai-ui.png) |
+| **Guided tour** | **Guided tour (Thai)** |
+| ![Guided tour](docs/screenshots/guided-tour.png) | ![Guided tour in Thai](docs/screenshots/guided-tour-th.png) |
 | **Attack-surface changes** | **External asset discovery** |
 | ![Changes](docs/screenshots/changes.png) | ![Discovery](docs/screenshots/discovery.png) |
 

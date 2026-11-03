@@ -8,12 +8,12 @@
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="card-head"><h2><svg class="icon"><use href="#i-play"/></svg>{{ t("What to scan") }}</h2></div>
     <div class="card-body stack">
-      <div class="field">
+      <div class="field" data-tour="quick-targets">
         <label for="targets">{{ t("Targets") }}</label>
         <textarea id="targets" name="targets" rows="6" required placeholder="192.168.1.0/24&#10;server01.example.lan&#10;10.0.0.1-50" aria-describedby="targets-hint">{{ form.targets }}</textarea>
         <span class="hint" id="targets-hint">{{ t("One per line: an IP address, a network (CIDR), a range such as 10.0.0.1-50, or a hostname. Only scan systems you are allowed to test.") }}</span>
       </div>
-      <fieldset>
+      <fieldset data-tour="quick-level">
         <legend>{{ t("How deep") }}</legend>
         <div class="choice-grid">
           {% for key, lv in levels.items() %}
@@ -24,7 +24,7 @@
       <p class="quick-summary"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span id="quick-summary" aria-live="polite" data-empty="{{ empty_summary }}">{{ summary }}</span></p>
       <div class="row between center">
         <span class="small text-2">{{ t("Nothing runs until you press Start.") }}</span>
-        <button class="primary" type="submit" id="quick-start" {{ 'disabled' if not can('scan.run') }}><svg class="icon"><use href="#i-play"/></svg>{{ t("Start quick scan") }}</button>
+        <button class="primary" type="submit" id="quick-start" {{ 'disabled' if not can('scan.run') }} data-tour="quick-start"><svg class="icon"><use href="#i-play"/></svg>{{ t("Start quick scan") }}</button>
       </div>
     </div>
   </form>
