@@ -29,12 +29,21 @@
 
 ## 1. ติดตั้งและเข้าสู่ระบบครั้งแรก
 
-ต้องมี Docker และ Docker Compose
+ต้องมี Docker และ Docker Compose ใช้ image สำเร็จรูปจาก GitHub Container Registry ได้เลย ไม่ต้อง clone หรือ build (รองรับ amd64 และ arm64)
+
+```bash
+mkdir zdrs && cd zdrs
+curl -fsSLO https://raw.githubusercontent.com/zildjiean/Vulnerabilty-Rapid-Scanner/master/docker-compose.yml
+docker compose up -d
+```
+
+- image คือ `ghcr.io/zildjiean/vulnerabilty-rapid-scanner` มี tag `latest`, `2.1`, `2.1.0` ถ้าต้องการล็อกเวอร์ชัน ให้สร้างไฟล์ `.env` ข้างๆ ไฟล์ compose แล้วใส่ `ZDRS_VERSION=2.1.0`
+- ถ้าต้องการ build เองจาก source:
 
 ```bash
 git clone https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner.git
 cd Vulnerabilty-Rapid-Scanner
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 1. เปิด <http://localhost:8000>
@@ -559,11 +568,18 @@ AI **แนะนำเท่านั้น** ไม่เปลี่ยนส
 - **nuclei templates** ควรอัปเดตทุกวันหรือทันทีที่มี 0-day ใหม่
 - **nuclei engine**, **subfinder**, **httpx** และ **nmap script DB**
 
-อัปเดต binary nmap และเวอร์ชัน nuclei / subfinder / httpx ที่ตรึงไว้ใน image ด้วยการ build ใหม่:
+อัปเดต binary nmap และเวอร์ชัน nuclei / subfinder / httpx ที่ตรึงไว้ใน image ด้วยการดึง image เวอร์ชันใหม่:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+ถ้า build เองจาก source:
 
 ```bash
 git pull
-docker compose build --pull --no-cache && docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.build.yml build --pull --no-cache
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d
 ```
 
 ข้อมูลใน `/data` ไม่หาย ตาราง/คอลัมน์ใหม่ของเวอร์ชันใหม่ถูกเพิ่มให้อัตโนมัติตอนเริ่มระบบ
