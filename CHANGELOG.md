@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-03
+
+### Added
+- **Guided tours.** A **Guide** button in the top bar starts short spotlight walkthroughs that dim the page,
+  highlight one menu item or control at a time and explain it in the user's language (English or Thai). Four tours:
+  *Get to know the menus* (everyone), *Run your first scan* (`scan.run`), *Handle an issue* (`issues.manage`) and
+  *Set up for your team* (only the admin pages the user may open). Tours cross pages, continue after a reload,
+  and skip steps whose control is not on the page.
+- Tours only point: they never click, fill or submit anything, and the page underneath is inert while a tour is open.
+  Keyboard (Esc, ←/→, Tab stays in the tour), screen-reader announcements, reduced motion, light/dark, and a bottom
+  sheet on phones.
+- A one-time "New here? Take a 1-minute tour" card on the Dashboard; the Profile page lists the tours with Start
+  links and **Reset tours**. Progress is stored per user (`users.tours_done`, `users.tour_prompt_dismissed_at`).
+
+
 ## [2.0.0] - 2026-11-02
 
 ### Added
@@ -333,7 +348,8 @@ First stable release: the scanner from 0.1.0 grows into a vulnerability-response
 - Single-container deployment (python:3.12-slim + nmap + nuclei, non-root).
 - Enterprise UI: sidebar shell, light/dark theme, KPI cards, sortable tables, toasts, confirm dialogs.
 
-[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.10.0...v2.0.0
 [1.10.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/zildjiean/Vulnerabilty-Rapid-Scanner/compare/v1.8.0...v1.9.0
