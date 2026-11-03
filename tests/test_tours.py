@@ -1,6 +1,7 @@
 """Guided tours: registry per role, every target present on its page, Thai text, routes, Dashboard prompt, Profile."""
 import json
 import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -76,7 +77,8 @@ def test_payload_is_translated_and_marks_done():
     user = u("viewer", done="menus,bogus")
     out = tours.payload(user, tours.done_keys(user))
     assert out[0]["key"] == "menus" and out[0]["done"] is True
-    assert set(out[0]) == {"key", "title", "summary", "done", "steps"}
+    assert set(out[0]) == {"key", "title", "summary", "done", "href", "steps"}
+    assert out[0]["href"] == "/?tour=menus&step=0"
     assert set(out[0]["steps"][0]) == {"path", "target", "title", "body"}
     assert out[0]["title"] == "Get to know the menus"
     token = i18n.use_lang("th")
@@ -121,7 +123,7 @@ def test_every_target_exists(auth):
                 page = s.path
             html = auth.get(page).text
             if s.target:
-                assert _target_on(html, s.target), (tr.key, s.target, page)
+                assert html.count(f'data-tour="{s.target}"') == 1, (tr.key, s.target, page)
             if s.path == "@follow":
                 prev_target = "@follow"
             else:
@@ -256,3 +258,40 @@ def test_tour_pages_in_thai_have_no_missing_strings(auth, monkeypatch):
         assert THAI.search(html)
     assert not i18n.MISSING, sorted(i18n.MISSING)
     i18n.MISSING.clear()
+
+
+def test_start_href_is_the_first_steps_page():
+    assert tours.start_href(tours.get("triage")) == "/issues?tour=triage&step=0"
+    assert tours.start_href(tours.get("first-scan")) == "/?tour=first-scan&step=0"
+
+
+@pytest.mark.parametrize("status", ["new", "fixed"])
+def test_verify_target_on_a_nuclei_issue(auth, status):
+    """A templated issue offers Verify now as admin: in the page header while it is open, in the Next step card once
+    it is marked fixed. Either way the issue-verify target is present exactly once."""
+    from tests.test_issue_routes import SPECS, seed
+    iid = seed(auth, SPECS[:1])["CVE-2021-41773"]
+    with auth.app.state.SessionLocal() as db:
+        db.get(Issue, iid).status = status
+        db.commit()
+    html = auth.get(f"/issues/{iid}").text
+    assert html.count('data-tour="issue-verify"') == 1
+    form = re.search(r'<form[^>]*data-tour="issue-verify"[^>]*>', html).group(0)
+    assert f'action="/issues/{iid}/verify"' in form
+
+
+def test_engine_script_only_with_tours(auth, client):
+    html = auth.get("/").text
+    assert re.search(r'<script src="/static/tours\.js\?v=[0-9a-f]+"></script>', html)
+    assert html.index('id="tours"') < html.index("/static/tours.js")
+    assert auth.get("/static/tours.js").status_code == 200
+    client.cookies.clear()
+    assert "/static/tours.js" not in client.get("/login").text
+    app_js = (Path(tours.__file__).parent / "static" / "app.js").read_text()
+    assert "tour-pop" not in app_js   # the engine lives in tours.js only
+
+
+def test_guide_and_profile_links_use_start_href(auth):
+    for path in ("/", "/profile"):
+        html = auth.get(path).text
+        assert 'href="/issues?tour=triage&amp;step=0" data-tour-start="triage"' in html, path

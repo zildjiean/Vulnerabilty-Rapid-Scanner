@@ -301,7 +301,7 @@ def test_confirm_dialogs_ask_with_rue_mai():
 
 
 def test_js_strings_are_in_app_js():
-    js = (APP / "static" / "app.js").read_text()
+    js = "".join((APP / "static" / f).read_text() for f in ("app.js", "tours.js"))
     for s in i18n.JS_STRINGS:
         assert f't("{s}"' in js, s
 
